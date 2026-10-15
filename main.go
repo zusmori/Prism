@@ -713,6 +713,13 @@ func main() {
 			open("steam://friends/message/" + id)
 		}
 	})
+	// Steam erlaubt anderen Programmen nicht, Freunde zu entfernen ->
+	// Profil im Steam-Client oeffnen, dort "Remove Friend"
+	w.Bind("openFriendInSteam", func(id string) {
+		if _, err := strconv.ParseUint(id, 10, 64); err == nil {
+			open("steam://url/SteamIDPage/" + id)
+		}
+	})
 	w.Bind("openSteamProfile", func(id string) {
 		if _, err := strconv.ParseUint(id, 10, 64); err == nil {
 			open("https://steamcommunity.com/profiles/" + id)
@@ -749,5 +756,6 @@ func main() {
 		w.SetHtml(uiHTML)
 	}
 	w.Run()
+	trayRemove()
 	stopHelper()
 }

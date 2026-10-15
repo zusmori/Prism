@@ -242,6 +242,9 @@ func metric(idx uintptr) int32 {
 // Eigene Fensterprozedur: entfernt die Windows-Titelleiste, behaelt aber
 // Groesse aendern, Maximieren (respektiert die Taskleiste) und Aero Snap.
 func subclassProc(hwnd, msg, wp, lp uintptr) uintptr {
+	if trayMessage(hwnd, msg, lp) {
+		return 0
+	}
 	switch msg {
 	case 0x0083: // WM_NCCALCSIZE
 		if wp != 0 {
@@ -366,6 +369,10 @@ func bindWindow(w webview2.WebView, hwnd uintptr) {
 	})
 	w.Bind("isMaximized", func() bool { return isMax(hwnd) })
 	w.Bind("closeWindow", func() { allowClose = true; pPost.Call(hwnd, 0x0010, 0, 0) })
+	// X / Alt+F4: in den Tray statt beenden
+	w.Bind("hideToTray", func() { hideToTray(hwnd) })
+	w.Bind("showWindow", func() { showFromTray(hwnd) })
+	trayAdd(hwnd)
 	// Oberflaeche hat das Schliessen uebernommen (z. B. Nachfrage-Dialog offen)
 	w.Bind("closeAck", func() { closeAck = true; allowClose = true })
 	// Schliessen abgebrochen -> naechstes Alt+F4 wieder mit Animation/Nachfrage

@@ -986,6 +986,7 @@
   .fr .fa button{width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.045);border:1px solid var(--line2);color:#c8c8d2;
     transition:background .2s,border-color .2s,color .2s,box-shadow .25s,transform .25s var(--spring)}
   .fr .fa button svg{width:14px;height:14px}
+  .fr .fa button svg *{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   .fr .fa button:hover{background:rgb(var(--ac-rgb) / .2);border-color:rgb(var(--ac-rgb) / .6);color:#fff;
     box-shadow:0 0 14px -2px rgb(var(--ac-rgb) / .7);transform:translateY(-1px) scale(1.06)}
   .fr .fa button.msg{background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .38);color:rgb(var(--ac3-rgb))}
@@ -1021,9 +1022,21 @@
   .fsec span.bump,.fh .fon.bump{animation:bump .5s var(--spring)}
 
   /* ---------- Home: Marke oben links im Video, Zeile mit Play + Status ---------- */
-  .hbrand{position:absolute;top:18px;left:20px;z-index:2;display:flex;align-items:center;gap:11px;pointer-events:none;
+  .hbrand{position:absolute;top:14px;left:16px;z-index:2;display:flex;align-items:center;gap:11px;padding:6px 14px 6px 6px;border-radius:14px;cursor:default;
+    transition:background .35s var(--ease),box-shadow .35s var(--ease);
     animation:secin .7s var(--ease) .2s backwards}
-  .hbrand svg{width:30px;height:30px;flex:none;overflow:visible;filter:drop-shadow(0 0 12px rgb(var(--ac-rgb) / .55)) drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+  .hbrand svg{width:30px;height:30px;flex:none;overflow:visible;filter:drop-shadow(0 0 12px rgb(var(--ac-rgb) / .55)) drop-shadow(0 2px 6px rgba(0,0,0,.6));
+    transition:transform .6s var(--spring),filter .4s var(--ease)}
+  .hbrand svg rect{transform-box:fill-box;transform-origin:center}
+  .hbrand:hover{background:rgb(12 12 16 / .38);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .hbrand:hover svg{transform:rotate(-12deg) scale(1.16) translate(1px,-1px);filter:drop-shadow(0 0 16px rgb(var(--ac-rgb) / .95)) drop-shadow(0 0 4px rgb(var(--ac2-rgb))) drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+  .hbrand:hover .hbt b{background:linear-gradient(100deg,#fff 30%,rgb(var(--ac3-rgb)) 50%,#fff 70%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;
+    color:transparent;animation:brandshine 1.1s var(--ease)}
+  .hbrand:hover .hbt b span{color:transparent}
+  @keyframes brandshine{from{background-position:120% 0}to{background-position:-20% 0}}
+  .hbt small{transition:letter-spacing .5s var(--ease),color .3s}
+  .hbrand:hover .hbt small{letter-spacing:2.4px}
+  .hspark{position:absolute;width:3px;height:3px;border-radius:50%;pointer-events:none;background:rgb(var(--ac3-rgb));box-shadow:0 0 6px 1px rgb(var(--ac-rgb))}
   .hbt b{display:block;font-size:15px;font-weight:700;letter-spacing:.2px;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.7)}
   .hbt b span{font-weight:500;color:rgba(255,255,255,.72)}
   .hbt small{display:block;margin-top:1px;font-size:10.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:rgb(var(--ac3-rgb));text-shadow:0 1px 8px rgba(0,0,0,.7)}
@@ -1031,6 +1044,18 @@
   .hcontent::before{content:"";position:absolute;left:-32px;right:-32px;bottom:-30px;height:calc(100% + 80px);z-index:-1;pointer-events:none;
     background:radial-gradient(70% 90% at 0% 100%,rgb(9 9 11 / .7),transparent 70%)}
   .titlebar .drag{gap:0}
+  .fr .fa button.rm{color:#fca5a5;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.32)}
+  .fr .fa button.rm:hover{color:#fff;background:rgba(220,38,38,.55);border-color:rgba(248,113,113,.8);box-shadow:0 0 14px -2px rgba(239,68,68,.8)}
+  .mdl.danger .ico{background:radial-gradient(circle at 50% 35%,rgba(239,68,68,.25),rgba(239,68,68,.05));border-color:rgba(239,68,68,.4);box-shadow:0 0 30px -6px rgba(239,68,68,.55)}
+  .mdl.danger .ico .gi{color:#f87171}
+  .rmwho{display:flex;align-items:center;gap:10px;justify-content:center;margin:14px 0 4px}
+  .rmwho i{width:38px;height:38px;border-radius:10px;background:#1b1b22 center/cover no-repeat}
+  .rmwho b{font-size:15px}
+  .rmsteps{margin-top:12px;text-align:left;font-size:12.5px;color:var(--muted);line-height:1.55;padding:10px 13px;border-radius:11px;background:var(--panel);border:1px solid var(--line)}
+  .rmsteps b{color:var(--text)}
+  .btn.red{background:#b91c1c;box-shadow:0 8px 24px -10px rgba(220,38,38,.7)}
+  .btn.red:hover{background:#c62828}
+  .btn.red::before{display:none}
 </style>
 
 </head>
@@ -1042,7 +1067,6 @@
 <div class="app">
   <div class="titlebar in" style="--d:0s">
     <div class="drag" id="drag">
-      <svg id="tbLogo" width="22" height="22" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
     </div>
         <div class="tabs" id="tabs">
       <span class="ink"></span>
@@ -1266,6 +1290,18 @@
     <button class="cancel" id="eacCancel">Cancel</button>
   </div>
 </div>
+<div class="mdl danger" id="rmDlg">
+  <div class="box">
+    <div class="ico"><span class="gi" data-ic="userx"></span></div>
+    <h3>Remove friend?</h3>
+    <div class="rmwho"><i id="rmAv"></i><b id="rmName"></b></div>
+    <div class="rmsteps">Steam doesn't let other apps remove friends directly. ZL opens the profile in Steam for you, then click <b>⋯</b> (More) and <b>Remove Friend</b>.</div>
+    <div class="btns">
+      <button class="btn ghost" id="rmCancel"><span class="lbl">Cancel</span></button>
+      <button class="btn red" id="rmGo"><span class="lbl">Open in Steam</span></button>
+    </div>
+  </div>
+</div>
 <div class="mdl" id="setDlg">
   <div class="box sbox">
     <div class="shead"><span class="gi" data-ic="gear"></span><h3>Settings</h3>
@@ -1275,7 +1311,9 @@
         <div class="srow" id="setMute" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" id="muteIc"></span>
           <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in ZL.</small></div><span class="tg" id="tgMute"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
-          <div class="tx"><b>Swaps stay after closing</b><small>Maps stay swapped when you close ZL. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
+          <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit ZL. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
+        <div class="srow" id="setTray" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="tray"></span>
+          <div class="tx"><b>Close to tray</b><small>The X keeps ZL running in the taskbar tray. Right-click the tray icon to quit.</small></div><span class="tg" id="tgTray"></span></div>
       </div></div>
       <div class="ssec"><h4>Steam</h4><div class="sgrp">
         <div class="srow"><span class="sic gi" data-ic="key"></span>
@@ -1320,7 +1358,7 @@ async function toggleMax(){ if (has('toggleMaximize')) window.__max(await toggle
 window.__max = m => { document.body.classList.toggle('max', !!m); $('maxBtn').title = m ? 'Restore' : 'Maximize'; };
 $('maxBtn').onclick = toggleMax;
 $('minBtn').onclick = () => has('minimizeWindow') && minimizeWindow();
-$('closeBtn').onclick = () => requestClose();
+$('closeBtn').onclick = () => closeOrTray();
 
 /* ---------- Async-Brücke ---------- */
 let seq = 0; const pending = {};
@@ -1562,7 +1600,7 @@ async function refresh(force){
 $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scrollWidth > el.clientWidth){ e.preventDefault(); el.scrollBy({left: e.deltaY + e.deltaX, behavior: 'smooth'}); } }, {passive: false});
 
 /* ---------- Einstellungen ---------- */
-const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: ''};
+const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: '', closeToTray: true};
 // Farb-Presets: Akzent in 8 Abstufungen (RGB), Hintergrund bekommt automatisch einen leichten Ton davon
 const THEMES = [
   {id: 'purple', name: 'Purple', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247', '124 58 237', '133 77 241']},
@@ -1599,6 +1637,8 @@ function paintSettings(){
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
   $('keepNote').innerHTML = settings.keepSwaps ? '<svg width="11" height="11" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3.5 7h9v7h-9z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>Swaps stay after closing' : '';
+  $('tgTray').classList.toggle('on', settings.closeToTray !== false);
+  $('setTray').setAttribute('aria-checked', settings.closeToTray !== false);
   $('tgMute').classList.toggle('on', !!settings.mute);
   $('setMute').setAttribute('aria-checked', !!settings.mute);
   $('muteIc').innerHTML = icon(settings.mute ? 'mute' : 'sound');
@@ -1611,7 +1651,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute']].forEach(([id, k]) => {
+[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setTray', 'closeToTray']].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });
@@ -1788,6 +1828,8 @@ const ICONS = {
   key:    '<circle cx="5.3" cy="10.7" r="2.8"/><path d="M7.3 8.7l5.4-5.4M10.6 5.4l1.8 1.8M12.3 3.7l1.4 1.4"/>',
   chat:   '<path d="M2.5 4.2a1.4 1.4 0 0 1 1.4-1.4h8.2a1.4 1.4 0 0 1 1.4 1.4v5.4a1.4 1.4 0 0 1-1.4 1.4H7l-3 2.4v-2.4h-.1a1.4 1.4 0 0 1-1.4-1.4z"/>',
   warn:   '<path d="M8 2.4l6.2 10.8a.7.7 0 0 1-.6 1H2.4a.7.7 0 0 1-.6-1z"/><path d="M8 6.3v3.4M8 11.9v.1"/>',
+  userx:  '<circle cx="6.5" cy="5.5" r="2.6"/><path d="M1.8 13.6c.5-2.6 2.4-4 4.7-4 1.2 0 2.3.4 3.1 1.1"/><path d="M11 9.6l3.4 3.4M14.4 9.6L11 13"/>',
+  tray:   '<path d="M2.2 9.6l1.6-5.4a1 1 0 0 1 1-.7h6.4a1 1 0 0 1 1 .7l1.6 5.4v3a1 1 0 0 1-1 1H3.2a1 1 0 0 1-1-1z"/><path d="M2.2 9.6h3.3l.9 1.6h3.2l.9-1.6h3.3"/>',
   user:   '<circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.6c.5-2.6 2.5-4 5-4s4.5 1.4 5 4"/>'
 };
 const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
@@ -2207,6 +2249,7 @@ document.addEventListener('keydown', e => {
   if ($('steamDlg').classList.contains('show')) $('steamCancel').onclick();
   else if ($('eacDlg').classList.contains('show')) $('eacCancel').onclick();
   else if ($('playDlg').classList.contains('show')) $('playCancel').onclick();
+  else if ($('rmDlg').classList.contains('show')) $('rmCancel').onclick();
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
@@ -2294,7 +2337,7 @@ function paintRL(st){
 async function pollRL(){ try { paintRL(await rlCall()); } catch (e) {} }
 function homeEnter(){
   paintHome(); pollRL();
-  clearInterval(home.poll); home.poll = setInterval(() => { if (tab === 'vHome' && !document.hidden) pollRL(); }, 2500);
+  clearInterval(home.poll); home.poll = setInterval(() => { if (tab === 'vHome' && !document.hidden && !appHidden) pollRL(); }, 2500);
   if (Date.now() - home.fAt > 30000) loadFriends();
 }
 async function launch(eac, force){
@@ -2422,13 +2465,14 @@ function renderFriends(animate){
       const ch = changes[f.id];
       if (ch){ d.classList.add('chg', 'c-' + ch.kind); setTimeout(() => d.classList.remove('chg', 'c-' + ch.kind), 3200); }
       d.innerHTML = `<div class="fav"></div><div class="ft"><b></b><small></small></div>
-        <div class="fa"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button></div>`;
+        <div class="fa"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button><button class="rm" title="Remove friend">${icon('userx')}</button></div>`;
       if (f.avatar) d.querySelector('.fav').style.backgroundImage = `url("${f.avatar}")`;
       d.querySelector('b').textContent = f.name;
       const sub = f.state === 'ingame' ? (f.game || 'In-Game') : f.state === 'online' ? 'Online' : f.state === 'away' ? 'Away' : (f.note || 'Offline');
       const sm = d.querySelector('small'); sm.textContent = sub;
       if (ch && ch.text){ sm.innerHTML = ch.text; setTimeout(() => { if (d.isConnected) sm.textContent = sub; }, 4200); }
-      const [bp, bc] = d.querySelectorAll('.fa button');
+      const [bp, bc, br] = d.querySelectorAll('.fa button');
+      br.onclick = e => { e.stopPropagation(); askRemoveFriend(f); };
       bp.onclick = e => { e.stopPropagation(); has('openSteamProfile') && openSteamProfile(f.id); };
       bc.onclick = e => { e.stopPropagation(); has('openFriendChat') && openFriendChat(f.id); };
       d.onclick = () => has('openFriendChat') && openFriendChat(f.id);
@@ -2485,7 +2529,49 @@ $('fRefresh').onclick = () => loadFriends(true);
 $('fSearch').addEventListener('input', () => home.friends && renderFriends());
 // regelmaessig aktualisieren (ohne oeffentliche Liste seltener, das sind viele Einzelabfragen)
 setInterval(() => { const every = home.friends && home.friends.source === 'local' ? 90000 : 30000;
-  if (tab === 'vHome' && !document.hidden && Date.now() - home.fAt > every) loadFriends(); }, 5000);
+  if (tab === 'vHome' && !document.hidden && !appHidden && Date.now() - home.fAt > every) loadFriends(); }, 5000);
+
+/* ---------- Freund entfernen (ueber den Steam-Client) ---------- */
+let rmFriend = null;
+function askRemoveFriend(f){
+  rmFriend = f;
+  $('rmName').textContent = f.name;
+  $('rmAv').style.backgroundImage = f.avatar ? `url("${f.avatar}")` : '';
+  $('rmDlg').classList.add('show'); Sfx.ui('present');
+}
+const closeRm = () => $('rmDlg').classList.remove('show');
+$('rmCancel').onclick = () => { closeRm(); Sfx.ui('dismiss'); };
+$('rmDlg').addEventListener('mousedown', e => { if (e.target === $('rmDlg')){ closeRm(); Sfx.ui('dismiss'); } });
+$('rmGo').onclick = () => {
+  if (rmFriend && has('openFriendInSteam')) openFriendInSteam(rmFriend.id);
+  closeRm(); Sfx.ui('tick');
+  toast('Opened ' + (rmFriend ? rmFriend.name : 'the profile') + ' in Steam. Click ⋯ → Remove Friend.', true);
+  home.fAt = 0;   // danach Liste bald neu laden
+};
+
+/* ---------- Logo im Video: Hover-Animation ---------- */
+(() => {
+  const box = document.querySelector('.hbrand'); let busy = false;
+  box.addEventListener('mouseenter', () => {
+    if (busy) return; busy = true; setTimeout(() => busy = false, 900);
+    // Pixel laufen als Welle vom Schweif zur Spitze und leuchten auf
+    tbRects.forEach(r => {
+      const x = +r.getAttribute('x'), y = +r.getAttribute('y'), o = (x - y + 15);
+      r.animate([{transform: 'none', filter: 'none'}, {transform: 'translate(.9px,-.9px) scale(1.35)', filter: 'brightness(1.9)'}, {transform: 'none', filter: 'none'}],
+        {duration: 520, delay: o * 16, easing: 'cubic-bezier(.34,1.4,.64,1)'});
+    });
+    // kleine Funken fliegen aus dem Schweif nach hinten
+    const svg = box.querySelector('svg'), br = box.getBoundingClientRect(), sr = svg.getBoundingClientRect();
+    for (let i = 0; i < 7; i++){
+      const p = document.createElement('i'); p.className = 'hspark';
+      const sx = sr.left - br.left + sr.width * (.18 + Math.random() * .2), sy = sr.top - br.top + sr.height * (.7 + Math.random() * .2);
+      p.style.left = sx + 'px'; p.style.top = sy + 'px'; box.appendChild(p);
+      const dx = -(14 + Math.random() * 22), dy = 8 + Math.random() * 16;
+      p.animate([{opacity: 1, transform: 'translate(0,0) scale(1)'}, {opacity: 0, transform: `translate(${dx}px,${dy}px) scale(.2)`}],
+        {duration: 500 + Math.random() * 400, delay: i * 45, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards'}).onfinish = () => p.remove();
+    }
+  });
+})();
 
 /* ---------- Map-Details ---------- */
 let detItem = null, detCard = null;
@@ -2590,7 +2676,7 @@ function drawLogo(svg){
   svg.innerHTML = PIXELS.map(([x, y, c]) => `<rect x="${x}" y="${y}" width="1.02" height="1.02" style="fill:${LOGO_FILL[c] || c}"/>`).join('');
   return [...svg.querySelectorAll('rect')];
 }
-const tbRects = drawLogo($('tbLogo'));
+
 
 /* ---------- Sound-System: weich & minimal, jedes Geräusch passt zu genau einer Bewegung ---------- */
 const Sfx = (() => {
@@ -2687,7 +2773,7 @@ const E_SPRING = 'cubic-bezier(.34,1.4,.64,1)';
 async function intro(){
   if (await Sfx.ready()) Sfx.open();
   document.body.classList.add('go');
-  // Pixel-Logo in der Titelleiste setzt sich zusammen
+  // Pixel-Logo im Video setzt sich zusammen
   tbRects.forEach(r => {
     const o = (+r.getAttribute('x')) + (15 - +r.getAttribute('y'));
     r.animate([{opacity: 0, transform: 'scale(0)'}, {opacity: 1, transform: 'none'}], {duration: 280, delay: 90 + o * 8, easing: E_SPRING, fill: 'backwards'});
@@ -2706,7 +2792,8 @@ async function outro(){
 window.__requestClose = () => requestClose();
 
 /* ---------- Beim Schliessen nachfragen, wenn noch eine Map getauscht ist ---------- */
-drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo')); drawLogo($('heroBrand'));
+drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo'));
+const tbRects = drawLogo($('heroBrand'));
 let asking = false;
 function askKeep(s){
   return new Promise(resolve => {
@@ -2746,12 +2833,40 @@ async function requestClose(){
     $('ask').classList.remove('show');
     const b = $('askRestore'); b.classList.remove('busy'); b.disabled = false;
     asking = false;
-    if (r === 'cancel'){ if (has('cancelClose')) cancelClose(); return; }
+    if (r === 'cancel'){ quitting = false; if (has('cancelClose')) cancelClose(); return; }
     await sleep(250);
   }
   outro();
 }
-window.__requestClose = () => requestClose();   // auch bei Alt+F4 / Taskleiste
+window.__requestClose = () => closeOrTray();   // auch bei Alt+F4 / Taskleiste
+// X: in den Tray legen (Einstellung), sonst richtig schliessen
+let quitting = false;
+function closeOrTray(){
+  if (!quitting && settings.closeToTray !== false && has('hideToTray')){
+    document.querySelectorAll('.menu.show,.cpop.show').forEach(m => m.classList.remove('show'));
+    Sfx.ui('dismiss'); hideToTray(); return;
+  }
+  requestClose();
+}
+// "Quit" im Tray-Menue
+window.__quit = async () => {
+  quitting = true;
+  let s = null; try { s = await getState(); } catch (e) {}
+  // Nachfrage braucht ein sichtbares Fenster
+  if (s && Object.keys(s.swaps || {}).length && !settings.keepSwaps && has('showWindow')) showWindow();
+  requestClose();
+};
+// Fenster versteckt/wieder da: Video und Abfragen pausieren
+let appHidden = false;
+window.__tray = hidden => {
+  appHidden = hidden;
+  heroPlay(!hidden && tab === 'vHome');
+  if (!hidden){
+    const b = document.body; b.classList.remove('go'); void b.offsetWidth; b.classList.add('go');
+    if (tab === 'vHome') homeEnter();
+  }
+};
+window.__trayPlay = () => { setTab('vHome'); setTimeout(openPlay, 350); };
 
 (async () => {
   try { await refresh(); } catch (e) {}
