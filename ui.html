@@ -8,6 +8,7 @@
     /* Akzentfarbe (wird ueber die Settings getauscht) */
     --ac-rgb:139 92 246; --ac2-rgb:167 139 250; --ac3-rgb:196 181 253; --ac4-rgb:221 214 254; --ac5-rgb:237 233 254;
     --acd-rgb:124 58 237; --acdd-rgb:91 33 182; --ach-rgb:148 102 247; --tint:2.5%;
+    --btn-rgb:124 58 237; --btnh-rgb:133 77 241;
     --bg:color-mix(in srgb, rgb(var(--ac-rgb)) var(--tint), #09090b); --panel:color-mix(in srgb, rgb(var(--ac-rgb)) var(--tint), #0f0f12);
     --panel2:color-mix(in srgb, rgb(var(--ac-rgb)) var(--tint), #131317); --hover:color-mix(in srgb, rgb(var(--ac-rgb)) var(--tint), #16161b);
     --line:color-mix(in srgb, rgb(var(--ac-rgb)) calc(var(--tint) * 1.6), #1c1c22); --line2:color-mix(in srgb, rgb(var(--ac-rgb)) calc(var(--tint) * 1.6), #26262e);
@@ -137,10 +138,10 @@
   .opt.sel::after{margin-left:8px;flex:none;content:"";width:6px;height:6px;border-radius:50%;background:var(--accent2)}
 
   .btn{position:relative;overflow:hidden;width:190px;flex:none;height:50px;border:0;border-radius:12px;cursor:pointer;
-    font-size:15px;font-weight:600;color:#fff;background:var(--accent);
+    font-size:15px;font-weight:600;color:#fff;background:rgb(var(--btn-rgb));
     box-shadow:0 8px 24px -10px rgb(var(--ac-rgb) / .7),inset 0 1px 0 rgba(255,255,255,.16);
     transition:background .25s,box-shadow .25s,transform .12s var(--ease)}
-  .btn:hover{background:rgb(var(--ach-rgb));box-shadow:0 10px 30px -8px rgb(var(--ac-rgb) / .85),inset 0 1px 0 rgba(255,255,255,.2)}
+  .btn:hover{background:rgb(var(--btnh-rgb));box-shadow:0 10px 30px -8px rgb(var(--ac-rgb) / .85),inset 0 1px 0 rgba(255,255,255,.2)}
   .btn:active{transform:scale(.98)}
   .btn[disabled]{cursor:default}
   .btn .lbl,.btn .spin,.btn .check{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;
@@ -277,7 +278,7 @@
   .tab:hover{color:var(--text)} .tab.on{color:#fff}
   .tabs .ink{position:absolute;top:3px;bottom:3px;border-radius:8px;background:color-mix(in srgb, rgb(var(--ac-rgb)) 8.0%, #141414);border:1px solid rgb(var(--ac-rgb) / .3);
     box-shadow:0 4px 16px -6px rgb(var(--ac-rgb) / .5);transition:left .45s var(--spring),width .45s var(--spring)}
-  .badge{display:inline-flex;align-items:center;justify-content:center;height:17px;border-radius:9px;background:var(--accent);color:#fff;
+  .badge{display:inline-flex;align-items:center;justify-content:center;height:17px;border-radius:9px;background:rgb(var(--btn-rgb));color:#fff;
     font-size:10.5px;font-weight:700;line-height:1;overflow:hidden;max-width:0;min-width:0;padding:0;margin-left:-7px;opacity:0;transform:scale(.4);
     transition:max-width .35s var(--ease),padding .35s var(--ease),margin .35s var(--ease),opacity .25s,transform .4s var(--spring)}
   .badge.on{max-width:30px;min-width:17px;padding:0 5px;margin-left:0;opacity:1;transform:none;animation:badge 1.6s ease-in-out infinite}
@@ -555,8 +556,8 @@
     border:1px solid var(--line2);background:var(--panel2);color:var(--text);transition:background .2s,border-color .2s,transform .12s,opacity .2s}
   .sbtn:hover{background:#1b1b21;border-color:#33333d}
   .sbtn:active{transform:scale(.98)}
-  .sbtn.pri{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 8px 22px -10px rgb(var(--ac-rgb) / .7)}
-  .sbtn.pri:hover{background:rgb(var(--ach-rgb))}
+  .sbtn.pri{background:rgb(var(--btn-rgb));border-color:transparent;color:#fff;box-shadow:0 8px 22px -10px rgb(var(--ac-rgb) / .7)}
+  .sbtn.pri:hover{background:rgb(var(--btnh-rgb))}
   .sbtn[disabled]{opacity:.4;pointer-events:none}
   .ib{width:36px;height:36px;padding:0;justify-content:center}
   .ib.danger{transition:width .3s var(--ease),background .2s,border-color .2s,color .2s}
@@ -740,7 +741,7 @@
   .srow .sbtn .gi svg{width:13px;height:13px}
   .sbtn.ok{color:var(--ok);border-color:rgba(126,226,168,.3);background:rgba(126,226,168,.07)}
   .sbtn.spin .gi svg{animation:sp .9s linear infinite}
-  .sbtn.go{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 8px 22px -10px rgb(var(--ac-rgb) / .7)}
+  .sbtn.go{background:rgb(var(--btn-rgb));border-color:transparent;color:#fff;box-shadow:0 8px 22px -10px rgb(var(--ac-rgb) / .7)}
   .sbtn.go .gi{color:#fff}
   /* Farb-Presets */
   .swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:11px 10px 9px}
@@ -800,16 +801,27 @@
   .lbtn .li svg{width:18px;height:18px}
   .lbtn b{display:block;font-size:14.5px;font-weight:600}
   .lbtn small{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
-  .lbtn.pri{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 14px 34px -14px rgb(var(--ac-rgb) / .9),inset 0 1px 0 rgba(255,255,255,.18)}
-  .lbtn.pri:hover{background:rgb(var(--ach-rgb));box-shadow:0 18px 40px -12px rgb(var(--ac-rgb) / 1),inset 0 1px 0 rgba(255,255,255,.22)}
+  .lbtn.pri{background:linear-gradient(135deg,rgb(var(--btnh-rgb)),rgb(var(--btn-rgb)) 70%);border-color:rgba(255,255,255,.22);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);box-shadow:0 14px 34px -14px rgb(var(--ac-rgb) / .9),inset 0 1px 0 rgba(255,255,255,.18)}
+  .lbtn.pri:hover{background:linear-gradient(135deg,rgb(var(--btnh-rgb)),rgb(var(--btnh-rgb)));border-color:rgba(255,255,255,.35);box-shadow:0 18px 40px -12px rgb(var(--ac-rgb) / 1),inset 0 1px 0 rgba(255,255,255,.22)}
   .lbtn.pri .li{background:rgba(255,255,255,.18);color:#fff}
-  .lbtn.pri small{color:rgba(255,255,255,.75)}
+  .lbtn.pri small{color:rgba(255,255,255,.92)}
+  .lbtn.pri .li{background:rgba(0,0,0,.18)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+  .lbtn.pri:not(.running) .li .gi{color:#fff}
+  .lbtn.pri:not(.running) .li .gi svg{filter:drop-shadow(0 0 4px rgba(255,255,255,.55))}
+  .lbtn.pri:not(.running) .li .gi svg *{fill:#fff}
   .lbtn.pri::after{content:"";position:absolute;top:0;bottom:0;width:60px;left:-80px;pointer-events:none;
     background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);transform:skewX(-20deg);animation:idleshine 5s 1.5s ease-in-out infinite}
   .lbtn.busy{pointer-events:none}
   .lbtn.busy .li svg{display:none}
   .lbtn.busy .li::after{content:"";width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:sp .8s linear infinite}
   .lbtn[disabled]{opacity:.45;pointer-events:none;transform:none}
+  .lbtn.play.running{opacity:1;background:rgb(12 14 14 / .78);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    border-color:rgba(126,226,168,.55);box-shadow:0 0 0 1px rgba(126,226,168,.12),0 12px 30px -14px rgba(0,0,0,.8),0 0 24px -8px rgba(126,226,168,.55);text-shadow:none}
+  .lbtn.play.running::after{display:none}
+  .lbtn.play.running small{color:var(--ok)}
+  .lbtn.play.running .li{background:rgba(126,226,168,.16)!important;box-shadow:inset 0 0 0 1px rgba(126,226,168,.4);animation:none!important}
+  .lbtn.play.running .li .gi{color:var(--ok)}
+  .lbtn.play.running .li .gi svg{filter:drop-shadow(0 0 4px rgba(126,226,168,.9))}
   /* Video-Hintergrund (je Farbe ein Video, weich ueberblendet) */
   .hv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);pointer-events:none;
     transition:opacity 1.1s var(--ease),transform 1.6s var(--ease)}
@@ -939,7 +951,7 @@
   .popt:active{transform:scale(.985)}
   .popt .pic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:none;background:rgb(var(--ac-rgb) / .14);border:1px solid rgb(var(--ac-rgb) / .3)}
   .popt .pic svg{width:20px;height:20px}
-  .popt.rec .pic{background:var(--accent);border-color:transparent} .popt.rec .pic .gi{color:#fff}
+  .popt.rec .pic{background:rgb(var(--btn-rgb));border-color:transparent} .popt.rec .pic .gi{color:#fff}
   .popt .ptx{flex:1;min-width:0}
   .popt .ptx b{display:block;font-size:15px;font-weight:600}
   .popt .ptx small{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
@@ -1536,14 +1548,14 @@ $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scroll
 const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: ''};
 // Farb-Presets: Akzent in 8 Abstufungen (RGB), Hintergrund bekommt automatisch einen leichten Ton davon
 const THEMES = [
-  {id: 'purple', name: 'Purple', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247']},
-  {id: 'blue',   name: 'Blue',   c: ['59 130 246', '96 165 250', '147 197 253', '191 219 254', '219 234 254', '37 99 235', '30 64 175', '79 145 248']},
-  {id: 'cyan',   name: 'Cyan',   c: ['6 182 212', '34 211 238', '103 232 249', '165 243 252', '207 250 254', '8 145 178', '21 94 117', '20 195 222']},
-  {id: 'green',  name: 'Green',  c: ['16 185 129', '52 211 153', '110 231 183', '167 243 208', '209 250 229', '5 150 105', '6 95 70', '30 196 142']}
+  {id: 'purple', name: 'Purple', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247', '124 58 237', '133 77 241']},
+  {id: 'blue',   name: 'Blue',   c: ['59 130 246', '96 165 250', '147 197 253', '191 219 254', '219 234 254', '37 99 235', '30 64 175', '79 145 248', '37 99 235', '45 110 240']},
+  {id: 'cyan',   name: 'Cyan',   c: ['6 182 212', '34 211 238', '103 232 249', '165 243 252', '207 250 254', '8 145 178', '21 94 117', '20 195 222', '14 116 144', '12 126 156']},
+  {id: 'green',  name: 'Green',  c: ['16 185 129', '52 211 153', '110 231 183', '167 243 208', '209 250 229', '5 150 105', '6 95 70', '30 196 142', '4 120 87', '5 130 95']}
 ];
 // alte Namen aus frueheren Versionen
 const THEME_OLD = {amethyst: 'purple', ocean: 'blue', ice: 'cyan', emerald: 'green'};
-const THEME_VARS = ['--ac-rgb', '--ac2-rgb', '--ac3-rgb', '--ac4-rgb', '--ac5-rgb', '--acd-rgb', '--acdd-rgb', '--ach-rgb'];
+const THEME_VARS = ['--ac-rgb', '--ac2-rgb', '--ac3-rgb', '--ac4-rgb', '--ac5-rgb', '--acd-rgb', '--acdd-rgb', '--ach-rgb', '--btn-rgb', '--btnh-rgb'];
 let themeT;
 function applyTheme(id, animate){
   id = THEME_OLD[id] || id;
@@ -2252,6 +2264,7 @@ function paintRL(st){
   const b = $('playBtn');
   b.classList.toggle('busy', !!home.launching);
   b.disabled = !!st.running;
+  b.classList.toggle('running', !!st.running);
   b.querySelector('b').textContent = st.running ? 'Running' : home.launching ? 'Starting …' : 'Play';
   $('playSub').textContent = st.running ? (st.eac ? 'With Anti-Cheat' : 'Without Anti-Cheat')
     : home.launching ? (home.launching === 'eac' ? 'With Anti-Cheat' : 'Without Anti-Cheat') : 'With or without Anti-Cheat';
