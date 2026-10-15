@@ -384,19 +384,62 @@
     font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#ede9fe;
     background:rgba(16,12,28,.72);border:1px solid rgba(167,139,250,.45);backdrop-filter:blur(6px);box-shadow:0 0 14px -2px rgba(139,92,246,.6)}
 
-  /* Laden beim Runterscrollen */
-  .bmore{display:flex;align-items:center;justify-content:center;gap:12px;height:0;opacity:0;overflow:hidden;color:var(--muted);font-size:12.5px;font-weight:600;
-    transition:height .35s var(--ease),opacity .3s var(--ease)}
-  .bmore.space{height:64px}
-  .bmore.on{height:64px;opacity:1}
+  /* Punkte (Steam-Dialog) */
   .orb{display:flex;gap:6px}
   .orb i{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 10px 2px rgba(139,92,246,.7);animation:orb 1.05s var(--ease) infinite}
   .orb i:nth-child(2){animation-delay:.14s} .orb i:nth-child(3){animation-delay:.28s}
   @keyframes orb{0%,80%,100%{transform:translateY(0) scale(.75);opacity:.45}40%{transform:translateY(-7px) scale(1);opacity:1}}
-  .bmore .bar{position:relative;width:120px;height:2px;border-radius:2px;background:#1f1d29;overflow:hidden}
-  .bmore .bar::after{content:"";position:absolute;top:0;bottom:0;width:40%;border-radius:2px;
-    background:linear-gradient(90deg,transparent,#a78bfa,transparent);box-shadow:0 0 10px #8b5cf6;animation:barrun 1.2s ease-in-out infinite}
-  @keyframes barrun{from{left:-40%}to{left:100%}}
+
+  /* ---------- Laden: Geister-Karten mit umlaufendem Lichtrand + Hologramm-Scan ---------- */
+  @property --ga{syntax:'<angle>';inherits:false;initial-value:0deg}
+  .card.ghost{border-color:rgba(139,92,246,.1);background:linear-gradient(170deg,#121119,#0d0d11 70%);pointer-events:none;cursor:default;
+    animation:ghin .55s var(--ease) var(--gi,0s) backwards}
+  .card.ghost::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;z-index:3;pointer-events:none;
+    background:conic-gradient(from var(--ga),transparent 0deg 230deg,rgba(139,92,246,.35) 290deg,#c4b5fd 345deg,transparent 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+    animation:ghspin 2.4s linear var(--gd,0s) infinite}
+  @keyframes ghspin{to{--ga:360deg}}
+  @keyframes ghin{from{opacity:0;transform:translateY(18px) scale(.96)}}
+  .card.ghost.out{opacity:0;transform:scale(.96);filter:blur(5px);transition:opacity .22s var(--ease-in),transform .22s var(--ease-in),filter .22s var(--ease-in)}
+  .gh-img{position:relative;aspect-ratio:16/9;overflow:hidden;
+    background:radial-gradient(110% 90% at 25% 15%,rgba(124,58,237,.18),transparent 60%),radial-gradient(80% 70% at 85% 90%,rgba(91,33,182,.14),transparent 60%),#111017}
+  .gh-img::before{content:"";position:absolute;inset:0;
+    background-image:linear-gradient(rgba(167,139,250,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.08) 1px,transparent 1px);
+    background-size:20px 20px;-webkit-mask-image:radial-gradient(75% 85% at 50% 50%,#000,transparent);mask-image:radial-gradient(75% 85% at 50% 50%,#000,transparent);
+    animation:ghgrid 3s linear infinite}
+  @keyframes ghgrid{to{background-position:0 20px,20px 0}}
+  .gh-img::after{content:"";position:absolute;left:0;right:0;top:-45%;height:45%;
+    background:linear-gradient(180deg,transparent,rgba(139,92,246,.12) 70%,rgba(196,181,253,.55) 98%,transparent);
+    animation:ghscan 2s cubic-bezier(.45,0,.2,1) var(--gd,0s) infinite}
+  @keyframes ghscan{to{top:100%}}
+  .gh-b{padding:12px 12px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .gh-l{height:11px;border-radius:6px;background:linear-gradient(90deg,#17161f 25%,#2a2640 50%,#17161f 75%);background-size:300% 100%;
+    animation:skel 1.7s ease-in-out var(--gd,0s) infinite}
+  .gh-l.t{height:14px;width:78%} .gh-l.a{width:42%} .gh-l.m{width:30%;height:9px;margin-top:12px}
+  .gh-btn{margin-top:auto;height:36px;border-radius:10px;border:1px dashed rgba(139,92,246,.22);background:rgba(139,92,246,.03)}
+
+  /* ---------- Materialisieren: Karte kippt aus der Tiefe hoch, Bild wird per Lichtlinie freigelegt ---------- */
+  .card.rv{opacity:0;transform:perspective(1100px) translateY(40px) rotateX(18deg) scale(.94);filter:blur(5px) brightness(1.25) saturate(.5);
+    transform-origin:50% 100%}
+  .card.rv.in{opacity:1;transform:none;filter:none;
+    transition:opacity .35s var(--ease) var(--rd),transform .9s cubic-bezier(.17,1.18,.3,1) var(--rd),filter .55s var(--ease) var(--rd);
+    animation:rvglow 1.3s ease-out var(--rd) backwards}
+  @keyframes rvglow{0%,30%{border-color:rgba(196,181,253,.75);box-shadow:0 0 0 1px rgba(167,139,250,.3),0 0 20px -6px rgba(139,92,246,.7)}}
+  .card.rv .cimg{clip-path:inset(0 0 100% 0)}
+  .card.rv.in .cimg{clip-path:inset(0);transition:clip-path .7s cubic-bezier(.65,0,.25,1) calc(var(--rd) + .06s)}
+  .card.rv .cimg::after{content:"";position:absolute;z-index:2;left:-5%;right:-5%;top:0;height:2px;transform:translateY(-100%);opacity:0;pointer-events:none;
+    background:linear-gradient(90deg,transparent,#a78bfa 20%,#fff 50%,#a78bfa 80%,transparent);box-shadow:0 0 16px 4px rgba(139,92,246,.85),0 0 40px 8px rgba(139,92,246,.35)}
+  .card.rv.in .cimg::after{animation:rvscan .7s cubic-bezier(.65,0,.25,1) calc(var(--rd) + .06s) both}
+  @keyframes rvscan{0%{top:0;opacity:1}88%{opacity:1}100%{top:100%;opacity:0}}
+  .card.rv .cbody > *{opacity:0;transform:translateY(10px)}
+  .card.rv.in .cbody > *{opacity:1;transform:none;transition:opacity .5s var(--ease),transform .65s var(--ease)}
+  .card.rv.in .cbody > :nth-child(1){transition-delay:calc(var(--rd) + .2s)}
+  .card.rv.in .cbody > :nth-child(2){transition-delay:calc(var(--rd) + .28s)}
+  .card.rv.in .cbody > :nth-child(3){transition-delay:calc(var(--rd) + .36s)}
+  @media (prefers-reduced-motion: reduce){
+    .card.rv,.card.rv .cbody > *{opacity:1;transform:none;filter:none}
+    .card.rv .cimg{clip-path:none} .card.rv.in .cimg::after,.card.rv.in{animation:none}
+  }
   .bend{display:none;align-items:center;gap:10px;justify-content:center;padding:20px 0 6px;color:var(--faint);font-size:12px}
   .bend.on{display:flex;animation:fadein .5s var(--ease)}
   .bend::before,.bend::after{content:"";width:40px;height:1px;background:var(--line2)}
@@ -870,7 +913,6 @@
       </section>
       <div class="bsect" id="allHead"><span class="gi" id="allIc"></span><b id="allTitle">Popular</b><small id="allSub"></small><i></i></div>
       <div class="grid" id="grid"></div>
-      <div class="bmore" id="bmore"><span class="orb"><i></i><i></i><i></i></span><span>Loading more maps</span><span class="bar"></span></div>
       <div class="bend" id="bend">That's all of them</div>
     </div></div>
   </section>
@@ -1423,15 +1465,38 @@ function paintHead(){
 paintHead();
 
 /* ---- Karten ---- */
+// Platzhalter: "Geister-Karten" mit umlaufendem Lichtrand, solange Steam antwortet
 function skeletons(n, into = $('grid')){
   const ref = into.querySelector('.sentinel');
   for (let i = 0; i < n; i++){
-    const c = document.createElement('div'); c.className = 'card sk enter'; c.style.animationDelay = i * 30 + 'ms';
-    c.innerHTML = '<div class="cimg skel"></div><div class="cbody"><div class="ctitle skel"></div><div class="cmeta skel"></div><div class="dl skel" style="border:0"></div></div>';
+    const c = document.createElement('div'); c.className = 'card sk ghost';
+    c.style.setProperty('--gi', Math.min(i, 10) * 45 + 'ms');
+    c.style.setProperty('--gd', (-i * 0.37).toFixed(2) + 's');   // Lichtrand jeder Karte an anderer Stelle
+    c.innerHTML = '<div class="gh-img"></div><div class="gh-b"><div class="gh-l t"></div><div class="gh-l a"></div><div class="gh-l m"></div><div class="gh-btn"></div></div>';
     ref ? into.insertBefore(c, ref) : into.appendChild(c);
   }
 }
-function clearSkeletons(from = $('grid')){ from.querySelectorAll('.card.sk').forEach(c => c.remove()); }
+// Geister kurz ausblenden, dann entfernen
+async function clearSkeletons(from = $('grid')){
+  const gs = [...from.querySelectorAll('.card.sk')];
+  if (!gs.length) return;
+  gs.forEach(c => c.classList.add('out'));
+  await sleep(200);
+  gs.forEach(c => c.remove());
+}
+const gridCols = () => Math.max(1, getComputedStyle($('grid')).gridTemplateColumns.split(' ').filter(Boolean).length);
+
+/* ---- Karten "materialisieren", sobald sie ins Bild scrollen ---- */
+const revealObs = new IntersectionObserver(es => {
+  const vis = es.filter(e => e.isIntersecting).map(e => e.target);
+  vis.sort((a, b) => { const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect(); return (Math.round(ra.top / 20) - Math.round(rb.top / 20)) || (ra.left - rb.left); });
+  vis.forEach((c, i) => { revealObs.unobserve(c); reveal(c, Math.min(i, 8) * 65); });
+}, {root: $('bscroll'), threshold: 0.12, rootMargin: '0px 0px -3% 0px'});
+function reveal(c, delay){
+  c.style.setProperty('--rd', delay + 'ms');
+  requestAnimationFrame(() => c.classList.add('in'));
+  setTimeout(() => { c.classList.remove('rv', 'in'); c.style.removeProperty('--rd'); }, delay + 1400);
+}
 
 function dlButton(id){
   const d = dls[id];
@@ -1453,7 +1518,7 @@ const allCards = () => $('bscroll').querySelectorAll('.card:not(.sk)');
 function refreshCards(){ allCards().forEach(paintCard); }
 
 function makeCard(it, i, pick){
-  const c = document.createElement('div'); c.className = 'card enter' + (pick ? ' rcard' : ''); c.style.animationDelay = Math.min(i, 12) * 35 + 'ms';
+  const c = document.createElement('div'); c.className = 'card rv' + (pick ? ' rcard' : '');
   c.__id = it.id;
   c.innerHTML = `<div class="cimg">${pick ? `<span class="rpick"><span class="gi">${icon('spark', 11)}</span>Pick</span>` : ''}<img alt="" loading="lazy" decoding="async"></div>
     <div class="cbody"><div><div class="ctitle"></div><div class="cby"></div></div>
@@ -1472,7 +1537,7 @@ function makeCard(it, i, pick){
 }
 function addCards(items){
   const g = $('grid'), sent = g.querySelector('.sentinel');
-  items.forEach((it, i) => { const c = makeCard(it, i); sent ? g.insertBefore(c, sent) : g.appendChild(c); });
+  items.forEach((it, i) => { const c = makeCard(it, i); sent ? g.insertBefore(c, sent) : g.appendChild(c); revealObs.observe(c); });
 }
 
 /* ---- Empfohlene Maps ---- */
@@ -1498,33 +1563,35 @@ async function loadRec(){
     rec.ids = new Set(rec.items.map(x => x.id));
     rec.state = rec.items.length ? 'ok' : 'error';
   } catch (e) { rec.state = 'error'; }
-  clearSkeletons($('recRow'));
-  rec.items.forEach((it, i) => $('recRow').appendChild(makeCard(it, i, true)));
+  await clearSkeletons($('recRow'));
+  rec.items.forEach((it, i) => { const c = makeCard(it, i, true); $('recRow').appendChild(c); revealObs.observe(c); });
   // gleiche Maps nicht doppelt in der Liste darunter
   if (!browse.q) $('grid').querySelectorAll('.card:not(.sk)').forEach(c => rec.ids.has(c.__id) && c.remove());
   paintHead(); recNav();
 }
 
 /* ---- Liste mit Nachladen ---- */
-function setLoading(more){ const b = $('bmore'); b.classList.toggle('on', more); b.classList.toggle('space', browse.more && browse.items.length > 0); }
 async function loadBrowse(reset){
   const g = $('grid'), sc = $('bscroll');
   if (reset){
     browse.token++; browse.page = 0; browse.more = true; browse.items = []; browse.loading = false;
     g.innerHTML = '<div class="sentinel"></div>';
     observer.observe(g.querySelector('.sentinel'));
-    $('bend').classList.remove('on'); setLoading(false);
+    $('bend').classList.remove('on');
     paintHead();
     if (sc.scrollTop > 0) sc.scrollTo({top: 0, behavior: 'smooth'});
   }
   if (browse.loading || !browse.more) return;
   browse.loading = true; browse.loaded = true;
   const token = browse.token, page = browse.page + 1;
-  if (page === 1) skeletons(12); else setLoading(true);
+  // Platzhalter: angefangene Reihe auffuellen + eine ganze Reihe dazu
+  const cols = gridCols(), have = g.querySelectorAll('.card').length;
+  skeletons(page === 1 ? Math.max(8, cols * 3) : cols + (cols - have % cols) % cols);
   try {
     const res = await browseCall(browse.sort, browse.period, browse.q, page);
     if (token !== browse.token) return;
-    clearSkeletons();
+    await clearSkeletons();
+    if (token !== browse.token) return;
     browse.page = page; browse.more = !!res.hasMore && res.items.length > 0;
     const fresh = res.items.filter(it => !browse.items.some(x => x.id === it.id));
     browse.items.push(...fresh);
@@ -1537,7 +1604,7 @@ async function loadBrowse(reset){
     $('bend').classList.toggle('on', !browse.more && browse.items.length > 6);
   } catch (err) {
     if (token !== browse.token) return;
-    clearSkeletons();
+    await clearSkeletons();
     if (!browse.items.length){
       const e = document.createElement('div'); e.className = 'bempty';
       e.innerHTML = '<div></div><button class="btn"><span class="lbl">Try again</span></button>';
@@ -1546,7 +1613,7 @@ async function loadBrowse(reset){
       g.insertBefore(e, g.querySelector('.sentinel'));
     } else toast(err, false);
   } finally {
-    if (token === browse.token){ browse.loading = false; setLoading(false); }
+    if (token === browse.token) browse.loading = false;
   }
   // Bildschirm noch nicht voll? gleich weiterladen
   const sent = g.querySelector('.sentinel');
