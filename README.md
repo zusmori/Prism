@@ -26,13 +26,31 @@ Done playing? Hit **Restore** and everything's back to normal.
 
 ## Good to know
 
-- Offline only (Freeplay, training, LAN). Psyonix allows mods there if you launch without Easy Anti-Cheat.
+- **Offline only** (Freeplay, training, LAN). Psyonix [allows third-party mods in offline modes](https://www.rocketleague.com/news/easy-anti-cheat-comes-to-rocket-league-on-pc-today) as long as you launch the game **without Easy Anti-Cheat**. ZMS won't touch any files while Anti-Cheat is running.
 - Always **Restore** before going online or into ranked. If in doubt, verify your game files in Steam.
+- ZMS only swaps map files on your own PC and puts the originals back. It doesn't change the game itself, give you items or touch online play.
+- Workshop maps belong to their creators. ZMS downloads them through your own Steam account, the same way subscribing in the Workshop does.
 - Windows might warn you on first launch since the app isn't signed. Click **More info → Run anyway**.
 - Works with Beckwith Park, Farmstead, Salty Shores, Underpass, Utopia Coliseum and Wasteland.
 - Needs Windows 10/11 and Rocket League on Steam.
 
-Fan project, not affiliated with Psyonix or Epic Games.
+## Build it yourself
+
+You need [Go](https://go.dev/dl/) 1.24+ on Windows.
+
+1. Get `steam_api64.dll` from the [Steamworks SDK](https://partner.steamgames.com/downloads/list) (`redistributable_bin/win64`) and put it next to `main.go`. It's Valve's file, so it isn't included here.
+2. Add the icon and build:
+
+```
+go install github.com/tc-hib/go-winres@latest
+go-winres make --arch amd64 --in winres/winres.json
+go mod tidy
+go build -trimpath -ldflags "-s -w -H windowsgui" -o ZMS.exe .
+```
+
+## Disclaimer
+
+Unofficial fan project. Not affiliated with, endorsed or sponsored by Psyonix, Epic Games or Valve. Rocket League, Steam and all related names are trademarks of their respective owners. Use at your own risk.
 
 ## Support
 
