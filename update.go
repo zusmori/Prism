@@ -82,10 +82,11 @@ func checkUpdate() (UpdateInfo, error) {
 	info.Version = strings.TrimPrefix(strings.TrimSpace(rel.Tag), "v")
 	info.Notes = strings.TrimSpace(rel.Body)
 	info.Page = rel.Page
-	// bevorzugt ZL.exe, sonst die alte ZMS.exe
-	for _, want := range []string{assetName, oldAsset} {
+	// bevorzugt ZL.exe, sonst die alte ZMS.exe, sonst irgendeine .exe im Release
+	for _, want := range []string{assetName, oldAsset, "*.exe"} {
 		for _, a := range rel.Assets {
-			if info.URL == "" && strings.EqualFold(a.Name, want) && strings.HasPrefix(a.URL, "https://github.com/") {
+			ok := strings.EqualFold(a.Name, want) || (want == "*.exe" && strings.HasSuffix(strings.ToLower(a.Name), ".exe"))
+			if info.URL == "" && ok && strings.HasPrefix(a.URL, "https://github.com/") {
 				info.URL, info.Size = a.URL, a.Size
 			}
 		}
