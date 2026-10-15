@@ -140,15 +140,19 @@ func (m *MatchState) Apply(raw []byte, now time.Time) {
 
 // ---------- Namen ----------
 
+// Einfache Namen: "2s Ranked", "3s Casual", "Freeplay" ...
 var playlistNames = map[int]string{
-	1: "Duel", 2: "Doubles", 3: "Standard", 4: "Chaos", 6: "Private Match", 7: "Season", 8: "Exhibition",
-	9: "Free Play", 10: "Ranked Duel", 11: "Ranked Doubles", 12: "Ranked Solo Standard", 13: "Ranked Standard",
-	15: "Snow Day", 16: "Rocket Labs", 17: "Hoops", 18: "Rumble", 19: "Workshop", 20: "Custom Training",
-	21: "Custom Training", 22: "Tournament", 23: "Dropshot", 24: "Local Match", 26: "Ranked Match",
-	27: "Ranked Hoops", 28: "Ranked Rumble", 29: "Ranked Dropshot", 30: "Ranked Snow Day", 34: "Tournament",
-	38: "Heatseeker", 41: "Boomer Ball", 43: "Heatseeker Doubles", 44: "Winter Breakaway", 46: "Gridiron",
+	1: "1s Casual", 2: "2s Casual", 3: "3s Casual", 4: "4s Casual", 6: "Private Match", 7: "Season", 8: "Exhibition",
+	9: "Freeplay", 10: "1s Ranked", 11: "2s Ranked", 12: "3s Ranked", 13: "3s Ranked",
+	15: "Snow Day", 16: "Rocket Labs", 17: "Hoops", 18: "Rumble", 19: "Freeplay", 20: "Training",
+	21: "Training", 22: "Tournament", 23: "Dropshot", 24: "Exhibition", 26: "Ranked",
+	27: "Hoops Ranked", 28: "Rumble Ranked", 29: "Dropshot Ranked", 30: "Snow Day Ranked", 34: "Tournament",
+	38: "Heatseeker", 41: "Boomer Ball", 43: "Heatseeker", 44: "Winter Breakaway", 46: "Gridiron",
 	47: "Super Cube", 48: "Tactical Rumble", 49: "Spring Loaded", 50: "Speed Demon", 54: "Knockout",
 }
+
+// Modi ohne Spielstand in der Anzeige
+func noScore(mode string) bool { return mode == "Freeplay" || mode == "Training" }
 
 func modeName(m *MatchState) string {
 	if n, ok := playlistNames[m.Playlist]; ok {
@@ -161,15 +165,8 @@ func modeName(m *MatchState) string {
 			size++
 		}
 	}
-	switch size {
-	case 1:
-		return "1v1"
-	case 2:
-		return "2v2"
-	case 3:
-		return "3v3"
-	case 4:
-		return "4v4"
+	if size >= 1 && size <= 4 {
+		return strconv.Itoa(size) + "s"
 	}
 	return "Match"
 }
@@ -308,9 +305,9 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 	if !cfg.On {
 		return nil
 	}
-	a := &Activity{Assets: ActivityAssets{LargeImage: "logo", LargeText: "Z Launcher " + strings.TrimSpace("v"+in.Version)}}
+	a := &Activity{Assets: ActivityAssets{LargeImage: "logo", LargeText: "ZLauncher " + strings.TrimSpace("v"+in.Version)}}
 	if cfg.Button {
-		a.Buttons = []ActivityButton{{Label: "Get Z Launcher", URL: zlReleaseURL}}
+		a.Buttons = []ActivityButton{{Label: "Get ZLauncher", URL: zlReleaseURL}}
 	}
 	start := time.Time{}
 	switch {
@@ -318,18 +315,21 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 		start = in.GameStart
 		m := in.Match
 		fresh := m != nil && m.InMatch && time.Since(m.Seen) < 2*time.Minute
+		// Workshop-Map im Freeplay
 		if fresh && cfg.Maps && in.Swaps != nil && m.Arena != "" {
 			if t := swapTitleFor(in.Swaps, m.Arena); t != "" {
-				a.Details = "Workshop map · " + t
-				a.State = "Rocket League · " + arenaPretty(m.Arena) + " slot"
+				a.Details, a.State = "Freeplay", t
 				break
 			}
 		}
 		if fresh && cfg.Match {
-			mode, arena := modeName(m), arenaPretty(m.Arena)
+			mode := modeName(m)
 			a.Details = mode
-			if arena != "" {
-				a.Details += " · " + arena
+			if !m.Started.IsZero() {
+				start = m.Started
+			}
+			if noScore(mode) {
+				break
 			}
 			my := myTeam(m, in.MyIDs, in.MyName)
 			var us, them int
@@ -340,42 +340,30 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 					them = t.Score
 				}
 			}
-			score := fmt.Sprintf("%d : %d", us, them)
+			a.State = fmt.Sprintf("%d : %d", us, them)
 			switch {
 			case m.Ended || m.HasWinner:
-				if my >= 0 && m.Winner != "" {
-					if w, err := strconv.Atoi(m.Winner); err == nil {
-						if w == my {
-							score = "Won " + score
-						} else {
-							score = "Lost " + score
-						}
+				if w, err := strconv.Atoi(m.Winner); err == nil && my >= 0 {
+					if w == my {
+						a.State = "Won " + a.State
+					} else {
+						a.State = "Lost " + a.State
 					}
-				} else {
-					score = "Final " + score
 				}
-			case m.Replay:
-				score += " · Goal replay"
 			case m.Overtime:
-				score += " · Overtime"
-			case m.TimeLeft > 0:
-				score += " · " + clock(m.TimeLeft) + " left"
-			}
-			a.State = score
-			if !m.Started.IsZero() {
-				start = m.Started
+				a.State += " (OT)"
 			}
 			break
 		}
-		a.Details = "Playing Rocket League"
+		// keine Matchdaten: ohne Anti-Cheat geht nur Offline-Spiel
 		if in.EAC {
-			a.State = "In the menus"
+			a.Details = "In the menus"
 		} else {
-			a.State = "Freeplay & workshop maps"
+			a.Details = "Freeplay"
 		}
 	case cfg.Launcher:
 		start = in.LaunchOpen
-		a.Details = "In Z Launcher"
+		a.Details = "In ZLauncher"
 		switch in.Tab {
 		case "vDl":
 			a.State = "Swapping workshop maps"

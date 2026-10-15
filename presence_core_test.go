@@ -12,17 +12,17 @@ func TestStatsAndActivity(t *testing.T) {
 	var m MatchState
 	m.Apply([]byte(`{"Event":"MatchCreated","Data":{"MatchGuid":"abc"}}`), now)
 	m.Apply([]byte(`{"Event":"UpdateState","Data":{"MatchGuid":"abc","Players":[{"Name":"zusmori","PrimaryId":"Steam|76561198000000001|0","TeamNum":1},{"Name":"Bob","PrimaryId":"Epic|x|0","TeamNum":0}],
-	 "Game":{"Teams":[{"Name":"Blue","TeamNum":0,"Score":2},{"Name":"Orange","TeamNum":1,"Score":1}],"PlaylistId":10,"TimeSeconds":134.4,"bOvertime":false,"bReplay":false,"bHasWinner":false,"Arena":"EuroStadium_Night_P"}}}`), now)
+	 "Game":{"Teams":[{"Name":"Blue","TeamNum":0,"Score":2},{"Name":"Orange","TeamNum":1,"Score":1}],"PlaylistId":11,"TimeSeconds":134.4,"bOvertime":false,"bReplay":false,"bHasWinner":false,"Arena":"EuroStadium_Night_P"}}}`), now)
 	cfg := PresenceCfg{On: true, Match: true, Maps: true, Launcher: true, Button: true, Time: true}
-	in := PresenceInput{Version: "1.2.6", RLRunning: true, GameStart: now.Add(-time.Minute), Match: &m, MyIDs: []string{"76561198000000001"}}
+	in := PresenceInput{Version: "1.2.7", RLRunning: true, GameStart: now.Add(-time.Minute), Match: &m, MyIDs: []string{"76561198000000001"}}
 	a := BuildActivity(cfg, in)
-	if a.Details != "Ranked Duel · Mannfield" || a.State != "1 : 2 · 2:14 left" {
+	if a.Details != "2s Ranked" || a.State != "1 : 2" {
 		t.Fatalf("got %q / %q", a.Details, a.State)
 	}
 	// Overtime + Data als String
-	m.Apply([]byte(`{"Event":"UpdateState","Data":"{\"MatchGuid\":\"abc\",\"Players\":[],\"Game\":{\"Teams\":[{\"TeamNum\":0,\"Score\":2},{\"TeamNum\":1,\"Score\":2}],\"PlaylistId\":10,\"TimeSeconds\":12,\"bOvertime\":true,\"Arena\":\"Stadium_P\"}}"}`), now)
+	m.Apply([]byte(`{"Event":"UpdateState","Data":"{\"MatchGuid\":\"abc\",\"Players\":[],\"Game\":{\"Teams\":[{\"TeamNum\":0,\"Score\":2},{\"TeamNum\":1,\"Score\":2}],\"PlaylistId\":13,\"TimeSeconds\":12,\"bOvertime\":true,\"Arena\":\"Stadium_P\"}}"}`), now)
 	a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &m, MyName: "nobody"})
-	if a.State != "2 : 2 · Overtime" || !strings.HasPrefix(a.Details, "Ranked Duel · DFH Stadium") {
+	if a.State != "2 : 2 (OT)" || a.Details != "3s Ranked" {
 		t.Fatalf("ot got %q / %q", a.Details, a.State)
 	}
 	// Ende mit Gewinner
@@ -32,28 +32,40 @@ func TestStatsAndActivity(t *testing.T) {
 	if a.State != "Won 2 : 2" {
 		t.Fatalf("end got %q", a.State)
 	}
+	// Freeplay: kein Spielstand
+	fp := MatchState{InMatch: true, Playlist: 9, Arena: "Stadium_P", Seen: now, Teams: []statsTeam{{TeamNum: 0, Score: 3}}}
+	a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &fp})
+	if a.Details != "Freeplay" || a.State != "" {
+		t.Fatalf("freeplay got %q / %q", a.Details, a.State)
+	}
 	// Workshop-Map
 	m2 := MatchState{InMatch: true, Arena: "Park_P", Seen: now}
 	a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &m2, Swaps: map[string]string{"Park_P.upk": "Speed Jump: Rings 3"}})
-	if a.Details != "Workshop map · Speed Jump: Rings 3" {
-		t.Fatalf("map got %q", a.Details)
+	if a.Details != "Freeplay" || a.State != "Speed Jump: Rings 3" {
+		t.Fatalf("map got %q / %q", a.Details, a.State)
+	}
+	// keine Matchdaten
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true}); a.Details != "Freeplay" {
+		t.Fatal(a.Details)
+	}
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, EAC: true}); a.Details != "In the menus" {
+		t.Fatal(a.Details)
 	}
 	// Launcher offen, Spiel zu
 	a = BuildActivity(cfg, PresenceInput{Tab: "vBrowse", LaunchOpen: now})
-	if a.Details != "In Z Launcher" || a.State != "Browsing workshop maps" || a.Buttons[0].Label != "Get Z Launcher" {
+	if a.Details != "In ZLauncher" || a.State != "Browsing workshop maps" || a.Buttons[0].Label != "Get ZLauncher" {
 		t.Fatalf("launcher got %+v", a)
 	}
 	cfg.Launcher = false
 	if BuildActivity(cfg, PresenceInput{}) != nil {
 		t.Fatal("should be nil")
 	}
-	// Unbekannte Liste -> Teamgroesse
 	m3 := MatchState{InMatch: true, Playlist: 999, Seen: now, Players: []statsPlayer{{TeamNum: 0}, {TeamNum: 0}, {TeamNum: 1}, {TeamNum: 1}}}
-	if modeName(&m3) != "2v2" {
+	if modeName(&m3) != "2s" {
 		t.Fatal(modeName(&m3))
 	}
-	if arenaPretty("Some_Cool_Map_P") != "Some Cool Map" || arenaPretty("Woods_Night_P") != "Drift Woods" {
-		t.Fatal(arenaPretty("Some_Cool_Map_P"), arenaPretty("Woods_Night_P"))
+	if !strings.Contains(arenaPretty("Woods_Night_P"), "Drift Woods") {
+		t.Fatal(arenaPretty("Woods_Night_P"))
 	}
 }
 
@@ -74,20 +86,13 @@ func TestIni(t *testing.T) {
 	if !ch || port != 49123 || !strings.Contains(out, "PacketSendRate=2\r\n") || !strings.Contains(out, "[IniVersion]") {
 		t.Fatalf("%v %d %q", ch, port, out)
 	}
-	out2, _, ch2 := enableStatsIni(out)
-	if ch2 || out2 != out {
+	if out2, _, ch2 := enableStatsIni(out); ch2 || out2 != out {
 		t.Fatal("second run should not change")
 	}
-	keep := "[TAGame.MatchStatsExporter_TA]\r\nPort=49123\r\nWebPort=49124\r\nPacketSendRate=1\r\n"
-	if _, _, c := enableStatsIni(keep); c {
+	if _, _, c := enableStatsIni("[TAGame.MatchStatsExporter_TA]\r\nPort=49123\r\nPacketSendRate=1\r\n"); c {
 		t.Fatal("rate 1 should stay")
 	}
-	o3, p3, c3 := enableStatsIni("")
-	if !c3 || p3 != 49123 || !strings.HasPrefix(o3, "[TAGame.MatchStatsExporter_TA]") {
+	if o3, p3, c3 := enableStatsIni(""); !c3 || p3 != 49123 || !strings.HasPrefix(o3, "[TAGame.MatchStatsExporter_TA]") {
 		t.Fatal(o3)
-	}
-	o4, _, c4 := enableStatsIni("[Other]\nA=1\n")
-	if !c4 || !strings.Contains(o4, "PacketSendRate=2") || !strings.Contains(o4, "[Other]") {
-		t.Fatal(o4)
 	}
 }

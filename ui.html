@@ -1072,7 +1072,7 @@
   .bchip.live .gi svg{animation:boltpulse 1.6s ease-in-out infinite}
   @keyframes boltpulse{50%{transform:scale(1.2);filter:drop-shadow(0 0 4px rgb(var(--ac2-rgb))) drop-shadow(0 0 10px rgb(var(--ac-rgb)))}}
   .bchip.live .bs{background:rgb(var(--btn-rgb));color:#fff}
-  .bwrap2{display:flex;align-items:center;gap:8px}
+  .bwrap2{position:relative;display:flex;align-items:center}
   .bchip{overflow:hidden}
   .bchip .bs{position:relative;display:inline-grid;min-width:46px;text-align:center;transition:background .35s var(--ease),color .35s var(--ease)}
   .bchip .bs span{display:block}
@@ -1090,27 +1090,23 @@
   @keyframes bripple{0%{opacity:.8;transform:scale(0)}100%{opacity:0;transform:scale(22)}}
   .bchip.on:not(.live){animation:breathe 3.2s ease-in-out infinite}
   @keyframes breathe{50%{box-shadow:0 0 18px -6px rgb(var(--ac-rgb) / .7),inset 0 1px 0 rgba(255,255,255,.05)}}
-  /* Info-Punkt mit Erklaerung */
-  .binfo{position:relative;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;cursor:help;outline:none;
-    font:italic 700 12px/1 Georgia,"Times New Roman",serif;color:#c8c8d2;background:rgb(12 12 16 / .5);border:1px solid rgba(255,255,255,.14);
-    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);transition:color .25s,border-color .25s,box-shadow .3s,background .25s}
-  .binfo:hover,.binfo:focus-visible{color:#fff;border-color:rgb(var(--ac2-rgb) / .7);background:rgb(var(--ac-rgb) / .25);box-shadow:0 0 14px -2px rgb(var(--ac-rgb) / .8)}
-  .btip{position:absolute;right:-12px;bottom:calc(100% + 12px);width:300px;padding:13px 15px 12px;border-radius:14px;z-index:20;text-align:left;
+  /* Erklaerung beim Hover ueber den Boost-Knopf */
+  .btip{position:absolute;left:50%;margin-left:-150px;bottom:calc(100% + 12px);width:300px;padding:13px 15px 12px;border-radius:14px;z-index:20;text-align:left;
     font:13px/1.45 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;font-style:normal;color:#d4d4dc;cursor:default;pointer-events:none;
     background:rgb(14 13 20 / .9);border:1px solid rgb(var(--ac-rgb) / .3);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
     box-shadow:0 22px 50px -16px rgba(0,0,0,.9),0 0 30px -12px rgb(var(--ac-rgb) / .6);
-    opacity:0;transform:translateY(8px) scale(.96);transform-origin:calc(100% - 23px) 100%;transition:opacity .22s var(--ease),transform .35s var(--spring)}
-  .btip::after{content:"";position:absolute;right:18px;bottom:-6px;width:10px;height:10px;transform:rotate(45deg);
+    opacity:0;transform:translateY(8px) scale(.96);transform-origin:50% 100%;transition:opacity .22s var(--ease),transform .35s var(--spring)}
+  .btip::after{content:"";position:absolute;left:50%;margin-left:-5px;bottom:-6px;width:10px;height:10px;transform:rotate(45deg);
     background:rgb(14 13 20 / .95);border-right:1px solid rgb(var(--ac-rgb) / .3);border-bottom:1px solid rgb(var(--ac-rgb) / .3)}
-  .binfo:hover .btip,.binfo:focus-visible .btip{opacity:1;transform:none}
+  .bwrap2:hover .btip,.bchip:focus-visible + .btip{opacity:1;transform:none;transition-delay:.18s,.18s}
   .btip b{display:flex;align-items:center;gap:7px;font-size:13.5px;color:#fff;margin-bottom:7px}
   .btip b .gi svg{width:14px;height:14px}
   .btip .bl{display:flex;gap:9px;margin:5px 0;font-size:12.5px;color:#b9b9c6}
   .btip .bl i{flex:none;width:6px;height:6px;margin-top:6px;border-radius:50%;background:rgb(var(--ac2-rgb));box-shadow:0 0 8px rgb(var(--ac-rgb))}
   .btip em{font-style:normal;color:#fff;font-weight:600}
   .btip small{display:block;margin-top:9px;padding-top:8px;border-top:1px solid var(--line2);font-size:11.5px;color:var(--muted);line-height:1.45}
-  .binfo:hover .btip .bl,.binfo:focus-visible .btip .bl{animation:secin .4s var(--ease) backwards}
-  .binfo:hover .btip .bl:nth-of-type(2){animation-delay:.04s} .binfo:hover .btip .bl:nth-of-type(3){animation-delay:.08s}
+  .bwrap2:hover .btip .bl{animation:secin .4s var(--ease) .18s backwards}
+  .bwrap2:hover .btip .bl:nth-of-type(2){animation-delay:.22s} .bwrap2:hover .btip .bl:nth-of-type(3){animation-delay:.26s}
 
   /* ---------- Discord-Vorschau ---------- */
   .dcprev{padding:14px 14px 12px;border-bottom:1px solid var(--line);background:radial-gradient(120% 140% at 0% 0%,rgb(88 101 242 / .12),transparent 55%)}
@@ -1141,6 +1137,23 @@
   .dsub .srow .tx b{font-size:13px}
   .dccard.upd{animation:dcupd .5s var(--ease)}
   @keyframes dcupd{30%{box-shadow:0 0 0 2px rgba(88,101,242,.5)}}
+
+  /* ---------- Freunde: eingeklappte Knoepfe ---------- */
+  .fr .fa{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:0!important;flex:none}
+  .fr .fa .fx{width:26px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--line2);
+    transition:opacity .2s var(--ease),transform .35s var(--ease),width .35s var(--ease),margin .35s var(--ease),border-color .2s}
+  .fr .fa .fx svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:transform .35s var(--ease)}
+  .fr .fa .fbs{display:flex;gap:5px;max-width:0;overflow:hidden;opacity:0;transition:max-width .42s var(--ease),opacity .25s var(--ease)}
+  .fr .fa .fbs button{transform:translateX(14px) scale(.85);opacity:0;transition:transform .4s var(--spring),opacity .25s var(--ease),background .2s,border-color .2s,color .2s,box-shadow .25s}
+  .fr:hover .fa .fx,.fr:focus-within .fa .fx{opacity:0;width:0;margin:0;border-width:0;transform:translateX(10px)}
+  .fr:hover .fa .fx svg{transform:rotate(180deg)}
+  .fr:hover .fa .fbs,.fr:focus-within .fa .fbs{max-width:110px;opacity:1}
+  .fr:hover .fa .fbs button,.fr:focus-within .fa .fbs button{transform:none;opacity:1}
+  .fr:hover .fa .fbs button:nth-child(1){transition-delay:0s,0s,0s,0s,0s,0s}
+  .fr:hover .fa .fbs button:nth-child(2){transition-delay:.04s,.04s,0s,0s,0s,0s}
+  .fr:hover .fa .fbs button:nth-child(3){transition-delay:.08s,.08s,0s,0s,0s,0s}
+  .fr .fa .fbs button:hover{transform:translateY(-1px) scale(1.06)!important}
+  .fr.offline .fa .fx,.fr.unknown .fa .fx{opacity:.7}
 </style>
 
 </head>
@@ -1191,15 +1204,13 @@
             <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
             <div class="bwrap2">
               <button class="bchip" id="boostChip" role="switch" aria-checked="true"><span class="gi" data-ic="bolt"></span><span class="bt">Boost</span><span class="bs"><span id="boostChipTx">On</span></span></button>
-              <span class="binfo" tabindex="0" aria-label="What does Boost do?">i
-                <span class="btip">
+              <span class="btip">
                   <b><span class="gi" data-ic="bolt"></span>Game Boost</b>
                   <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> while it runs (only without Anti-Cheat)</span></span>
                   <span class="bl"><i></i><span>Windows switches to <em>best performance</em> mode while you play</span></span>
                   <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
-                  <small>Turns on by itself when the game starts and goes back to normal when it closes. In-game settings are never changed. Click Boost to turn it on or off.</small>
+                  <small>Turns on by itself when the game starts and goes back to normal when it closes. In-game settings are never changed. <em>Click to turn it on or off.</em></small>
                 </span>
-              </span>
             </div>
           </div>
         </div>
@@ -1419,20 +1430,20 @@
             <small class="dclbl">Playing</small>
             <div class="dcrow">
               <div class="dcimg"><svg id="dcLogo" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg></div>
-              <div class="dctx"><b>Z Launcher</b><span id="dcDet">–</span><span id="dcState"></span><span id="dcTime" class="dctime"></span></div>
+              <div class="dctx"><b>ZLauncher</b><span id="dcDet">–</span><span id="dcState"></span><span id="dcTime" class="dctime"></span></div>
             </div>
-            <div class="dcbtn" id="dcBtn">Get Z Launcher</div>
+            <div class="dcbtn" id="dcBtn">Get ZLauncher</div>
           </div>
           <div class="dcfoot" id="dcStats"></div>
         </div>
         <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
           <div class="tx"><b>Discord Rich Presence</b><small>Show what you're doing in Rocket League on your Discord profile.</small></div><span class="tg" id="tgRpc"></span></div>
         <div class="dsub" id="rpcOpts">
-          <div class="srow" id="setRpcMatch" role="switch" tabindex="0"><div class="tx"><b>Match status</b><small>Mode, arena, score and time left, e.g. "Ranked Duel · 1 : 2 · 2:14 left".</small></div><span class="tg" id="tgRpcMatch"></span></div>
-          <div class="srow" id="setRpcMaps" role="switch" tabindex="0"><div class="tx"><b>Workshop map names</b><small>Shows which workshop map you're playing.</small></div><span class="tg" id="tgRpcMaps"></span></div>
+          <div class="srow" id="setRpcMatch" role="switch" tabindex="0"><div class="tx"><b>Match status</b><small>Mode and goals, e.g. "2s Ranked · 2 : 1". Freeplay just shows "Freeplay".</small></div><span class="tg" id="tgRpcMatch"></span></div>
+          <div class="srow" id="setRpcMaps" role="switch" tabindex="0"><div class="tx"><b>Workshop map names</b><small>Shows which workshop map you're playing in Freeplay.</small></div><span class="tg" id="tgRpcMaps"></span></div>
           <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps" when Rocket League isn't running.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
           <div class="srow" id="setRpcTime" role="switch" tabindex="0"><div class="tx"><b>Elapsed time</b><small>How long you've been playing.</small></div><span class="tg" id="tgRpcTime"></span></div>
-          <div class="srow" id="setRpcButton" role="switch" tabindex="0"><div class="tx"><b>"Get Z Launcher" button</b><small>A button others can click to download the launcher.</small></div><span class="tg" id="tgRpcButton"></span></div>
+          <div class="srow" id="setRpcButton" role="switch" tabindex="0"><div class="tx"><b>"Get ZLauncher" button</b><small>A button others can click to download the launcher.</small></div><span class="tg" id="tgRpcButton"></span></div>
         </div>
       </div></div>
       <div class="ssec"><h4>Steam</h4><div class="sgrp">
@@ -2635,13 +2646,13 @@ function renderFriends(animate){
       const ch = changes[f.id];
       if (ch){ d.classList.add('chg', 'c-' + ch.kind); setTimeout(() => d.classList.remove('chg', 'c-' + ch.kind), 3200); }
       d.innerHTML = `<div class="fav"></div><div class="ft"><b></b><small></small></div>
-        <div class="fa"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button><button class="rm" title="Remove friend">${icon('userx')}</button></div>`;
+        <div class="fa"><span class="fx"><svg viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg></span><div class="fbs"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button><button class="rm" title="Remove friend">${icon('userx')}</button></div></div>`;
       if (f.avatar) d.querySelector('.fav').style.backgroundImage = `url("${f.avatar}")`;
       d.querySelector('b').textContent = f.name;
       const sub = f.state === 'ingame' ? (f.game || 'In-Game') : f.state === 'online' ? 'Online' : f.state === 'away' ? 'Away' : (f.note || 'Offline');
       const sm = d.querySelector('small'); sm.textContent = sub;
       if (ch && ch.text){ sm.innerHTML = ch.text; setTimeout(() => { if (d.isConnected) sm.textContent = sub; }, 4200); }
-      const [bp, bc, br] = d.querySelectorAll('.fa button');
+      const [bp, bc, br] = d.querySelectorAll('.fa .fbs button');
       br.onclick = e => { e.stopPropagation(); askRemoveFriend(f); };
       bp.onclick = e => { e.stopPropagation(); has('openSteamProfile') && openSteamProfile(f.id); };
       bc.onclick = e => { e.stopPropagation(); has('openFriendChat') && openFriendChat(f.id); };
@@ -2709,7 +2720,6 @@ function paintBoost(anim){
   c.setAttribute('aria-checked', on);
   const txt = !on ? 'Off' : st.active ? 'Active' : 'On', el = $('boostChipTx');
   if (el.textContent !== txt){ el.textContent = txt; if (anim !== false){ el.classList.remove('swapin'); void el.offsetWidth; el.classList.add('swapin'); } }
-  c.title = !on ? 'Game Boost is off. Click to turn on.' : st.active ? 'Game Boost is running. Click to turn off.' : 'Game Boost is on. Click to turn off.';
 }
 async function pollBoost(){ try { if (has('getBoost')){ boost.st = await getBoost(); paintBoost(); } } catch (e) {} }
 async function toggleBoost(e){
