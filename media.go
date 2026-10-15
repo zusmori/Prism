@@ -13,8 +13,11 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 //go:embed media/*.mp4
@@ -45,6 +48,16 @@ func localServer() string {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.Header().Set("Cache-Control", "no-store")
 				_, _ = w.Write([]byte(uiHTML))
+			case p == "rllogo.png":
+				// offizielles Logo aus dem Steam-Cache des Nutzers (wird nicht mitgeliefert)
+				lp := rlLogoPath()
+				if lp == "" {
+					http.NotFound(w, r)
+					return
+				}
+				w.Header().Set("Content-Type", "image/png")
+				w.Header().Set("Cache-Control", "max-age=3600")
+				http.ServeFile(w, r, lp)
 			case strings.HasPrefix(p, "media/") && strings.HasSuffix(p, ".mp4"):
 				w.Header().Set("Content-Type", "video/mp4")
 				w.Header().Set("Cache-Control", "max-age=86400")
@@ -62,6 +75,43 @@ func localServer() string {
 func mediaBase() string {
 	if b := localServer(); b != "" {
 		return b + "media/"
+	}
+	return ""
+}
+
+// Steam legt die Bibliotheks-Bilder lokal ab:
+//   neu:  appcache\librarycache\252950\<hash>\logo.png
+//   alt:  appcache\librarycache\252950_logo.png
+func rlLogoPath() string {
+	sp := steamPath()
+	if sp == "" {
+		return ""
+	}
+	cache := filepath.Join(sp, "appcache", "librarycache")
+	best, bestT := "", time.Time{}
+	if matches, _ := filepath.Glob(filepath.Join(cache, appID, "*", "logo.png")); len(matches) > 0 {
+		for _, m := range matches {
+			if fi, err := os.Stat(m); err == nil && fi.ModTime().After(bestT) {
+				best, bestT = m, fi.ModTime()
+			}
+		}
+	}
+	if best == "" {
+		for _, c := range []string{filepath.Join(cache, appID, "logo.png"), filepath.Join(cache, appID+"_logo.png")} {
+			if _, err := os.Stat(c); err == nil {
+				return c
+			}
+		}
+	}
+	return best
+}
+
+func rlLogoURL() string {
+	if rlLogoPath() == "" {
+		return ""
+	}
+	if b := localServer(); b != "" {
+		return b + "rllogo.png"
 	}
 	return ""
 }

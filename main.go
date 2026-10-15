@@ -691,6 +691,7 @@ func main() {
 	w.Bind("toggleFav", func(key string) bool { return toggleFav(key) })
 	// ---- Home: Rocket League starten, Steam-Freunde ----
 	w.Bind("getMediaBase", func() string { return mediaBase() })
+	w.Bind("getRLLogo", func() string { return rlLogoURL() })
 	w.Bind("rlStatus", func() RLStatus { return app.RLStatus() })
 	w.Bind("launchRL", func(eac bool) error { return app.LaunchRL(eac) })
 	w.Bind("friendsAsync", func(cb int, key string) {
