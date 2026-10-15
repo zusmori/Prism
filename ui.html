@@ -743,7 +743,7 @@
   .sbtn.go{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 8px 22px -10px rgb(var(--ac-rgb) / .7)}
   .sbtn.go .gi{color:#fff}
   /* Farb-Presets */
-  .swatches{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:11px 10px 9px}
+  .swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:11px 10px 9px}
   .sw{border:0;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;padding:6px 0 4px;border-radius:12px;
     color:var(--muted);font:inherit;font-size:11.5px;font-weight:600;transition:background .2s,color .2s}
   .sw:hover{background:var(--hover);color:var(--text)}
@@ -775,15 +775,9 @@
   .max #vHome{padding:4px 22px 22px}
   .hleft{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
   .hero{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--panel);isolation:isolate}
-  .hbg{position:absolute;inset:-6%;background:center/cover no-repeat;opacity:0;filter:saturate(1.1);transform:scale(1.06);
-    transition:opacity 1s var(--ease),transform 2s var(--ease)}
-  .hbg.ok{opacity:.55;transform:scale(1);animation:kenburns 26s 2s ease-in-out infinite alternate}
   .hart{position:absolute;inset:0;z-index:-1;background:
     radial-gradient(60% 70% at 80% 20%,rgb(var(--ac-rgb) / .35),transparent 60%),
     radial-gradient(50% 60% at 15% 90%,rgb(var(--acdd-rgb) / .35),transparent 65%),var(--panel)}
-  .hart svg{position:absolute;right:-4%;top:50%;width:min(52%,380px);height:auto;transform:translateY(-50%) rotate(-8deg);opacity:.16;
-    filter:drop-shadow(0 0 40px rgb(var(--ac-rgb) / .8));animation:hfloat 9s ease-in-out infinite}
-  @keyframes hfloat{50%{transform:translateY(-53%) rotate(-5deg)}}
   .hshade{position:absolute;inset:0;background:linear-gradient(90deg,var(--bg) 0%,rgb(9 9 11 / .85) 35%,rgb(9 9 11 / .25) 75%,transparent),
     linear-gradient(0deg,rgb(9 9 11 / .7),transparent 50%);pointer-events:none}
   .hcontent{position:absolute;left:30px;right:30px;bottom:28px;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
@@ -816,14 +810,46 @@
   .lbtn.busy .li svg{display:none}
   .lbtn.busy .li::after{content:"";width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:sp .8s linear infinite}
   .lbtn[disabled]{opacity:.45;pointer-events:none;transform:none}
-  .hcards{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  .hcard{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);cursor:pointer;
-    text-align:left;font:inherit;color:inherit;transition:background .2s,border-color .25s,transform .25s var(--ease)}
-  .hcard:hover{background:var(--panel2);border-color:rgb(var(--ac-rgb) / .35);transform:translateY(-2px)}
-  .hcard .gi{width:36px;height:36px;border-radius:11px;background:rgb(var(--ac-rgb) / .1);border:1px solid rgb(var(--ac-rgb) / .2)}
-  .hcard b{display:block;font-size:17px;font-weight:700;line-height:1.1}
-  .hcard small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
-  .hcard.hot{border-color:rgb(var(--ac-rgb) / .35);background:linear-gradient(160deg,rgb(var(--acd-rgb) / .1),var(--panel) 60%)}
+  /* Video-Hintergrund (je Farbe ein Video, weich ueberblendet) */
+  .hv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);pointer-events:none;
+    transition:opacity 1.1s var(--ease),transform 1.6s var(--ease)}
+  .hv.on{opacity:1;transform:none}
+  /* Active swaps: Glas-Karte oben rechts */
+  .hswap{position:absolute;top:16px;right:16px;z-index:2;width:250px;max-width:calc(100% - 32px);padding:11px 12px 12px;border-radius:15px;cursor:pointer;
+    font:inherit;color:var(--text);text-align:left;background:rgb(12 12 16 / .42);border:1px solid rgba(255,255,255,.09);
+    -webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
+    box-shadow:0 18px 40px -18px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.06);
+    transition:background .25s,border-color .3s,box-shadow .35s var(--ease),transform .3s var(--ease)}
+  .hswap:hover{background:rgb(16 16 22 / .55);border-color:rgb(var(--ac-rgb) / .45);transform:translateY(-2px);
+    box-shadow:0 22px 46px -18px rgba(0,0,0,.85),0 0 26px -8px rgb(var(--ac-rgb) / .7),inset 0 1px 0 rgba(255,255,255,.08)}
+  .hswap.act{border-color:rgb(var(--ac-rgb) / .38)}
+  .hsh{display:flex;align-items:center;gap:8px}
+  .hsh .dot{width:8px;height:8px;margin:0 1px}
+  .hswap.act .hsh .dot{--c:var(--ac2-rgb)}
+  .hsh b{font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:#d4d4dc}
+  .hsn{min-width:19px;height:19px;padding:0 6px;border-radius:10px;background:rgb(var(--ac-rgb) / .3);color:#fff;font-size:11px;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center}
+  .hsn:empty{display:none}
+  .hsgo{margin-left:auto;opacity:.5;transition:transform .3s var(--ease),opacity .2s}
+  .hswap:hover .hsgo{opacity:1;transform:translateX(3px)}
+  .hsl{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+  .hsl .e{font-size:12px;color:#a1a1aa;line-height:1.4}
+  .hsi{display:grid;grid-template-columns:46px 1fr;align-items:center;gap:9px;animation:frin .4s var(--ease) backwards}
+  .hsi .th{width:46px;height:26px;border-radius:6px;background:#1c1c24 center/cover no-repeat;box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+  .hsi .tx{min-width:0}
+  .hsi .tx b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hsi .tx small{display:block;font-size:10.5px;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hsl .more{font-size:11px;color:rgb(var(--ac3-rgb));font-weight:600}
+  /* Sprung von Home: Active swaps unten links leuchtet auf */
+  .swaps.spot{animation:spot 1.8s var(--ease)}
+  @keyframes spot{
+    0%{box-shadow:0 0 0 0 rgb(var(--ac-rgb) / 0);border-color:var(--line)}
+    18%{box-shadow:0 0 0 4px rgb(var(--ac-rgb) / .45),0 0 40px 6px rgb(var(--ac-rgb) / .55);border-color:rgb(var(--ac2-rgb))}
+    45%{box-shadow:0 0 0 2px rgb(var(--ac-rgb) / .25),0 0 22px 2px rgb(var(--ac-rgb) / .3)}
+    62%{box-shadow:0 0 0 4px rgb(var(--ac-rgb) / .4),0 0 36px 4px rgb(var(--ac-rgb) / .5);border-color:rgb(var(--ac2-rgb))}
+    100%{box-shadow:0 0 0 0 rgb(var(--ac-rgb) / 0)}}
+  .swaps.spot .slot{animation:slotglow 1.8s var(--ease)}
+  @keyframes slotglow{20%,60%{border-color:rgb(var(--ac2-rgb) / .8);background:rgb(var(--ac-rgb) / .14)}}
   /* Freunde */
   .friends{display:flex;flex-direction:column;min-height:0;padding:14px 8px 8px}
   .fh{display:flex;align-items:center;gap:9px;padding:0 8px 4px 10px}
@@ -886,7 +912,6 @@
   .keyrow input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
   .keyrow input::placeholder{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;color:var(--faint)}
   .srow .tx small a{color:rgb(var(--ac2-rgb));cursor:pointer;font-weight:600}
-  @media (max-width:860px){ .hcards{grid-template-columns:1fr 1fr} .hcards .hcard:last-child{display:none} }
   .leftcol .card:hover,.friends.card:hover{transform:none;box-shadow:none}
   .leftcol .card,.friends.card{cursor:default}
 </style>
@@ -919,8 +944,15 @@
   <section id="vHome" class="pane">
     <div class="hleft">
       <div class="hero in" style="--d:.04s">
-        <div class="hart"><svg id="heroLogo" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg></div>
-        <div class="hbg" id="hBg"></div><div class="hshade"></div>
+        <div class="hart"></div>
+        <video class="hv" id="hv1" muted loop playsinline preload="auto" disablepictureinpicture></video>
+        <video class="hv" id="hv2" muted loop playsinline preload="auto" disablepictureinpicture></video>
+        <div class="hshade"></div>
+        <button class="hswap" id="hSwap" title="Show in Swap Maps">
+          <div class="hsh"><span class="dot"></span><b>Active swaps</b><span class="hsn" id="hSwapN"></span>
+            <svg class="hsgo" width="12" height="12" viewBox="0 0 16 16"><path d="M6 3.5l4.5 4.5L6 12.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="hsl" id="hSwapList"></div>
+        </button>
         <div class="hcontent">
           <span class="tag"><span class="gi" data-ic="car"></span>Rocket League</span>
           <h1 id="hTitle">Ready to <span>play?</span></h1>
@@ -930,11 +962,6 @@
             <button class="lbtn" id="playEac"><span class="li"><span class="gi" data-ic="shield"></span></span><span><b>Play with Anti-Cheat</b><small>Online &amp; ranked</small></span></button>
           </div>
         </div>
-      </div>
-      <div class="hcards in" style="--d:.09s">
-        <button class="hcard" id="hcSwaps"><span class="gi" data-ic="swap"></span><span><b id="hcSwapN">0</b><small>Active swaps</small></span></button>
-        <button class="hcard" id="hcMaps"><span class="gi" data-ic="folder"></span><span><b id="hcMapN">0</b><small>Downloaded maps</small></span></button>
-        <button class="hcard" id="hcBrowse"><span class="gi" data-ic="spark"></span><span><b>Browse</b><small>Find new maps</small></span></button>
       </div>
     </div>
     <aside class="card friends in" style="--d:.07s">
@@ -1393,21 +1420,23 @@ async function refresh(force){
 $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scrollWidth > el.clientWidth){ e.preventDefault(); el.scrollBy({left: e.deltaY + e.deltaX, behavior: 'smooth'}); } }, {passive: false});
 
 /* ---------- Einstellungen ---------- */
-const settings = {keepSwaps: false, mute: false, theme: 'amethyst', steamKey: ''};
+const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: ''};
 // Farb-Presets: Akzent in 8 Abstufungen (RGB), Hintergrund bekommt automatisch einen leichten Ton davon
 const THEMES = [
-  {id: 'amethyst', name: 'Amethyst', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247']},
-  {id: 'ocean',    name: 'Ocean',    c: ['59 130 246', '96 165 250', '147 197 253', '191 219 254', '219 234 254', '37 99 235', '30 64 175', '79 145 248']},
-  {id: 'ice',      name: 'Ice',      c: ['6 182 212', '34 211 238', '103 232 249', '165 243 252', '207 250 254', '8 145 178', '21 94 117', '20 195 222']},
-  {id: 'emerald',  name: 'Emerald',  c: ['16 185 129', '52 211 153', '110 231 183', '167 243 208', '209 250 229', '5 150 105', '6 95 70', '30 196 142']},
-  {id: 'amber',    name: 'Amber',    c: ['249 115 22', '251 146 60', '253 186 116', '254 215 170', '255 237 213', '234 88 12', '154 52 18', '250 130 50']},
-  {id: 'crimson',  name: 'Crimson',  c: ['244 63 94', '251 113 133', '253 164 175', '254 205 211', '255 228 230', '225 29 72', '159 18 57', '246 85 112']},
-  {id: 'sakura',   name: 'Sakura',   c: ['236 72 153', '244 114 182', '249 168 212', '251 207 232', '252 231 243', '219 39 119', '157 23 77', '239 92 165']}
+  {id: 'purple', name: 'Purple', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247']},
+  {id: 'blue',   name: 'Blue',   c: ['59 130 246', '96 165 250', '147 197 253', '191 219 254', '219 234 254', '37 99 235', '30 64 175', '79 145 248']},
+  {id: 'cyan',   name: 'Cyan',   c: ['6 182 212', '34 211 238', '103 232 249', '165 243 252', '207 250 254', '8 145 178', '21 94 117', '20 195 222']},
+  {id: 'green',  name: 'Green',  c: ['16 185 129', '52 211 153', '110 231 183', '167 243 208', '209 250 229', '5 150 105', '6 95 70', '30 196 142']}
 ];
+// alte Namen aus frueheren Versionen
+const THEME_OLD = {amethyst: 'purple', ocean: 'blue', ice: 'cyan', emerald: 'green'};
 const THEME_VARS = ['--ac-rgb', '--ac2-rgb', '--ac3-rgb', '--ac4-rgb', '--ac5-rgb', '--acd-rgb', '--acdd-rgb', '--ach-rgb'];
 let themeT;
 function applyTheme(id, animate){
+  id = THEME_OLD[id] || id;
   const t = THEMES.find(x => x.id === id) || THEMES[0], root = document.documentElement;
+  settings.theme = t.id;
+  heroVideo(t.id);
   if (animate){ document.body.classList.add('theming'); clearTimeout(themeT); themeT = setTimeout(() => document.body.classList.remove('theming'), 600); }
   THEME_VARS.forEach((v, i) => root.style.setProperty(v, t.c[i]));
   document.querySelectorAll('#swatches .sw').forEach(b => b.classList.toggle('on', b.dataset.t === t.id));
@@ -1566,6 +1595,7 @@ function setTab(t){
   const ti = PANES.indexOf(t);
   PANES.forEach((id, i) => { $(id).style.setProperty('--dir', (i < ti ? -24 : 24) + 'px'); $(id).classList.toggle('off', id !== t); });
   if (t === 'vHome') homeEnter();
+  heroPlay(t === 'vHome');
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
 }
@@ -2042,16 +2072,48 @@ document.addEventListener('keydown', e => {
 const home = {st: null, poll: null, launching: null, friends: null, fAt: 0, fBusy: false, offOpen: false};
 const rlCall = () => has('rlStatus') ? rlStatus() : Promise.resolve({found: true, running: false, eac: false, steam: true});
 function paintHome(){
-  const sw = Object.keys(curState.swaps || {}).length;
-  $('hcSwapN').textContent = sw; $('hcSwaps').classList.toggle('hot', sw > 0);
-  $('hcMapN').textContent = maps.length;
-  // Hintergrund: getauschte Map, sonst eine heruntergeladene
-  const pick = maps.find(m => Object.values(curState.swaps || {}).includes(m.name)) || maps[0];
-  if (pick && home.bgFor !== pick.path){
-    home.bgFor = pick.path;
-    preview(pick).then(u => { const bg = $('hBg'); if (!u){ bg.classList.remove('ok'); return; } const im = new Image(); im.onload = () => { bg.style.backgroundImage = `url("${u}")`; bg.classList.add('ok'); }; im.src = u; });
-  }
+  const sw = curState.swaps || {}, keys = Object.keys(sw);
+  $('hSwap').classList.toggle('act', keys.length > 0);
+  $('hSwapN').textContent = keys.length || '';
+  const L = $('hSwapList');
+  if (!keys.length){ L.innerHTML = '<div class="e">No maps swapped. Click to pick one.</div>'; return; }
+  L.innerHTML = '';
+  keys.slice(0, 3).forEach((f, i) => {
+    const m = maps.find(x => x.name === sw[f]), d = document.createElement('div');
+    d.className = 'hsi'; d.style.animationDelay = i * 50 + 'ms';
+    d.innerHTML = '<div class="th"></div><div class="tx"><b></b><small></small></div>';
+    d.querySelector('b').textContent = m ? m.title : sw[f];
+    d.querySelector('small').textContent = 'in ' + (curState.swapNames?.[f] || f);
+    if (m) preview(m).then(u => { if (u) d.querySelector('.th').style.backgroundImage = `url("${u}")`; });
+    L.appendChild(d);
+  });
+  if (keys.length > 3){ const mo = document.createElement('div'); mo.className = 'more'; mo.textContent = '+' + (keys.length - 3) + ' more'; L.appendChild(mo); }
 }
+/* ---- Video-Hintergrund ---- */
+const hero = {cur: null, base: null, front: null};
+async function mediaBase(){
+  if (hero.base !== null) return hero.base;
+  try { hero.base = has('getMediaBase') ? await getMediaBase() : ''; } catch (e) { hero.base = ''; }
+  return hero.base;
+}
+async function heroVideo(id){
+  if (hero.cur === id) return;
+  hero.cur = id;
+  const base = await mediaBase(); if (!base || hero.cur !== id) return;
+  const a = $('hv1'), b = $('hv2'), next = hero.front === a ? b : a, prev = hero.front;
+  next.src = base + id + '.mp4';
+  const show = () => {
+    if (hero.cur !== id) return;
+    next.classList.add('on'); prev && prev.classList.remove('on');
+    hero.front = next;
+    setTimeout(() => { if (prev && hero.front !== prev){ prev.pause(); prev.removeAttribute('src'); prev.load(); } }, 1200);
+  };
+  next.addEventListener('playing', show, {once: true});
+  if (tab === 'vHome') next.play().catch(() => {}); else next.addEventListener('loadeddata', show, {once: true});
+}
+// nur abspielen, wenn Home sichtbar ist (spart Leistung)
+function heroPlay(on){ const v = hero.front; if (!v) return; on ? v.play().catch(() => {}) : v.pause(); }
+document.addEventListener('visibilitychange', () => heroPlay(!document.hidden && tab === 'vHome'));
 function paintRL(st){
   home.st = st;
   const s = $('hStat'), tx = $('hStatTx');
@@ -2091,9 +2153,13 @@ async function launch(eac){
 }
 $('playNoEac').onclick = () => launch(false);
 $('playEac').onclick = () => launch(true);
-$('hcSwaps').onclick = () => setTab('vDl');
-$('hcMaps').onclick = () => setTab('vDl');
-$('hcBrowse').onclick = () => setTab('vBrowse');
+$('hSwap').onclick = () => {
+  setTab('vDl');
+  // unten links aufleuchten lassen
+  const st = $('status'); st.classList.remove('spot'); void st.offsetWidth;
+  setTimeout(() => st.classList.add('spot'), 260);
+  setTimeout(() => st.classList.remove('spot'), 2200);
+};
 // Mit Anti-Cheat starten, obwohl noch Maps getauscht sind -> erst zuruecksetzen
 function askEac(){ $('eacErr').classList.remove('on'); $('eacDlg').classList.add('show'); Sfx.ui('present'); }
 function closeEac(){ $('eacDlg').classList.remove('show'); }
@@ -2405,7 +2471,7 @@ async function outro(){
 window.__requestClose = () => requestClose();
 
 /* ---------- Beim Schliessen nachfragen, wenn noch eine Map getauscht ist ---------- */
-drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo')); drawLogo($('heroLogo'));
+drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo'));
 let asking = false;
 function askKeep(s){
   return new Promise(resolve => {
