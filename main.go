@@ -704,6 +704,11 @@ func main() {
 	}
 	boostInit(findCooked, boostEnabled)
 	w.Bind("getBoost", func() BoostStatus { return getBoost() })
+	// ---- Discord Rich Presence ----
+	presenceInit()
+	w.Bind("getPresence", func() PresenceStatus { return getPresence() })
+	w.Bind("setPresenceCfg", func(m map[string]bool) { setPresenceCfg(m) })
+	w.Bind("setPresenceTab", func(t string) { setPresenceTab(t) })
 	w.Bind("setBoost", func(on bool) BoostStatus { return setBoost(on) })
 	w.Bind("launchRL", func(eac bool) error { return app.LaunchRL(eac) })
 	w.Bind("friendsAsync", func(cb int, key string) {
@@ -770,5 +775,6 @@ func main() {
 	w.Run()
 	trayRemove()
 	boostShutdown()
+	presenceShutdown()
 	stopHelper()
 }

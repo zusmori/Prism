@@ -21,6 +21,7 @@
 - **Swap Maps**: put a workshop map in place of an arena.
 - **Browse Maps**: find and download workshop maps right in the app.
 - **Game Boost** (on by default): while Rocket League runs, ZL gives it high CPU priority and switches Windows to best performance, and makes sure laptops use the fast graphics card. Priority and power mode go back to normal when the game closes, and turning Boost off undoes everything. Your in-game settings are never touched.
+- **Discord Rich Presence**: shows your Rocket League status on Discord, like "Ranked Duel · Mannfield" and "1 : 2 · 2:14 left". It uses Rocket League's official Stats API, which ZL turns on for you. Everything can be switched off in Settings.
 - **Settings** (gear icon): colors with matching video backgrounds, sounds, updates.
 
 ## Play workshop maps
