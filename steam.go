@@ -3,7 +3,7 @@
 package main
 
 // Download von Workshop-Maps direkt ueber den laufenden Steam-Client (Steamworks).
-// ZMS meldet sich dafuer kurz als Rocket League (App 252950) bei Steam an und
+// ZL meldet sich dafuer kurz als Rocket League (App 252950) bei Steam an und
 // trennt sich wieder, sobald alle Downloads fertig sind.
 
 import (
@@ -49,7 +49,7 @@ type DlEvent struct {
 //
 // Wichtig: Steam haelt Rocket League fuer "laufend", solange der Prozess lebt,
 // der sich als App 252950 angemeldet hat - auch nach SteamAPI_Shutdown. Darum
-// laeuft der Steam-Teil in einem eigenen Prozess ("ZMS.exe --steam-helper"),
+// laeuft der Steam-Teil in einem eigenen Prozess ("ZL.exe --steam-helper"),
 // der sich beendet, sobald alle Downloads fertig sind. Dann startet Rocket
 // League wieder ohne Wartezeit.
 
@@ -150,7 +150,7 @@ func startHelper() error {
 	return nil
 }
 
-// Beim Beenden von ZMS den Hilfsprozess nicht verwaist zuruecklassen
+// Beim Beenden von ZL den Hilfsprozess nicht verwaist zuruecklassen
 func stopHelper() {
 	helperMu.Lock()
 	defer helperMu.Unlock()

@@ -3,13 +3,13 @@
 package main
 
 // Updater: prueft beim Start den neuesten GitHub-Release und tauscht die
-// laufende ZMS.exe auf Wunsch gegen die neue Version aus.
+// laufende exe (ZL.exe, frueher ZMS.exe) auf Wunsch gegen die neue Version aus.
 //
 // Ablauf beim Installieren:
-//   1. neue ZMS.exe neben die alte herunterladen (ZMS.exe.update)
-//   2. laufende ZMS.exe in ZMS.exe.old umbenennen (geht unter Windows auch im Betrieb)
+//   1. neue exe neben die alte herunterladen (<name>.exe.update)
+//   2. laufende exe in <name>.exe.old umbenennen (geht unter Windows auch im Betrieb)
 //   3. neue Datei an ihren Platz schieben und starten ("--after-update <pid>")
-//   4. die neue Version wartet, bis die alte zu ist, und loescht ZMS.exe.old
+//   4. die neue Version wartet, bis die alte zu ist, und loescht <name>.exe.old
 
 import (
 	"encoding/json"
@@ -31,7 +31,8 @@ const appVersion = "1.2.3"
 
 const (
 	releaseAPI = "https://api.github.com/repos/zusmori/zusmoris-map-swapper/releases/latest"
-	assetName  = "ZMS.exe"
+	assetName  = "ZL.exe"
+	oldAsset   = "ZMS.exe" // Name bis v1.2.2, als Ersatz weiter akzeptiert
 )
 
 type UpdateInfo struct {
@@ -50,7 +51,7 @@ func checkUpdate() (UpdateInfo, error) {
 	info := UpdateInfo{Current: appVersion}
 	req, _ := http.NewRequest("GET", releaseAPI, nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "ZMS/"+appVersion)
+	req.Header.Set("User-Agent", "ZL/"+appVersion)
 	c := &http.Client{Timeout: 12 * time.Second}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -81,9 +82,12 @@ func checkUpdate() (UpdateInfo, error) {
 	info.Version = strings.TrimPrefix(strings.TrimSpace(rel.Tag), "v")
 	info.Notes = strings.TrimSpace(rel.Body)
 	info.Page = rel.Page
-	for _, a := range rel.Assets {
-		if strings.EqualFold(a.Name, assetName) && strings.HasPrefix(a.URL, "https://github.com/") {
-			info.URL, info.Size = a.URL, a.Size
+	// bevorzugt ZL.exe, sonst die alte ZMS.exe
+	for _, want := range []string{assetName, oldAsset} {
+		for _, a := range rel.Assets {
+			if info.URL == "" && strings.EqualFold(a.Name, want) && strings.HasPrefix(a.URL, "https://github.com/") {
+				info.URL, info.Size = a.URL, a.Size
+			}
 		}
 	}
 	info.Available = info.URL != "" && newerVersion(info.Version, appVersion)
@@ -118,13 +122,13 @@ func installUpdate(progress func(pct float64)) error {
 	}
 	exe, err := os.Executable()
 	if err != nil {
-		return errors.New("Couldn't find ZMS.exe.")
+		return errors.New("Couldn't find the ZL program file.")
 	}
 	tmp, old := exe+".update", exe+".old"
 	_ = os.Remove(tmp)
 
 	req, _ := http.NewRequest("GET", info.URL, nil)
-	req.Header.Set("User-Agent", "ZMS/"+appVersion)
+	req.Header.Set("User-Agent", "ZL/"+appVersion)
 	c := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -140,7 +144,7 @@ func installUpdate(progress func(pct float64)) error {
 	}
 	f, err := os.Create(tmp)
 	if err != nil {
-		return errors.New("ZMS can't write to its own folder. Move ZMS.exe somewhere like Downloads or Desktop and try again.")
+		return errors.New("ZL can't write to its own folder. Move ZL.exe somewhere like Downloads or Desktop and try again.")
 	}
 	var done int64
 	buf := make([]byte, 64<<10)
@@ -185,12 +189,12 @@ func installUpdate(progress func(pct float64)) error {
 	_ = os.Remove(old)
 	if err := os.Rename(exe, old); err != nil {
 		os.Remove(tmp)
-		return errors.New("Couldn't replace ZMS.exe. Close other copies of ZMS and try again.")
+		return errors.New("Couldn't replace ZL.exe. Close other copies of ZL and try again.")
 	}
 	if err := os.Rename(tmp, exe); err != nil {
 		_ = os.Rename(old, exe) // zurueckrollen
 		os.Remove(tmp)
-		return errors.New("Couldn't replace ZMS.exe.")
+		return errors.New("Couldn't replace ZL.exe.")
 	}
 	cmd := exec.Command(exe, "--after-update", strconv.Itoa(os.Getpid()))
 	if err := cmd.Start(); err != nil {

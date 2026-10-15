@@ -522,7 +522,7 @@ func open(target string) {
 func msgBox(text string) {
 	user32 := windows.NewLazySystemDLL("user32.dll")
 	t, _ := windows.UTF16PtrFromString(text)
-	c, _ := windows.UTF16PtrFromString("zusmori's Map Swapper")
+	c, _ := windows.UTF16PtrFromString("zusmori's Launcher")
 	user32.NewProc("MessageBoxW").Call(0, uintptr(unsafe.Pointer(t)), uintptr(unsafe.Pointer(c)), 0x40)
 }
 
@@ -544,7 +544,7 @@ func main() {
 		AutoFocus: true,
 		DataPath:  filepath.Join(dataDir, "webview"),
 		WindowOptions: webview2.WindowOptions{
-			Title:  "zusmori's Map Swapper",
+			Title:  "zusmori's Launcher",
 			Width:  winW,
 			Height: winH,
 			IconId: 1,
@@ -552,7 +552,7 @@ func main() {
 		},
 	})
 	if w == nil {
-		msgBox("zusmori's Map Swapper needs the Microsoft Edge WebView2 Runtime.\n\nDownload it for free from Microsoft (search: \"WebView2 Runtime\") and start the app again.")
+		msgBox("zusmori's Launcher needs the Microsoft Edge WebView2 Runtime.\n\nDownload it for free from Microsoft (search: \"WebView2 Runtime\") and start the app again.")
 		return
 	}
 	defer w.Destroy()

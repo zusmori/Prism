@@ -2,10 +2,10 @@
   <img src="assets/logo.png" width="88" alt="logo">
 </p>
 
-<h1 align="center">zusmori's Map Swapper</h1>
-<p align="center"><b>ZMS</b></p>
+<h1 align="center">zusmori's Launcher</h1>
+<p align="center"><b>ZL</b></p>
 
-<p align="center">Play workshop maps in Rocket League Freeplay. Pick one, hit swap, done.</p>
+<p align="center">A Rocket League launcher. Start the game with or without Anti-Cheat, see what your Steam friends are up to and play workshop maps in Freeplay.</p>
 
 <p align="center">
   <a href="../../releases/latest"><b>Download</b></a>
@@ -15,28 +15,37 @@
   <img src="assets/screenshot.png" width="760" alt="screenshot">
 </p>
 
-## How it works
+## What's inside
+
+- **Home**: hit **Play** and choose with or without Anti-Cheat. Your Steam friends are on the right, live.
+- **Swap Maps**: put a workshop map in place of an arena.
+- **Browse Maps**: find and download workshop maps right in the app.
+- **Settings** (gear icon): colors with matching video backgrounds, sounds, updates.
+
+## Play workshop maps
 
 1. Download a map in **Browse Maps** (or subscribe to one in the Steam Workshop)
 2. Pick it in **Swap Maps**. Rocket League can stay open, just stay in the main menu
 3. Choose the arena it should replace and hit **Swap**
-4. Hit **Play without Anti-Cheat** on the Home tab and start Freeplay on that arena
+4. Hit **Play** on the Home tab, choose **Without Anti-Cheat** and start Freeplay on that arena
 
 Done playing? Hit **Restore** and everything's back to normal.
 
 ## Good to know
 
-- **Offline only** (Freeplay, training, LAN). Psyonix [allows third-party mods in offline modes](https://www.rocketleague.com/news/easy-anti-cheat-comes-to-rocket-league-on-pc-today) as long as you launch the game **without Easy Anti-Cheat**. ZMS won't touch any files while Anti-Cheat is running.
-- Always **Restore** before going online or into ranked. If in doubt, verify your game files in Steam.
-- ZMS only swaps map files on your own PC and puts the originals back. It doesn't change the game itself, give you items or touch online play.
-- Workshop maps belong to their creators. ZMS downloads them through your own Steam account, the same way subscribing in the Workshop does.
+- **Workshop maps are offline only** (Freeplay, training, LAN). Psyonix [allows third-party mods in offline modes](https://www.rocketleague.com/news/easy-anti-cheat-comes-to-rocket-league-on-pc-today) as long as you launch the game **without Easy Anti-Cheat**. ZL won't touch any files while Anti-Cheat is running.
+- Always **Restore** before going online or into ranked. ZL warns you if you try to start with Anti-Cheat while maps are swapped. If in doubt, verify your game files in Steam.
+- ZL only swaps map files on your own PC and puts the originals back. It doesn't change the game itself, give you items or touch online play.
+- Workshop maps belong to their creators. ZL downloads them through your own Steam account, the same way subscribing in the Workshop does.
+- Your friends list comes from your Steam profile. If it's private, you can add a free Steam API key in Settings.
+- ZL updates itself. When a new version is out, you get asked on start.
 - Windows might warn you on first launch since the app isn't signed. Click **More info → Run anyway**.
 - Works with Beckwith Park, Farmstead, Salty Shores, Underpass, Utopia Coliseum and Wasteland.
 - Needs Windows 10/11 and Rocket League on Steam.
 
 ## Disclaimer
 
-Unofficial fan project. Not affiliated with, endorsed or sponsored by Psyonix, Epic Games or Valve. Rocket League, Steam and all related names are trademarks of their respective owners. Use at your own risk.
+Unofficial fan project. Not affiliated with, endorsed or sponsored by Psyonix, Epic Games or Valve. Rocket League, Steam and all related names and logos are trademarks of their respective owners. Use at your own risk.
 
 ## Support
 
