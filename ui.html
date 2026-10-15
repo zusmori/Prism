@@ -690,7 +690,7 @@
             <div class="cp-sep"></div>
             <div class="cp-sec">Settings</div>
             <div class="cp-set" id="setKeep" role="switch" aria-checked="false" tabindex="0">
-              <div class="tx"><b>Keep swaps after closing</b><small>Maps stay swapped when you close ZMS. You won't be asked to restore, so remember to restore before playing online.</small></div>
+              <div class="tx"><b>Keep swaps after closing</b><small>Maps stay swapped when you close ZMS. You won't be asked to restore.</small></div>
               <span class="tg" id="tgKeep"></span>
             </div>
           </div>
@@ -747,7 +747,7 @@
   <div class="box">
     <svg id="askLogo" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
     <h3>Keep your map swapped?</h3>
-    <p>A workshop map is still in place of an arena.<br>Restore it before you play online.</p>
+    <p>A workshop map is still in place of an arena.<br>Restore it if you want to play online.</p>
     <div class="which" id="askWhich"></div>
     <div class="btns">
       <button class="btn ghost" id="askKeep"><span class="lbl">Keep it</span></button>
@@ -1026,11 +1026,10 @@ const settings = {keepSwaps: false};
 function paintSettings(){
   $('tgKeep').classList.toggle('on', settings.keepSwaps);
   $('setKeep').setAttribute('aria-checked', settings.keepSwaps);
-  $('keepNote').innerHTML = settings.keepSwaps ? '<svg width="11" height="11" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3.5 7h9v7h-9z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>Swaps stay after closing · restore before playing online' : '';
+  $('keepNote').innerHTML = settings.keepSwaps ? '<svg width="11" height="11" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3.5 7h9v7h-9z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>Swaps stay after closing' : '';
 }
 async function toggleKeep(){
   settings.keepSwaps = !settings.keepSwaps;
-  if (settings.keepSwaps) toast('Swaps will stay after closing. Restore them before you play online.', true);
   paintSettings(); Sfx.ui('tab');
   try { if (has('setSetting')) await setSetting('keepSwaps', settings.keepSwaps); } catch (e) { toast(e, false); }
 }
