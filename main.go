@@ -600,12 +600,6 @@ func main() {
 	})
 	w.Bind("setFolder", func(p string) error { return app.SetFolder(p) })
 	w.Bind("isRLRunning", func() bool { return rlRunning() })
-	w.Bind("getConfigs", func() []Config { return loadConfigs() })
-	w.Bind("saveConfig", func(c Config) (Config, error) { return saveConfig(c) })
-	w.Bind("deleteConfig", func(id string) error { return deleteConfig(id) })
-	w.Bind("applyConfigAsync", func(cb int, id string) {
-		go func() { finish(cb, app.ApplyConfig(id)) }()
-	})
 
 	// ---- Browse Maps / Downloads / Favoriten ----
 	w.Bind("recommendedAsync", func(id int) {
@@ -695,6 +689,27 @@ func main() {
 	})
 	w.Bind("toggleFav", func(key string) bool { return toggleFav(key) })
 	w.Bind("openOwn", func() { open(ownDir) })
+	w.Bind("openWorkshopDir", func() error {
+		// Workshop-Ordner von Rocket League in der ersten Steam-Bibliothek, die einen hat
+		var fallback string
+		for _, lib := range steamLibraries() {
+			d := filepath.Join(lib, "steamapps", "workshop", "content", appID)
+			if fi, err := os.Stat(d); err == nil && fi.IsDir() {
+				open(d)
+				return nil
+			}
+			if w := filepath.Join(lib, "steamapps", "workshop"); fallback == "" {
+				if fi, err := os.Stat(w); err == nil && fi.IsDir() {
+					fallback = w
+				}
+			}
+		}
+		if fallback != "" {
+			open(fallback)
+			return nil
+		}
+		return errors.New("Couldn't find the Steam workshop folder. Download a map first.")
+	})
 	w.Bind("openWorkshop", func() { open("steam://url/SteamWorkshopPage/" + appID) })
 
 	w.SetHtml(uiHTML)

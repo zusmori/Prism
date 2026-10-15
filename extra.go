@@ -374,13 +374,14 @@ func bindWindow(w webview2.WebView, hwnd uintptr) {
 	// Einstellung: Intro-Sound an/aus
 	settingsFile := filepath.Join(dataDir, "settings.json")
 	// Einstellungen (z. B. "keepSwaps": Swaps beim Schliessen behalten, ohne Nachfrage)
-	w.Bind("getSettings", func() map[string]bool {
-		st := map[string]bool{}
+	// Werte koennen Schalter (bool) oder Text sein (z. B. "theme")
+	w.Bind("getSettings", func() map[string]interface{} {
+		st := map[string]interface{}{}
 		loadJSON(settingsFile, &st)
 		return st
 	})
-	w.Bind("setSetting", func(key string, val bool) error {
-		st := map[string]bool{}
+	w.Bind("setSetting", func(key string, val interface{}) error {
+		st := map[string]interface{}{}
 		loadJSON(settingsFile, &st)
 		st[key] = val
 		return saveJSON(settingsFile, st)
