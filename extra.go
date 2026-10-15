@@ -26,6 +26,8 @@ import (
 type Meta struct {
 	Title   string `json:"title"`
 	Preview string `json:"preview"`
+	Creator string `json:"creator,omitempty"`
+	Author  string `json:"author,omitempty"`
 }
 
 var (
@@ -73,9 +75,9 @@ func fetchMeta(ids []string) bool {
 		if id == "" {
 			continue
 		}
-		_, ok := getMeta(id)
+		m, ok := getMeta(id)
 		_, err := os.Stat(previewPath(id))
-		if !ok || err != nil {
+		if !ok || err != nil || m.Creator == "" {
 			need = append(need, id)
 		}
 	}
@@ -100,6 +102,7 @@ func fetchMeta(ids []string) bool {
 				ID      string `json:"publishedfileid"`
 				Title   string `json:"title"`
 				Preview string `json:"preview_url"`
+				Creator string `json:"creator"`
 			} `json:"publishedfiledetails"`
 		} `json:"response"`
 	}
@@ -112,9 +115,27 @@ func fetchMeta(ids []string) bool {
 			continue
 		}
 		metaMu.Lock()
-		metaCache[d.ID] = Meta{Title: strings.TrimSpace(d.Title), Preview: d.Preview}
+		old := metaCache[d.ID]
+		author := old.Author
+		if old.Creator != d.Creator {
+			author = ""
+		}
+		metaCache[d.ID] = Meta{Title: strings.TrimSpace(d.Title), Preview: d.Preview, Creator: d.Creator, Author: author}
 		metaMu.Unlock()
 		changed = true
+		if author == "" && d.Creator != "" {
+			if n := profileName(d.Creator); n != "" {
+				metaMu.Lock()
+				m := metaCache[d.ID]
+				m.Author = n
+				metaCache[d.ID] = m
+				metaMu.Unlock()
+			}
+		}
+		if _, err := os.Stat(previewPath(d.ID)); err == nil && old.Preview == d.Preview {
+			continue // Bild ist schon da und unveraendert
+		}
+		_ = os.Remove(hqPath(d.ID))
 		if d.Preview != "" {
 			if r, err := client.Get(d.Preview); err == nil {
 				b, _ := io.ReadAll(io.LimitReader(r.Body, 8<<20))
@@ -144,6 +165,12 @@ func dataURL(b []byte) string {
 // Vorschaubild zu einer Map: Steam-Bild, sonst ein Bild im selben Ordner.
 func previewFor(id, mapPath string) string {
 	if id != "" {
+		// hochskalierte Version bevorzugen
+		if b, err := os.ReadFile(hqPath(id)); err == nil {
+			if u := dataURL(b); u != "" {
+				return u
+			}
+		}
 		if b, err := os.ReadFile(previewPath(id)); err == nil {
 			if u := dataURL(b); u != "" {
 				return u

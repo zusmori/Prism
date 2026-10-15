@@ -55,7 +55,8 @@ var friendly = map[string]string{
 
 type MapInfo struct {
 	Name  string  `json:"name"`
-	Title string  `json:"title"`
+	Title  string  `json:"title"`
+	Author string  `json:"author"`
 	ID    string  `json:"id"`
 	Path  string  `json:"path"`
 	MB    float64 `json:"mb"`
@@ -192,13 +193,17 @@ func workshopMaps() []MapInfo {
 			}
 			name := strings.TrimSuffix(filepath.Base(p), filepath.Ext(p))
 			id := workshopID(r, p)
-			title := name
-			if m, ok := getMeta(id); ok && m.Title != "" {
-				title = m.Title
+			title, author := name, ""
+			if m, ok := getMeta(id); ok {
+				if m.Title != "" {
+					title = m.Title
+				}
+				author = m.Author
 			}
 			maps = append(maps, MapInfo{
 				Name:  name,
-				Title: title,
+				Title:  title,
+				Author: author,
 				ID:    id,
 				Path:  p,
 				MB:    float64(int(size*10)) / 10,
@@ -566,6 +571,10 @@ func main() {
 			}
 			if fetchMeta(ids) {
 				w.Dispatch(func() { w.Eval("window.__metaReady && window.__metaReady()") })
+			}
+			// Vorschaubilder im Hintergrund hochskalieren
+			if upscaleAll(ids) {
+				w.Dispatch(func() { w.Eval("window.__metaReady && window.__metaReady(true)") })
 			}
 		}()
 	})

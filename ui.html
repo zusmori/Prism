@@ -793,7 +793,7 @@ async function preview(m){
   if (!(m.path in previews)) previews[m.path] = await getPreview(m.id || '', m.path);
   return previews[m.path];
 }
-window.__metaReady = () => { for (const k in previews) if (!previews[k]) delete previews[k]; refresh(true); };
+window.__metaReady = all => { for (const k in previews) if (all || !previews[k]) delete previews[k]; refresh(true); };
 
 /* ---------- Map-Liste ---------- */
 let maps = [], selected = null, firstList = true;
@@ -866,7 +866,7 @@ async function select(path, force){
   shownPath = path;
   const t = $('ptitle');
   $('pname').textContent = m.title;
-  $('pmeta').textContent = m.mb ? m.mb + ' MB' : '';
+  $('pmeta').textContent = m.author ? 'by ' + m.author : '';
   t.classList.remove('anim'); void t.offsetWidth; t.classList.add('anim');
   const url = await preview(m);
   if (selected !== path) return;
