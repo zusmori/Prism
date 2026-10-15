@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -688,6 +689,33 @@ func main() {
 		}()
 	})
 	w.Bind("toggleFav", func(key string) bool { return toggleFav(key) })
+	// ---- Home: Rocket League starten, Steam-Freunde ----
+	w.Bind("rlStatus", func() RLStatus { return app.RLStatus() })
+	w.Bind("launchRL", func(eac bool) error { return app.LaunchRL(eac) })
+	w.Bind("friendsAsync", func(cb int, key string) {
+		go func() {
+			res, err := steamFriends(key)
+			payload, msg := "null", ""
+			if err != nil {
+				msg = err.Error()
+			} else {
+				b, _ := json.Marshal(res)
+				payload = string(b)
+			}
+			m, _ := json.Marshal(msg)
+			w.Dispatch(func() { w.Eval(fmt.Sprintf("window.__browsed(%d,%s,%s)", cb, payload, m)) })
+		}()
+	})
+	w.Bind("openFriendChat", func(id string) {
+		if _, err := strconv.ParseUint(id, 10, 64); err == nil {
+			open("steam://friends/message/" + id)
+		}
+	})
+	w.Bind("openSteamProfile", func(id string) {
+		if _, err := strconv.ParseUint(id, 10, 64); err == nil {
+			open("https://steamcommunity.com/profiles/" + id)
+		}
+	})
 	w.Bind("openOwn", func() { open(ownDir) })
 	w.Bind("openWorkshopDir", func() error {
 		// Workshop-Ordner von Rocket League in der ersten Steam-Bibliothek, die einen hat

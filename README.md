@@ -18,9 +18,9 @@
 ## How it works
 
 1. Download a map in **Browse Maps** (or subscribe to one in the Steam Workshop)
-2. Pick it in **Downloaded Maps**. Rocket League can stay open, just stay in the main menu
+2. Pick it in **Swap Maps**. Rocket League can stay open, just stay in the main menu
 3. Choose the arena it should replace and hit **Swap**
-4. Start Freeplay on that arena. Rocket League has to run **without Easy Anti-Cheat**
+4. Hit **Play without Anti-Cheat** on the Home tab and start Freeplay on that arena
 
 Done playing? Hit **Restore** and everything's back to normal.
 

@@ -769,6 +769,126 @@
   .alinks a{color:rgb(var(--ac2-rgb));cursor:pointer;font-weight:600;text-decoration:none}
   .alinks a:hover{text-decoration:underline;text-underline-offset:2px}
   .alinks b{color:var(--muted);font-weight:600}
+
+  /* ================= Home ================= */
+  #vHome{display:grid;grid-template-columns:1fr clamp(270px,30vw,360px);gap:16px;padding:4px 18px 18px}
+  .max #vHome{padding:4px 22px 22px}
+  .hleft{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
+  .hero{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--panel);isolation:isolate}
+  .hbg{position:absolute;inset:-6%;background:center/cover no-repeat;opacity:0;filter:saturate(1.1);transform:scale(1.06);
+    transition:opacity 1s var(--ease),transform 2s var(--ease)}
+  .hbg.ok{opacity:.55;transform:scale(1);animation:kenburns 26s 2s ease-in-out infinite alternate}
+  .hart{position:absolute;inset:0;z-index:-1;background:
+    radial-gradient(60% 70% at 80% 20%,rgb(var(--ac-rgb) / .35),transparent 60%),
+    radial-gradient(50% 60% at 15% 90%,rgb(var(--acdd-rgb) / .35),transparent 65%),var(--panel)}
+  .hart svg{position:absolute;right:-4%;top:50%;width:min(52%,380px);height:auto;transform:translateY(-50%) rotate(-8deg);opacity:.16;
+    filter:drop-shadow(0 0 40px rgb(var(--ac-rgb) / .8));animation:hfloat 9s ease-in-out infinite}
+  @keyframes hfloat{50%{transform:translateY(-53%) rotate(-5deg)}}
+  .hshade{position:absolute;inset:0;background:linear-gradient(90deg,var(--bg) 0%,rgb(9 9 11 / .85) 35%,rgb(9 9 11 / .25) 75%,transparent),
+    linear-gradient(0deg,rgb(9 9 11 / .7),transparent 50%);pointer-events:none}
+  .hcontent{position:absolute;left:30px;right:30px;bottom:28px;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+  .hcontent .tag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgb(var(--ac2-rgb));
+    background:rgb(var(--ac-rgb) / .14);border:1px solid rgb(var(--ac-rgb) / .3);padding:3px 9px;border-radius:999px}
+  .hcontent h1{font-size:clamp(26px,3.4vw,38px);font-weight:700;line-height:1.08;letter-spacing:-.4px;text-shadow:0 4px 30px rgba(0,0,0,.6)}
+  .hcontent h1 span{background:linear-gradient(90deg,#fff,rgb(var(--ac3-rgb)));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hstat{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .hstat b{color:var(--text);font-weight:600}
+  .hstat .dot{--c:113 113 122;animation:none;box-shadow:none}
+  .hstat.run .dot{--c:126 226 168;animation:pulse 2.2s cubic-bezier(.4,0,.6,1) infinite}
+  .hstat.eac .dot{--c:var(--ac2-rgb)}
+  .hbtns{display:flex;gap:12px;flex-wrap:wrap}
+  .lbtn{position:relative;overflow:hidden;display:flex;align-items:center;gap:13px;height:62px;padding:0 22px 0 16px;border-radius:15px;cursor:pointer;
+    border:1px solid var(--line2);background:rgb(15 15 18 / .7);backdrop-filter:blur(10px);color:var(--text);font:inherit;text-align:left;
+    transition:background .25s,border-color .25s,box-shadow .3s var(--ease),transform .15s var(--ease),opacity .25s}
+  .lbtn:hover{border-color:rgb(var(--ac-rgb) / .45);background:rgb(24 22 32 / .8);transform:translateY(-2px)}
+  .lbtn:active{transform:scale(.98)}
+  .lbtn .li{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;background:rgb(var(--ac-rgb) / .15);color:rgb(var(--ac2-rgb))}
+  .lbtn .li svg{width:18px;height:18px}
+  .lbtn b{display:block;font-size:14.5px;font-weight:600}
+  .lbtn small{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+  .lbtn.pri{background:var(--accent);border-color:transparent;color:#fff;box-shadow:0 14px 34px -14px rgb(var(--ac-rgb) / .9),inset 0 1px 0 rgba(255,255,255,.18)}
+  .lbtn.pri:hover{background:rgb(var(--ach-rgb));box-shadow:0 18px 40px -12px rgb(var(--ac-rgb) / 1),inset 0 1px 0 rgba(255,255,255,.22)}
+  .lbtn.pri .li{background:rgba(255,255,255,.18);color:#fff}
+  .lbtn.pri small{color:rgba(255,255,255,.75)}
+  .lbtn.pri::after{content:"";position:absolute;top:0;bottom:0;width:60px;left:-80px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);transform:skewX(-20deg);animation:idleshine 5s 1.5s ease-in-out infinite}
+  .lbtn.busy{pointer-events:none}
+  .lbtn.busy .li svg{display:none}
+  .lbtn.busy .li::after{content:"";width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:sp .8s linear infinite}
+  .lbtn[disabled]{opacity:.45;pointer-events:none;transform:none}
+  .hcards{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .hcard{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);cursor:pointer;
+    text-align:left;font:inherit;color:inherit;transition:background .2s,border-color .25s,transform .25s var(--ease)}
+  .hcard:hover{background:var(--panel2);border-color:rgb(var(--ac-rgb) / .35);transform:translateY(-2px)}
+  .hcard .gi{width:36px;height:36px;border-radius:11px;background:rgb(var(--ac-rgb) / .1);border:1px solid rgb(var(--ac-rgb) / .2)}
+  .hcard b{display:block;font-size:17px;font-weight:700;line-height:1.1}
+  .hcard small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+  .hcard.hot{border-color:rgb(var(--ac-rgb) / .35);background:linear-gradient(160deg,rgb(var(--acd-rgb) / .1),var(--panel) 60%)}
+  /* Freunde */
+  .friends{display:flex;flex-direction:column;min-height:0;padding:14px 8px 8px}
+  .fh{display:flex;align-items:center;gap:9px;padding:0 8px 4px 10px}
+  .fh b{font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+  .fh .fon{font-size:11px;font-weight:700;color:var(--ok);background:rgba(126,226,168,.1);border:1px solid rgba(126,226,168,.22);padding:1px 7px;border-radius:999px}
+  .fh .fon:empty{display:none}
+  .fh .ib2{margin-left:auto;width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--faint);cursor:pointer;display:grid;place-items:center;transition:background .15s,color .15s}
+  .fh .ib2:hover{background:var(--hover);color:var(--text)}
+  .fh .ib2.spin svg{animation:sp .9s linear infinite}
+  .fme{padding:0 10px 8px;font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fme:empty{display:none}
+  .fsearch{position:relative;margin:2px 4px 6px}
+  .fsearch input{width:100%;height:32px;padding:0 10px 0 30px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none;user-select:text;transition:border-color .2s}
+  .fsearch input:focus{border-color:rgb(var(--ac-rgb) / .45)}
+  .fsearch input::placeholder{color:var(--faint)}
+  .fsearch .gi{position:absolute;left:9px;top:50%;transform:translateY(-50%)} .fsearch .gi svg{width:13px;height:13px}
+  .flist{flex:1;min-height:0;overflow-y:auto;padding:0 2px 0 4px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .fsec{display:flex;align-items:center;gap:8px;padding:10px 8px 5px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--faint);cursor:default}
+  .fsec i{flex:1;height:1px;background:var(--line)}
+  .fsec.rl{color:rgb(var(--ac2-rgb))}
+  .fsec.tog{cursor:pointer} .fsec.tog:hover{color:var(--muted)}
+  .fsec .chv{transition:transform .3s var(--ease)} .fsec.closed .chv{transform:rotate(-90deg)}
+  .fr{position:relative;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 8px;border-radius:10px;cursor:pointer;transition:background .15s;animation:frin .4s var(--ease) backwards}
+  @keyframes frin{from{opacity:0;transform:translateX(8px)}}
+  .fr:hover{background:var(--hover)}
+  .fav{position:relative;width:34px;height:34px;flex:none;border-radius:9px;background:#1b1b22 center/cover no-repeat}
+  .fav::after{content:"";position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;border:2.5px solid var(--panel);background:#52525b}
+  .fr.online .fav::after{background:#57cbde}
+  .fr.away .fav::after{background:#57cbde;opacity:.5}
+  .fr.ingame .fav::after{background:#90ba3c}
+  .fr.rl .fav::after{background:rgb(var(--ac2-rgb));box-shadow:0 0 8px rgb(var(--ac-rgb) / .9)}
+  .fr.rl .fav{box-shadow:0 0 0 1.5px rgb(var(--ac-rgb) / .7),0 0 14px -2px rgb(var(--ac-rgb) / .7)}
+  .fr.offline .fav,.fr.unknown .fav{filter:grayscale(.7) brightness(.75)}
+  .fr .ft{flex:1;min-width:0}
+  .fr .ft b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fr .ft small{display:block;font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fr.online .ft small,.fr.away .ft small{color:#57cbde}
+  .fr.ingame .ft small{color:#90ba3c}
+  .fr.rl .ft small{color:rgb(var(--ac2-rgb))}
+  .fr.offline .ft b,.fr.unknown .ft b{color:var(--muted)}
+  .fr .fa{display:flex;gap:2px;opacity:0;transition:opacity .15s}
+  .fr:hover .fa{opacity:1}
+  .fr .fa button{width:26px;height:26px;border:0;border-radius:7px;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center}
+  .fr .fa button:hover{background:var(--panel2);color:var(--text)}
+  .fr .fa svg{width:13px;height:13px}
+  .fsk{display:flex;align-items:center;gap:10px;padding:6px 8px}
+  .fsk .a{width:34px;height:34px;border-radius:9px} .fsk .l{flex:1;display:flex;flex-direction:column;gap:6px}
+  .fsk .l i{display:block;height:9px;border-radius:5px;width:70%} .fsk .l i + i{width:40%}
+  .fsk .a,.fsk .l i{background:linear-gradient(90deg,#16161c 25%,#22222b 50%,#16161c 75%);background-size:300% 100%;animation:skel 1.5s ease-in-out infinite}
+  .fmsg{padding:28px 14px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.55}
+  .fmsg b{display:block;color:var(--text);font-size:13.5px;margin-bottom:4px}
+  .fmsg .sbtn{margin-top:12px;height:34px;font-size:12.5px}
+  .fhint{margin:6px 6px 2px;padding:9px 11px;border-radius:10px;font-size:11.5px;line-height:1.45;color:var(--muted);background:var(--panel2);border:1px solid var(--line)}
+  .fhint:empty{display:none}
+  .fhint a{color:rgb(var(--ac2-rgb));cursor:pointer;font-weight:600}
+  /* API-Key in den Settings */
+  .keyrow{display:flex;gap:8px;align-items:center;flex:none}
+  .keyrow input{width:190px;height:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);
+    font:inherit;font-size:12.5px;font-family:Consolas,monospace;outline:none;user-select:text;transition:border-color .2s,box-shadow .2s}
+  .keyrow input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
+  .keyrow input::placeholder{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;color:var(--faint)}
+  .srow .tx small a{color:rgb(var(--ac2-rgb));cursor:pointer;font-weight:600}
+  @media (max-width:860px){ .hcards{grid-template-columns:1fr 1fr} .hcards .hcard:last-child{display:none} }
+  .leftcol .card:hover,.friends.card:hover{transform:none;box-shadow:none}
+  .leftcol .card,.friends.card{cursor:default}
 </style>
 </head>
 <body>
@@ -784,7 +904,8 @@
     </div>
         <div class="tabs" id="tabs">
       <span class="ink"></span>
-      <button class="tab on" data-tab="vDl">Downloaded Maps</button>
+      <button class="tab on" data-tab="vHome">Home</button>
+      <button class="tab" data-tab="vDl">Swap Maps</button>
       <button class="tab" data-tab="vBrowse">Browse Maps <span class="badge" id="dlBadge"></span></button>
     </div>
     <button class="upill" id="updPill" title="A new version of ZMS is available"><span class="gi" data-ic="down"></span>Update<i></i></button>
@@ -795,7 +916,37 @@
   </div>
 
   <div class="views">
-  <main id="vDl" class="pane">
+  <section id="vHome" class="pane">
+    <div class="hleft">
+      <div class="hero in" style="--d:.04s">
+        <div class="hart"><svg id="heroLogo" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg></div>
+        <div class="hbg" id="hBg"></div><div class="hshade"></div>
+        <div class="hcontent">
+          <span class="tag"><span class="gi" data-ic="car"></span>Rocket League</span>
+          <h1 id="hTitle">Ready to <span>play?</span></h1>
+          <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
+          <div class="hbtns">
+            <button class="lbtn pri" id="playNoEac"><span class="li"><span class="gi" data-ic="play"></span></span><span><b>Play without Anti-Cheat</b><small>Freeplay &amp; workshop maps</small></span></button>
+            <button class="lbtn" id="playEac"><span class="li"><span class="gi" data-ic="shield"></span></span><span><b>Play with Anti-Cheat</b><small>Online &amp; ranked</small></span></button>
+          </div>
+        </div>
+      </div>
+      <div class="hcards in" style="--d:.09s">
+        <button class="hcard" id="hcSwaps"><span class="gi" data-ic="swap"></span><span><b id="hcSwapN">0</b><small>Active swaps</small></span></button>
+        <button class="hcard" id="hcMaps"><span class="gi" data-ic="folder"></span><span><b id="hcMapN">0</b><small>Downloaded maps</small></span></button>
+        <button class="hcard" id="hcBrowse"><span class="gi" data-ic="spark"></span><span><b>Browse</b><small>Find new maps</small></span></button>
+      </div>
+    </div>
+    <aside class="card friends in" style="--d:.07s">
+      <div class="fh"><span class="gi" data-ic="users"></span><b>Steam friends</b><span class="fon" id="fOn"></span>
+        <button class="ib2" id="fRefresh" title="Refresh"><span class="gi" data-ic="year"></span></button></div>
+      <div class="fme" id="fMe"></div>
+      <div class="fsearch"><span class="gi" data-ic="search"></span><input id="fSearch" placeholder="Search friends …" spellcheck="false"></div>
+      <div class="flist" id="fList"></div>
+      <div class="fhint" id="fHint"></div>
+    </aside>
+  </section>
+  <main id="vDl" class="pane off" style="--dir:24px">
     <!-- Linke Spalte: Maps -->
     <div class="leftcol">
     <section class="card side in" style="--d:.04s">
@@ -912,7 +1063,7 @@
   <div class="box">
     <div class="ico"><span class="gi" data-ic="steamoff"></span></div>
     <h3>Steam isn't running</h3>
-    <p>Maps are downloaded through Steam.<br>Open Steam and log in. The download starts by itself.</p>
+    <p id="steamWhy">Maps are downloaded through Steam.<br>Open Steam and log in. The download starts by itself.</p>
     <div class="wait" id="steamWait"><span class="orb"><i></i><i></i><i></i></span><span id="steamWaitTx">Waiting for Steam …</span></div>
     <div class="btns">
       <button class="btn ghost" id="steamCancel"><span class="lbl">Cancel</span></button>
@@ -934,6 +1085,18 @@
     </div>
   </div>
 </div>
+<div class="mdl" id="eacDlg">
+  <div class="box">
+    <div class="ico"><span class="gi" data-ic="shield"></span></div>
+    <h3>Restore your maps first?</h3>
+    <p>You still have workshop maps swapped in. Restore them before playing online with Anti-Cheat.</p>
+    <div class="merr" id="eacErr"></div>
+    <div class="btns">
+      <button class="btn ghost" id="eacCancel"><span class="lbl">Cancel</span></button>
+      <button class="btn" id="eacGo"><span class="lbl">Restore &amp; play</span><span class="spin"><i></i></span></button>
+    </div>
+  </div>
+</div>
 <div class="mdl" id="setDlg">
   <div class="box sbox">
     <div class="shead"><span class="gi" data-ic="gear"></span><h3>Settings</h3>
@@ -944,6 +1107,11 @@
           <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in ZMS.</small></div><span class="tg" id="tgMute"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
           <div class="tx"><b>Swaps stay after closing</b><small>Maps stay swapped when you close ZMS. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
+      </div></div>
+      <div class="ssec"><h4>Steam</h4><div class="sgrp">
+        <div class="srow"><span class="sic gi" data-ic="key"></span>
+          <div class="tx"><b>Steam API key</b><small>Optional. Shows your friends' status more reliably. <a id="lnkKey">Get your key</a></small></div>
+          <div class="keyrow"><input id="steamKey" type="password" placeholder="Paste key …" maxlength="64" spellcheck="false" autocomplete="off"></div></div>
       </div></div>
       <div class="ssec"><h4>Color</h4><div class="sgrp"><div class="swatches" id="swatches"></div></div></div>
       <div class="ssec"><h4>Folders</h4><div class="sgrp">
@@ -1218,13 +1386,14 @@ async function refresh(force){
   renderList();
   if (selected) select(selected, force);
   setStatus(s);
+  if (typeof paintHome === 'function') paintHome();
 }
 
 
 $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scrollWidth > el.clientWidth){ e.preventDefault(); el.scrollBy({left: e.deltaY + e.deltaX, behavior: 'smooth'}); } }, {passive: false});
 
 /* ---------- Einstellungen ---------- */
-const settings = {keepSwaps: false, mute: false, theme: 'amethyst'};
+const settings = {keepSwaps: false, mute: false, theme: 'amethyst', steamKey: ''};
 // Farb-Presets: Akzent in 8 Abstufungen (RGB), Hintergrund bekommt automatisch einen leichten Ton davon
 const THEMES = [
   {id: 'amethyst', name: 'Amethyst', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247']},
@@ -1264,6 +1433,7 @@ function paintSettings(){
   $('muteIc').innerHTML = icon(settings.mute ? 'mute' : 'sound');
   Sfx.mute(settings.mute);
   applyTheme(settings.theme, false);
+  if (document.activeElement !== $('steamKey')) $('steamKey').value = settings.steamKey || '';
 }
 function toggleSetting(k){
   if (k === 'mute' && settings.mute){ settings.mute = false; paintSettings(); Sfx.ui('tab'); }   // erst an, dann Klick hoeren
@@ -1292,6 +1462,17 @@ $('openWsDir').onclick = async () => {
   Sfx.ui('tick');
   try { if (has('openWorkshopDir')) await openWorkshopDir(); else toast('Not available in preview', false); } catch (e) { toast(e, false); }
 };
+$('lnkKey').onclick = () => has('openURL') && openURL('https://steamcommunity.com/dev/apikey');
+function saveKey(){
+  const v = $('steamKey').value.trim();
+  if (v === (settings.steamKey || '')) return;
+  if (v && !/^[0-9A-Fa-f]{32}$/.test(v)){ toast('That doesn\'t look like a Steam API key (32 characters).', false); return; }
+  settings.steamKey = v; saveSetting('steamKey', v);
+  toast(v ? 'Steam API key saved.' : 'Steam API key removed.', true);
+  home.fAt = 0; loadFriends();
+}
+$('steamKey').addEventListener('change', saveKey);
+$('steamKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('steamKey').blur(); } });
 $('lnkGit').onclick = () => has('openURL') && openURL('https://github.com/zusmori/zusmoris-map-swapper');
 $('lnkRel').onclick = () => has('openURL') && openURL('https://github.com/zusmori/zusmoris-map-swapper/releases');
 
@@ -1370,7 +1551,8 @@ document.addEventListener('contextmenu', e => { if (e.target.tagName !== 'INPUT'
 
 
 /* ---------- Tabs ---------- */
-let tab = 'vDl', installed = new Set();
+let tab = 'vHome', installed = new Set();
+const PANES = ['vHome', 'vDl', 'vBrowse'];
 function moveInk(wrap, btn){
   const ink = wrap.querySelector('.ink'), r = btn.getBoundingClientRect(), w = wrap.getBoundingClientRect();
   ink.style.left = (r.left - w.left - wrap.clientLeft) + 'px'; ink.style.width = r.width + 'px';
@@ -1381,8 +1563,9 @@ function setTab(t){
   tab = t;
   document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   moveInk($('tabs'), document.querySelector(`#tabs .tab[data-tab="${t}"]`));
-  $('vDl').classList.toggle('off', t !== 'vDl');
-  $('vBrowse').classList.toggle('off', t !== 'vBrowse');
+  const ti = PANES.indexOf(t);
+  PANES.forEach((id, i) => { $(id).style.setProperty('--dir', (i < ti ? -24 : 24) + 'px'); $(id).classList.toggle('off', id !== t); });
+  if (t === 'vHome') homeEnter();
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
 }
@@ -1425,7 +1608,14 @@ const ICONS = {
   lock:   '<rect x="3.2" y="7" width="9.6" height="7" rx="1.6"/><path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7"/>',
   folder: '<path d="M2 4.6a1.2 1.2 0 0 1 1.2-1.2h3l1.5 1.6h5.1A1.2 1.2 0 0 1 14 6.2v6.1a1.2 1.2 0 0 1-1.2 1.2H3.2A1.2 1.2 0 0 1 2 12.3z"/>',
   ext:    '<path d="M9 2.8h4.2V7M13.2 2.8L7.6 8.4M11.8 9.6v2.6a1 1 0 0 1-1 1H3.8a1 1 0 0 1-1-1V5.2a1 1 0 0 1 1-1h2.6"/>',
-  check:  '<path d="M3.5 8.4l3 3 6-6.4"/>'
+  check:  '<path d="M3.5 8.4l3 3 6-6.4"/>',
+  play:   '<path d="M5 3.2v9.6a.5.5 0 0 0 .76.43l7.6-4.8a.5.5 0 0 0 0-.86l-7.6-4.8A.5.5 0 0 0 5 3.2z"/>',
+  shield: '<path d="M8 1.8l5 1.9v4c0 3.2-2.1 5.6-5 6.5-2.9-.9-5-3.3-5-6.5v-4z"/><path d="M5.8 8.1l1.6 1.6 2.9-3.1"/>',
+  car:    '<path d="M2.5 10.5V8.6l1.4-3.2a1.2 1.2 0 0 1 1.1-.7h6a1.2 1.2 0 0 1 1.1.7l1.4 3.2v1.9"/><path d="M2 10.5h12v1.6a.6.6 0 0 1-.6.6H2.6a.6.6 0 0 1-.6-.6z"/><path d="M4.6 8.4h6.8"/>',
+  swap:   '<path d="M3 5.5h9.5L10 3M13 10.5H3.5L6 13"/>',
+  key:    '<circle cx="5.3" cy="10.7" r="2.8"/><path d="M7.3 8.7l5.4-5.4M10.6 5.4l1.8 1.8M12.3 3.7l1.4 1.4"/>',
+  chat:   '<path d="M2.5 4.2a1.4 1.4 0 0 1 1.4-1.4h8.2a1.4 1.4 0 0 1 1.4 1.4v5.4a1.4 1.4 0 0 1-1.4 1.4H7l-3 2.4v-2.4h-.1a1.4 1.4 0 0 1-1.4-1.4z"/>',
+  user:   '<circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.6c.5-2.6 2.5-4 5-4s4.5 1.4 5 4"/>'
 };
 const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
 document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.closest('.rnav') ? 13 : 16));
@@ -1722,8 +1912,22 @@ window.__dl = async e => {
 /* ---------- Steam nicht offen ---------- */
 const steamQ = new Map(); let steamPoll = null, steamT0 = 0;
 function steamBtn(label, busy){ const b = $('steamOpen'); b.querySelector('.lbl').textContent = label; b.classList.toggle('busy', !!busy); }
+const STEAM_WHY = {
+  dl: 'Maps are downloaded through Steam.<br>Open Steam and log in. The download starts by itself.',
+  play: 'Rocket League runs through Steam.<br>Open Steam and log in. Rocket League starts by itself.'
+};
+// fn: was passieren soll, sobald Steam laeuft (z. B. Spiel starten)
+function askSteamFor(key, fn, why){
+  steamQ.set(key, {fn});
+  if ($('steamDlg').classList.contains('show')) return;
+  $('steamWhy').innerHTML = STEAM_WHY[why] || STEAM_WHY.dl;
+  $('steamWait').classList.remove('on'); steamBtn('Open Steam', false);
+  $('steamDlg').classList.add('show'); Sfx.ui('error');
+  startSteamPoll();
+}
 function askSteam(it, card){
   steamQ.set(it.id, {it, card});
+  $('steamWhy').innerHTML = STEAM_WHY.dl;
   if ($('steamDlg').classList.contains('show')) return;
   $('steamWait').classList.remove('on'); steamBtn('Open Steam', false);
   $('steamDlg').classList.add('show'); Sfx.ui('error');
@@ -1743,7 +1947,7 @@ async function steamReady(){
   if (!$('steamDlg').classList.contains('show')) return;
   closeSteam(); Sfx.ui('done');
   const q = [...steamQ.values()]; steamQ.clear();
-  for (const x of q) startDownload(x.it, x.card);
+  for (const x of q) x.fn ? x.fn() : startDownload(x.it, x.card);
 }
 function closeSteam(){ $('steamDlg').classList.remove('show'); clearInterval(steamPoll); steamPoll = null; }
 $('steamCancel').onclick = () => { steamQ.clear(); closeSteam(); Sfx.ui('tick'); };
@@ -1828,10 +2032,159 @@ $('updGo').onclick = async () => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('steamDlg').classList.contains('show')) $('steamCancel').onclick();
+  else if ($('eacDlg').classList.contains('show')) $('eacCancel').onclick();
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
 (async () => { try { if (has('getVersion')) $('verLbl').textContent = 'Version ' + await getVersion(); } catch (e) {} })();
+
+/* ---------- Home: Spiel starten ---------- */
+const home = {st: null, poll: null, launching: null, friends: null, fAt: 0, fBusy: false, offOpen: false};
+const rlCall = () => has('rlStatus') ? rlStatus() : Promise.resolve({found: true, running: false, eac: false, steam: true});
+function paintHome(){
+  const sw = Object.keys(curState.swaps || {}).length;
+  $('hcSwapN').textContent = sw; $('hcSwaps').classList.toggle('hot', sw > 0);
+  $('hcMapN').textContent = maps.length;
+  // Hintergrund: getauschte Map, sonst eine heruntergeladene
+  const pick = maps.find(m => Object.values(curState.swaps || {}).includes(m.name)) || maps[0];
+  if (pick && home.bgFor !== pick.path){
+    home.bgFor = pick.path;
+    preview(pick).then(u => { const bg = $('hBg'); if (!u){ bg.classList.remove('ok'); return; } const im = new Image(); im.onload = () => { bg.style.backgroundImage = `url("${u}")`; bg.classList.add('ok'); }; im.src = u; });
+  }
+}
+function paintRL(st){
+  home.st = st;
+  const s = $('hStat'), tx = $('hStatTx');
+  s.classList.toggle('run', !!st.running); s.classList.toggle('eac', !!(st.running && st.eac));
+  if (home.launching && !st.running){ tx.innerHTML = '<b>Starting Rocket League …</b>'; }
+  else if (st.running){ tx.innerHTML = '<b>Rocket League is running</b> · ' + (st.eac ? 'with Anti-Cheat' : 'without Anti-Cheat'); }
+  else if (!st.found){ tx.innerHTML = '<b>Rocket League not found</b> · set the folder under Swap Maps'; }
+  else tx.innerHTML = '<b>Not running</b>' + (st.steam ? '' : ' · Steam is closed');
+  if (st.running && home.launching){ home.launching = null; Sfx.ui('done'); }
+  ['playNoEac', 'playEac'].forEach(id => {
+    const b = $(id), busy = home.launching === id;
+    b.classList.toggle('busy', busy);
+    b.disabled = !!st.running || (!!home.launching && !busy);
+  });
+  $('playNoEac').querySelector('b').textContent = st.running && !st.eac ? 'Running' : 'Play without Anti-Cheat';
+  $('playEac').querySelector('b').textContent = st.running && st.eac ? 'Running' : 'Play with Anti-Cheat';
+}
+async function pollRL(){ try { paintRL(await rlCall()); } catch (e) {} }
+function homeEnter(){
+  paintHome(); pollRL();
+  clearInterval(home.poll); home.poll = setInterval(() => { if (tab === 'vHome' && !document.hidden) pollRL(); }, 2500);
+  if (Date.now() - home.fAt > 30000) loadFriends();
+}
+async function launch(eac){
+  const id = eac ? 'playEac' : 'playNoEac';
+  if (home.launching) return;
+  if (eac && Object.keys(curState.swaps || {}).length) return askEac();
+  home.launching = id; paintRL(home.st || {found: true}); Sfx.ui('swap');
+  try {
+    if (has('launchRL')) await launchRL(eac);
+    clearTimeout(home.lt); home.lt = setTimeout(() => { if (home.launching === id){ home.launching = null; pollRL(); } }, 45000);
+  } catch (e) {
+    home.launching = null; pollRL();
+    if (/^Steam isn't running/.test(String(e))) return askSteamFor('play', () => launch(eac), 'play');
+    toast(e, false);
+  }
+}
+$('playNoEac').onclick = () => launch(false);
+$('playEac').onclick = () => launch(true);
+$('hcSwaps').onclick = () => setTab('vDl');
+$('hcMaps').onclick = () => setTab('vDl');
+$('hcBrowse').onclick = () => setTab('vBrowse');
+// Mit Anti-Cheat starten, obwohl noch Maps getauscht sind -> erst zuruecksetzen
+function askEac(){ $('eacErr').classList.remove('on'); $('eacDlg').classList.add('show'); Sfx.ui('present'); }
+function closeEac(){ $('eacDlg').classList.remove('show'); }
+$('eacCancel').onclick = () => { closeEac(); Sfx.ui('dismiss'); };
+$('eacGo').onclick = async () => {
+  const b = $('eacGo'); if (b.classList.contains('busy')) return;
+  b.classList.add('busy');
+  try { await call('restoreAsync'); await refresh(); closeEac(); Sfx.ui('restore'); setTimeout(() => launch(true), 250); }
+  catch (e) { $('eacErr').textContent = String(e); $('eacErr').classList.add('on'); Sfx.ui('error'); }
+  b.classList.remove('busy');
+};
+
+/* ---------- Home: Steam-Freunde ---------- */
+const friendsCall = () => new Promise((res, rej) => {
+  if (!has('friendsAsync')) return rej('Not available in preview');
+  const id = ++bseq; bpend[id] = {resolve: res, reject: rej}; friendsAsync(id, settings.steamKey || '');
+});
+function friendSkeleton(){
+  $('fList').innerHTML = Array.from({length: 7}, () => '<div class="fsk"><div class="a"></div><div class="l"><i></i><i></i></div></div>').join('');
+}
+async function loadFriends(manual){
+  if (home.fBusy) return;
+  home.fBusy = true; $('fRefresh').classList.add('spin');
+  if (!home.friends) friendSkeleton();
+  try {
+    const r = await friendsCall();
+    home.friends = r; home.fAt = Date.now(); home.fErr = null;
+    if (manual) Sfx.ui('tick');
+  } catch (e) { home.fErr = String(e); if (!home.friends || /Steam isn't running/.test(home.fErr)) home.friends = null; }
+  home.fBusy = false; $('fRefresh').classList.remove('spin');
+  renderFriends();
+}
+function renderFriends(){
+  const L = $('fList'), r = home.friends;
+  $('fHint').innerHTML = '';
+  if (!r){
+    $('fOn').textContent = ''; $('fMe').textContent = '';
+    const steamOff = /Steam isn't running/.test(home.fErr || '');
+    L.innerHTML = `<div class="fmsg"><b>${steamOff ? "Steam isn't running" : "Couldn't load friends"}</b><span></span>${steamOff ? '<br><button class="sbtn" id="fOpenSteam">Open Steam</button>' : '<br><button class="sbtn" id="fRetry">Try again</button>'}</div>`;
+    L.querySelector('span').textContent = steamOff ? 'Open Steam to see who is online.' : (home.fErr || '');
+    if (steamOff) $('fOpenSteam').onclick = () => { if (has('openSteam')) openSteam(); setTimeout(() => loadFriends(), 9000); };
+    else $('fRetry').onclick = () => loadFriends(true);
+    return;
+  }
+  $('fMe').textContent = r.meName ? 'Signed in as ' + r.meName : '';
+  const all = r.friends || [], on = all.filter(f => f.state !== 'offline' && f.state !== 'unknown').length;
+  $('fOn').textContent = on ? on + ' online' : '';
+  if (r.hint) $('fHint').innerHTML = esc(r.hint).replace('Settings', '<a id="fHintSet">Settings</a>');
+  const h = $('fHintSet'); if (h) h.onclick = openSettings;
+  const q = $('fSearch').value.trim().toLowerCase();
+  const list = q ? all.filter(f => f.name.toLowerCase().includes(q)) : all;
+  if (!all.length){ L.innerHTML = '<div class="fmsg"><b>No friends found</b>Add friends on Steam and they show up here.</div>'; return; }
+  const groups = [
+    ['In Rocket League', 'rl', list.filter(f => f.state === 'ingame' && f.game === 'Rocket League')],
+    ['In-Game', '', list.filter(f => f.state === 'ingame' && f.game !== 'Rocket League')],
+    ['Online', '', list.filter(f => f.state === 'online' || f.state === 'away')],
+    ['Offline', 'off', list.filter(f => f.state === 'offline' || f.state === 'unknown')]
+  ];
+  const keep = L.scrollTop; L.innerHTML = ''; let n = 0;
+  groups.forEach(([label, kind, fs]) => {
+    if (!fs.length) return;
+    const sec = document.createElement('div');
+    const closed = kind === 'off' && !home.offOpen && !q && list.length > fs.length;
+    sec.className = 'fsec' + (kind === 'rl' ? ' rl' : '') + (kind === 'off' ? ' tog' + (closed ? ' closed' : '') : '');
+    sec.innerHTML = `<span>${label} · ${fs.length}</span><i></i>` + (kind === 'off' ? '<svg class="chv" width="10" height="10" viewBox="0 0 16 16"><path d="M4 6.2l4 4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' : '');
+    if (kind === 'off') sec.onclick = () => { home.offOpen = !home.offOpen; Sfx.ui('tick'); renderFriends(); };
+    L.appendChild(sec);
+    if (closed) return;
+    fs.forEach(f => {
+      const isRL = f.state === 'ingame' && f.game === 'Rocket League';
+      const d = document.createElement('div');
+      d.className = 'fr ' + f.state + (isRL ? ' rl' : '');
+      d.style.animationDelay = Math.min(n++, 14) * 22 + 'ms';
+      d.innerHTML = `<div class="fav"></div><div class="ft"><b></b><small></small></div>
+        <div class="fa"><button title="Open profile">${icon('user')}</button><button title="Send message">${icon('chat')}</button></div>`;
+      if (f.avatar) d.querySelector('.fav').style.backgroundImage = `url("${f.avatar}")`;
+      d.querySelector('b').textContent = f.name;
+      d.querySelector('small').textContent = f.state === 'ingame' ? (f.game || 'In-Game') : f.state === 'online' ? 'Online' : f.state === 'away' ? 'Away' : (f.note || 'Offline');
+      const [bp, bc] = d.querySelectorAll('.fa button');
+      bp.onclick = e => { e.stopPropagation(); has('openSteamProfile') && openSteamProfile(f.id); };
+      bc.onclick = e => { e.stopPropagation(); has('openFriendChat') && openFriendChat(f.id); };
+      d.onclick = () => has('openFriendChat') && openFriendChat(f.id);
+      L.appendChild(d);
+    });
+  });
+  if (!L.children.length) L.innerHTML = '<div class="fmsg">No friends match your search.</div>';
+  L.scrollTop = keep;
+}
+$('fRefresh').onclick = () => loadFriends(true);
+$('fSearch').addEventListener('input', () => home.friends && renderFriends());
+setInterval(() => { if (tab === 'vHome' && !document.hidden && Date.now() - home.fAt > 60000) loadFriends(); }, 15000);
 
 /* ---------- Map-Details ---------- */
 let detItem = null, detCard = null;
@@ -2052,7 +2405,7 @@ async function outro(){
 window.__requestClose = () => requestClose();
 
 /* ---------- Beim Schliessen nachfragen, wenn noch eine Map getauscht ist ---------- */
-drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo'));
+drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo')); drawLogo($('heroLogo'));
 let asking = false;
 function askKeep(s){
   return new Promise(resolve => {
@@ -2104,6 +2457,7 @@ window.__requestClose = () => requestClose();   // auch bei Alt+F4 / Taskleiste
   try { if (has('isMaximized')) window.__max(await isMaximized()); } catch (e) {}
   try { if (has('getSettings')) Object.assign(settings, await getSettings()); } catch (e) {}
   paintSettings();
+  homeEnter();
   if (has('appReady')) await appReady();
   await raf2();
   try { await intro(); } catch (e) { document.body.classList.add('go'); }
