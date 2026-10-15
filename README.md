@@ -1,53 +1,87 @@
 <p align="center">
-  <img src="assets/logo.png" width="88" alt="logo">
+  <img src="assets/logo.png" width="96" alt="ZL logo">
 </p>
 
 <h1 align="center">zusmori's Launcher</h1>
-<p align="center"><b>ZL</b></p>
-
-<p align="center">A Rocket League launcher. Start the game with or without Anti-Cheat, see what your Steam friends are up to and play workshop maps in Freeplay.</p>
+<p align="center"><b>ZL</b> · a Rocket League launcher for Windows</p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>Download</b></a>
+  Start Rocket League with or without Anti-Cheat, see what your Steam friends are up to,<br>
+  play workshop maps in Freeplay and show off your matches on Discord.
 </p>
 
 <p align="center">
-  <img src="assets/screenshot.png" width="760" alt="screenshot">
+  <a href="../../releases/latest"><b>⬇ Download the latest version</b></a>
 </p>
 
-## What's inside
+<p align="center">
+  <img src="assets/home.jpg" width="880" alt="ZL Home tab">
+</p>
 
-- **Home**: hit **Play** and choose with or without Anti-Cheat. Your Steam friends are on the right, live.
-- **Swap Maps**: put a workshop map in place of an arena.
-- **Browse Maps**: find and download workshop maps right in the app.
-- **Game Boost** (on by default): while Rocket League runs, ZL gives it high CPU priority and switches Windows to best performance, and makes sure laptops use the fast graphics card. Priority and power mode go back to normal when the game closes, and turning Boost off undoes everything. Your in-game settings are never touched.
-- **Discord Rich Presence**: shows your Rocket League status on Discord, like "Rocket League · 2s Ranked" and "2 : 1". It uses Rocket League's official Stats API, which ZL turns on for you. Everything can be switched off in Settings.
-- **Settings** (gear icon): colors with matching video backgrounds, sounds, updates.
+## Features
+
+**🏠 Home**
+- One **Play** button. Pick *with* Anti-Cheat for online and ranked, or *without* for Freeplay and workshop maps.
+- Starting with Anti-Cheat while maps are still swapped? ZL warns you first and can restore everything with one click.
+- Your **Steam friends** on the right, live: who's online, who's in a game and who's playing Rocket League. Friends light up when they come online or start a game.
+- A looping **video background** that matches your color.
+
+**⚡ Game Boost** (on by default, one click to turn off)
+- Rocket League gets high CPU priority while it runs (only without Anti-Cheat; ZL never touches the Anti-Cheat process).
+- Windows switches to *best performance* while you play.
+- Laptops with two graphics chips use the fast one.
+- Priority and power mode go back to normal when the game closes. Your in-game settings are never changed.
+
+**🎮 Discord Rich Presence**
+- Shows things like **Rocket League · 2s Ranked** and **2 : 1** on your Discord profile, or **Rocket League · Freeplay**.
+- Uses Rocket League's official [Stats API](https://www.rocketleague.com/en/developer/stats-api). ZL turns it on for you.
+- Every part can be switched off in Settings, with a live preview of what Discord shows.
+
+**🗺 Swap Maps**
+- Put any workshop map in place of an arena and play it in Freeplay.
+- **Restore** puts the original arena back.
+
+**🔎 Browse Maps**
+- Find and download workshop maps right inside the app, with hand-picked recommendations, search, sort and time range.
+
+<p align="center">
+  <img src="assets/browse.jpg" width="880" alt="ZL Browse Maps tab">
+</p>
+
+**⚙ And more**
+- 4 colors (Purple, Blue, Cyan, Green), each with its own video background.
+- Closes to the tray instead of quitting. Right-click the tray icon to quit.
+- Updates itself. When a new version is out, ZL asks you on start.
+
+## Getting started
+
+1. [Download](../../releases/latest) `ZL.exe` and run it. No install needed.
+2. Windows might warn you the first time because the app isn't signed. Click **More info → Run anyway**.
+3. Make sure Steam is running, then hit **Play**.
 
 ## Play workshop maps
 
-1. Download a map in **Browse Maps** (or subscribe to one in the Steam Workshop)
-2. Pick it in **Swap Maps**. Rocket League can stay open, just stay in the main menu
-3. Choose the arena it should replace and hit **Swap**
-4. Hit **Play** on the Home tab, choose **Without Anti-Cheat** and start Freeplay on that arena
+1. Download a map in **Browse Maps** (or subscribe to one in the Steam Workshop).
+2. Pick it in **Swap Maps**. Rocket League can stay open, just stay in the main menu.
+3. Choose the arena it should replace and hit **Swap**.
+4. Hit **Play**, choose **Without Anti-Cheat** and start Freeplay on that arena.
 
 Done playing? Hit **Restore** and everything's back to normal.
 
 ## Good to know
 
-- **Workshop maps are offline only** (Freeplay, training, LAN). Psyonix [allows third-party mods in offline modes](https://www.rocketleague.com/news/easy-anti-cheat-comes-to-rocket-league-on-pc-today) as long as you launch the game **without Easy Anti-Cheat**. ZL won't touch any files while Anti-Cheat is running.
-- Always **Restore** before going online or into ranked. ZL warns you if you try to start with Anti-Cheat while maps are swapped. If in doubt, verify your game files in Steam.
+- **Workshop maps are offline only** (Freeplay, training, LAN). Psyonix [allows third-party mods in offline modes](https://www.rocketleague.com/news/easy-anti-cheat-comes-to-rocket-league-on-pc-today) as long as you launch the game **without Easy Anti-Cheat**. ZL won't touch any game files while Anti-Cheat is running.
+- Always **Restore** before going online or into ranked. If in doubt, verify your game files in Steam.
 - ZL only swaps map files on your own PC and puts the originals back. It doesn't change the game itself, give you items or touch online play.
 - Workshop maps belong to their creators. ZL downloads them through your own Steam account, the same way subscribing in the Workshop does.
-- Your friends list comes from your Steam profile. If it's private, you can add a free Steam API key in Settings.
-- ZL updates itself. When a new version is out, you get asked on start.
-- Windows might warn you on first launch since the app isn't signed. Click **More info → Run anyway**.
-- Works with Beckwith Park, Farmstead, Salty Shores, Underpass, Utopia Coliseum and Wasteland.
-- Needs Windows 10/11 and Rocket League on Steam.
+- The friends list comes from your Steam profile. If your friends list is private, you can add a free Steam API key in Settings.
+- Discord Rich Presence needs the Discord desktop app and *Display current activity* turned on in Discord's activity privacy settings.
+- Needs Windows 10/11, Rocket League on Steam and the Microsoft Edge WebView2 Runtime (already on most PCs).
+- Workshop maps can replace Beckwith Park, Farmstead, Salty Shores, Underpass, Utopia Coliseum and Wasteland.
 
 ## Disclaimer
 
-Unofficial fan project. Not affiliated with, endorsed or sponsored by Psyonix, Epic Games or Valve. Rocket League, Steam and all related names and logos are trademarks of their respective owners. Use at your own risk.
+Unofficial fan project. Not affiliated with, endorsed or sponsored by Psyonix, Epic Games, Valve or Discord. Rocket League, Steam, Discord and all related names and logos are trademarks of their respective owners. Use at your own risk.
 
 ## Support
 
