@@ -1056,6 +1056,47 @@
   .btn.red{background:#b91c1c;box-shadow:0 8px 24px -10px rgba(220,38,38,.7)}
   .btn.red:hover{background:#c62828}
   .btn.red::before{display:none}
+
+  /* ---------- Game Boost ---------- */
+  .bchip{position:relative;display:flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 11px;border-radius:999px;cursor:pointer;font:inherit;color:#d4d4dc;
+    background:rgb(12 12 16 / .45);border:1px solid rgba(255,255,255,.09);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05);transition:border-color .3s,background .3s,box-shadow .35s var(--ease),transform .2s var(--ease)}
+  .bchip:hover{transform:translateY(-1px);border-color:rgb(var(--ac-rgb) / .5)}
+  .bchip .bt{font-size:12.5px;font-weight:700;letter-spacing:.3px}
+  .bchip .bs{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.07);color:var(--muted)}
+  .bchip .gi svg{width:15px;height:15px}
+  .bchip.on{border-color:rgb(var(--ac-rgb) / .45);color:#fff}
+  .bchip.on .bs{background:rgb(var(--ac-rgb) / .22);color:rgb(var(--ac3-rgb))}
+  .bchip:not(.on) .gi{color:var(--faint)} .bchip:not(.on) .gi svg{filter:none}
+  .bchip.live{border-color:rgb(var(--ac2-rgb) / .8);box-shadow:0 0 0 1px rgb(var(--ac-rgb) / .25),0 0 22px -4px rgb(var(--ac-rgb) / .8),inset 0 1px 0 rgba(255,255,255,.08)}
+  .bchip.live .gi svg{animation:boltpulse 1.6s ease-in-out infinite}
+  @keyframes boltpulse{50%{transform:scale(1.2);filter:drop-shadow(0 0 4px rgb(var(--ac2-rgb))) drop-shadow(0 0 10px rgb(var(--ac-rgb)))}}
+  .bchip.live .bs{background:rgb(var(--btn-rgb));color:#fff}
+  .bbox{width:500px!important;text-align:left!important;padding:24px 24px 16px!important}
+  .bhead{display:flex;align-items:center;gap:14px}
+  .bhead .tx{flex:1;min-width:0}
+  .bhead h3{margin:0 0 2px!important;font-size:18px}
+  .bhead p{font-size:12.5px}
+  .bico{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;flex:none;background:radial-gradient(circle at 50% 35%,rgb(var(--ac-rgb) / .3),rgb(var(--ac-rgb) / .06));
+    border:1px solid rgb(var(--ac-rgb) / .35);box-shadow:0 0 30px -6px rgb(var(--ac-rgb) / .6)}
+  .bico .gi svg{width:24px;height:24px}
+  .mdl.show .bico{animation:icopop .6s .08s var(--spring) backwards}
+  .bhead .tg{cursor:pointer}
+  .blist{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:opacity .3s}
+  .bbox.off .blist{opacity:.45}
+  .bitem{display:flex;align-items:center;gap:13px;padding:12px 14px}
+  .bitem + .bitem{border-top:1px solid var(--line)}
+  .bitem .tx{flex:1;min-width:0}
+  .bitem .tx b{display:block;font-size:13.5px;font-weight:600}
+  .bitem .tx small{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:1px}
+  .mdl.show .bitem{animation:secin .45s var(--ease) backwards} .mdl.show .bitem:nth-child(2){animation-delay:.05s} .mdl.show .bitem:nth-child(3){animation-delay:.1s}
+  .bbadge{flex:none;font-size:10.5px;font-weight:700;letter-spacing:.4px;padding:3px 9px;border-radius:999px;white-space:nowrap;
+    color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--line2)}
+  .bbadge.on{color:var(--ok);background:rgba(126,226,168,.1);border-color:rgba(126,226,168,.3)}
+  .bbadge.on::before{content:"● ";font-size:8px;vertical-align:1px}
+  .bbadge.warn{color:#fbbf24;background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.28)}
+  .bnote{margin-top:14px;font-size:12px!important;line-height:1.5;color:var(--faint)!important}
+  .bbox .cancel{display:block;margin:10px auto 0}
 </style>
 
 </head>
@@ -1104,6 +1145,7 @@
           <div class="hrow">
             <button class="lbtn pri play" id="playBtn"><span class="li"><span class="gi" data-ic="play"></span></span><span><b>Play</b><small id="playSub">With or without Anti-Cheat</small></span></button>
             <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
+            <button class="bchip" id="boostChip" title="Game Boost"><span class="gi" data-ic="bolt"></span><span class="bt">Boost</span><span class="bs" id="boostChipTx">On</span></button>
           </div>
         </div>
       </div>
@@ -1300,6 +1342,25 @@
       <button class="btn ghost" id="rmCancel"><span class="lbl">Cancel</span></button>
       <button class="btn red" id="rmGo"><span class="lbl">Open in Steam</span></button>
     </div>
+  </div>
+</div>
+<div class="mdl" id="boostDlg">
+  <div class="box bbox">
+    <div class="bhead">
+      <div class="bico"><span class="gi" data-ic="bolt"></span></div>
+      <div class="tx"><h3>Game Boost</h3><p id="boostSub">Gets more out of your PC while Rocket League runs.</p></div>
+      <span class="tg" id="tgBoost" role="switch" tabindex="0"></span>
+    </div>
+    <div class="blist">
+      <div class="bitem" id="biPrio"><span class="sic gi" data-ic="cpu"></span>
+        <div class="tx"><b>High CPU priority</b><small>Windows gives Rocket League more processor time than background apps. Fewer stutters.</small></div><span class="bbadge"></span></div>
+      <div class="bitem" id="biPower"><span class="sic gi" data-ic="bolt"></span>
+        <div class="tx"><b>Best performance power mode</b><small>Your CPU and GPU run at full speed while you play, instead of saving energy.</small></div><span class="bbadge"></span></div>
+      <div class="bitem" id="biGpu"><span class="sic gi" data-ic="gpu"></span>
+        <div class="tx"><b>Use the fast graphics card</b><small>On laptops with two graphics chips, Rocket League runs on the powerful one.</small></div><span class="bbadge"></span></div>
+    </div>
+    <p class="bnote">Everything is undone automatically when Rocket League closes. Your in-game graphics settings are never changed. How much you gain depends on your PC.</p>
+    <button class="cancel" id="boostClose">Close</button>
   </div>
 </div>
 <div class="mdl" id="setDlg">
@@ -1830,6 +1891,9 @@ const ICONS = {
   warn:   '<path d="M8 2.4l6.2 10.8a.7.7 0 0 1-.6 1H2.4a.7.7 0 0 1-.6-1z"/><path d="M8 6.3v3.4M8 11.9v.1"/>',
   userx:  '<circle cx="6.5" cy="5.5" r="2.6"/><path d="M1.8 13.6c.5-2.6 2.4-4 4.7-4 1.2 0 2.3.4 3.1 1.1"/><path d="M11 9.6l3.4 3.4M14.4 9.6L11 13"/>',
   tray:   '<path d="M2.2 9.6l1.6-5.4a1 1 0 0 1 1-.7h6.4a1 1 0 0 1 1 .7l1.6 5.4v3a1 1 0 0 1-1 1H3.2a1 1 0 0 1-1-1z"/><path d="M2.2 9.6h3.3l.9 1.6h3.2l.9-1.6h3.3"/>',
+  bolt:   '<path d="M9.2 1.8L3.6 9.1h4l-1 5.1 5.8-7.6h-4.1z"/>',
+  cpu:    '<rect x="4" y="4" width="8" height="8" rx="1.3"/><rect x="6.3" y="6.3" width="3.4" height="3.4" rx=".5"/><path d="M6 1.8V4M10 1.8V4M6 12v2.2M10 12v2.2M1.8 6H4M1.8 10H4M12 6h2.2M12 10h2.2"/>',
+  gpu:    '<rect x="1.8" y="4.2" width="12.4" height="7.4" rx="1.3"/><circle cx="10.4" cy="7.9" r="1.9"/><path d="M4.3 6.6h2.6M4.3 9.2h2.6M3.6 11.6v2"/>',
   user:   '<circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.6c.5-2.6 2.5-4 5-4s4.5 1.4 5 4"/>'
 };
 const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
@@ -2250,6 +2314,7 @@ document.addEventListener('keydown', e => {
   else if ($('eacDlg').classList.contains('show')) $('eacCancel').onclick();
   else if ($('playDlg').classList.contains('show')) $('playCancel').onclick();
   else if ($('rmDlg').classList.contains('show')) $('rmCancel').onclick();
+  else if ($('boostDlg').classList.contains('show')) $('boostClose').onclick();
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
@@ -2334,7 +2399,7 @@ function paintRL(st){
   $('playSub').textContent = st.running ? (st.eac ? 'With Anti-Cheat' : 'Without Anti-Cheat')
     : home.launching ? (home.launching === 'eac' ? 'With Anti-Cheat' : 'Without Anti-Cheat') : 'With or without Anti-Cheat';
 }
-async function pollRL(){ try { paintRL(await rlCall()); } catch (e) {} }
+async function pollRL(){ try { paintRL(await rlCall()); } catch (e) {} pollBoost(); }
 function homeEnter(){
   paintHome(); pollRL();
   clearInterval(home.poll); home.poll = setInterval(() => { if (tab === 'vHome' && !document.hidden && !appHidden) pollRL(); }, 2500);
@@ -2530,6 +2595,43 @@ $('fSearch').addEventListener('input', () => home.friends && renderFriends());
 // regelmaessig aktualisieren (ohne oeffentliche Liste seltener, das sind viele Einzelabfragen)
 setInterval(() => { const every = home.friends && home.friends.source === 'local' ? 90000 : 30000;
   if (tab === 'vHome' && !document.hidden && !appHidden && Date.now() - home.fAt > every) loadFriends(); }, 5000);
+
+/* ---------- Game Boost ---------- */
+const boost = {st: {enabled: true, active: false, priority: 'waiting', power: 'waiting', gpu: 'off'}};
+const BADGE = {
+  prio: {on: ['on', 'Active'], waiting: ['', 'When you play'], eac: ['warn', 'Not with Anti-Cheat'], failed: ['warn', 'Not allowed']},
+  power: {on: ['on', 'Active'], waiting: ['', 'When you play'], unavailable: ['warn', 'Not supported']},
+  gpu: {set: ['on', 'Set'], off: ['', 'Off'], nopath: ['warn', 'Game not found']}
+};
+function paintBoost(){
+  const st = boost.st, on = !!st.enabled;
+  const c = $('boostChip');
+  c.classList.toggle('on', on); c.classList.toggle('live', on && st.active);
+  $('boostChipTx').textContent = !on ? 'Off' : st.active ? 'Active' : 'On';
+  c.title = !on ? 'Game Boost is off' : st.active ? 'Game Boost is running' : 'Game Boost turns on when you play';
+  $('tgBoost').classList.toggle('on', on); $('tgBoost').setAttribute('aria-checked', on);
+  document.querySelector('#boostDlg .bbox').classList.toggle('off', !on);
+  $('boostSub').textContent = !on ? 'Turned off. Rocket League runs with normal Windows settings.'
+    : st.active ? 'Running now. Rocket League gets the extra power.' : 'Turns on by itself as soon as Rocket League starts.';
+  const set = (id, map, key) => { const [cls, txt] = on ? (map[key] || ['', key]) : ['', 'Off']; const b = $(id).querySelector('.bbadge'); b.className = 'bbadge ' + cls; b.textContent = txt; };
+  set('biPrio', BADGE.prio, st.priority); set('biPower', BADGE.power, st.power); set('biGpu', BADGE.gpu, st.gpu);
+}
+async function pollBoost(){ try { if (has('getBoost')){ boost.st = await getBoost(); paintBoost(); } } catch (e) {} }
+async function toggleBoost(){
+  const on = !boost.st.enabled;
+  boost.st.enabled = on; paintBoost(); Sfx.ui(on ? 'fav' : 'tab');
+  try { if (has('setBoost')) boost.st = await setBoost(on); } catch (e) { toast(e, false); }
+  settings.boost = on; saveSetting('boost', on);
+  paintBoost();
+  toast(on ? 'Game Boost is on.' : 'Game Boost is off. Everything is back to normal.', true);
+}
+$('boostChip').onclick = () => { pollBoost(); $('boostDlg').classList.add('show'); Sfx.ui('present'); };
+const closeBoost = () => $('boostDlg').classList.remove('show');
+$('boostClose').onclick = () => { closeBoost(); Sfx.ui('dismiss'); };
+$('boostDlg').addEventListener('mousedown', e => { if (e.target === $('boostDlg')){ closeBoost(); Sfx.ui('dismiss'); } });
+$('tgBoost').onclick = toggleBoost;
+$('tgBoost').onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleBoost(); } };
+paintBoost();
 
 /* ---------- Freund entfernen (ueber den Steam-Client) ---------- */
 let rmFriend = null;

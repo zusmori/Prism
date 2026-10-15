@@ -20,6 +20,7 @@
 - **Home**: hit **Play** and choose with or without Anti-Cheat. Your Steam friends are on the right, live.
 - **Swap Maps**: put a workshop map in place of an arena.
 - **Browse Maps**: find and download workshop maps right in the app.
+- **Game Boost** (on by default): while Rocket League runs, ZL gives it high CPU priority and switches Windows to best performance, and makes sure laptops use the fast graphics card. Everything is undone when the game closes. Your in-game settings are never touched.
 - **Settings** (gear icon): colors with matching video backgrounds, sounds, updates.
 
 ## Play workshop maps

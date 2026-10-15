@@ -693,6 +693,18 @@ func main() {
 	w.Bind("getMediaBase", func() string { return mediaBase() })
 	w.Bind("getRLLogo", func() string { return rlLogoURL() })
 	w.Bind("rlStatus", func() RLStatus { return app.RLStatus() })
+	// ---- Game-Boost (standardmaessig an) ----
+	boostEnabled := true
+	{
+		st := map[string]interface{}{}
+		loadJSON(filepath.Join(dataDir, "settings.json"), &st)
+		if v, ok := st["boost"].(bool); ok {
+			boostEnabled = v
+		}
+	}
+	boostInit(findCooked, boostEnabled)
+	w.Bind("getBoost", func() BoostStatus { return getBoost() })
+	w.Bind("setBoost", func(on bool) BoostStatus { return setBoost(on) })
 	w.Bind("launchRL", func(eac bool) error { return app.LaunchRL(eac) })
 	w.Bind("friendsAsync", func(cb int, key string) {
 		go func() {
@@ -757,5 +769,6 @@ func main() {
 	}
 	w.Run()
 	trayRemove()
+	boostShutdown()
 	stopHelper()
 }
