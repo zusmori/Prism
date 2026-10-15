@@ -131,6 +131,7 @@ func hideToTray(hwnd uintptr) {
 		trayAdd(hwnd)
 	}
 	pShow.Call(hwnd, 0) // SW_HIDE
+	setPresenceHidden(true)
 	if gw != nil {
 		w := gw
 		go w.Dispatch(func() { w.Eval("window.__tray && window.__tray(true)") })
@@ -139,6 +140,7 @@ func hideToTray(hwnd uintptr) {
 }
 
 func showFromTray(hwnd uintptr) {
+	setPresenceHidden(false)
 	if gw != nil {
 		gw.Eval("window.__tray && window.__tray(false)")
 	}

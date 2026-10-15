@@ -709,6 +709,7 @@ func main() {
 	w.Bind("getPresence", func() PresenceStatus { return getPresence() })
 	w.Bind("setPresenceCfg", func(m map[string]bool) { setPresenceCfg(m) })
 	w.Bind("setPresenceTab", func(t string) { setPresenceTab(t) })
+	w.Bind("setPresenceCtx", func(starting bool, maps int) { setPresenceCtx(starting, maps) })
 	w.Bind("setBoost", func(on bool) BoostStatus { return setBoost(on) })
 	w.Bind("launchRL", func(eac bool) error { return app.LaunchRL(eac) })
 	w.Bind("friendsAsync", func(cb int, key string) {
@@ -728,13 +729,6 @@ func main() {
 	w.Bind("openFriendChat", func(id string) {
 		if _, err := strconv.ParseUint(id, 10, 64); err == nil {
 			open("steam://friends/message/" + id)
-		}
-	})
-	// Steam erlaubt anderen Programmen nicht, Freunde zu entfernen ->
-	// Profil im Steam-Client oeffnen, dort "Remove Friend"
-	w.Bind("openFriendInSteam", func(id string) {
-		if _, err := strconv.ParseUint(id, 10, 64); err == nil {
-			open("steam://url/SteamIDPage/" + id)
 		}
 	})
 	w.Bind("openSteamProfile", func(id string) {

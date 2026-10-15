@@ -16,13 +16,13 @@ func TestStatsAndActivity(t *testing.T) {
 	cfg := PresenceCfg{On: true, Match: true, Maps: true, Launcher: true, Button: true, Time: true}
 	in := PresenceInput{Version: "1.2.7", RLRunning: true, GameStart: now.Add(-time.Minute), Match: &m, MyIDs: []string{"76561198000000001"}}
 	a := BuildActivity(cfg, in)
-	if a.Details != "2s Ranked" || a.State != "1 : 2" {
+	if a.Details != "Rocket League · 2s Ranked" || a.State != "1 : 2" {
 		t.Fatalf("got %q / %q", a.Details, a.State)
 	}
 	// Overtime + Data als String
 	m.Apply([]byte(`{"Event":"UpdateState","Data":"{\"MatchGuid\":\"abc\",\"Players\":[],\"Game\":{\"Teams\":[{\"TeamNum\":0,\"Score\":2},{\"TeamNum\":1,\"Score\":2}],\"PlaylistId\":13,\"TimeSeconds\":12,\"bOvertime\":true,\"Arena\":\"Stadium_P\"}}"}`), now)
 	a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &m, MyName: "nobody"})
-	if a.State != "2 : 2 (OT)" || a.Details != "3s Ranked" {
+	if a.State != "2 : 2 (OT)" || a.Details != "Rocket League · 3s Ranked" {
 		t.Fatalf("ot got %q / %q", a.Details, a.State)
 	}
 	// Ende mit Gewinner
@@ -35,26 +35,42 @@ func TestStatsAndActivity(t *testing.T) {
 	// Freeplay: kein Spielstand
 	fp := MatchState{InMatch: true, Playlist: 9, Arena: "Stadium_P", Seen: now, Teams: []statsTeam{{TeamNum: 0, Score: 3}}}
 	a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &fp})
-	if a.Details != "Freeplay" || a.State != "" {
+	if a.Details != "Rocket League · Freeplay" || a.State != "" {
 		t.Fatalf("freeplay got %q / %q", a.Details, a.State)
 	}
 	// Workshop-Map
 	m2 := MatchState{InMatch: true, Arena: "Park_P", Seen: now}
 	a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &m2, Swaps: map[string]string{"Park_P.upk": "Speed Jump: Rings 3"}})
-	if a.Details != "Freeplay" || a.State != "Speed Jump: Rings 3" {
+	if a.Details != "Rocket League · Freeplay" || a.State != "Speed Jump: Rings 3" {
 		t.Fatalf("map got %q / %q", a.Details, a.State)
 	}
 	// keine Matchdaten
-	if a = BuildActivity(cfg, PresenceInput{RLRunning: true}); a.Details != "Freeplay" {
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true}); a.Details != "Rocket League · Freeplay" {
 		t.Fatal(a.Details)
 	}
-	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, EAC: true}); a.Details != "In the menus" {
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, EAC: true}); a.State != "In the menus" {
 		t.Fatal(a.Details)
 	}
 	// Launcher offen, Spiel zu
 	a = BuildActivity(cfg, PresenceInput{Tab: "vBrowse", LaunchOpen: now})
-	if a.Details != "In ZLauncher" || a.State != "Browsing workshop maps" || a.Buttons[0].Label != "Get ZLauncher" {
+	if a.Details != "Browsing workshop maps" || a.Buttons[0].Label != "Get ZLauncher" {
 		t.Fatalf("launcher got %+v", a)
+	}
+	if a = BuildActivity(cfg, PresenceInput{Tab: "vDl", MapCount: 12}); a.State != "12 maps ready to play" {
+		t.Fatal(a.State)
+	}
+	if a = BuildActivity(cfg, PresenceInput{Tab: "vHome"}); a.Details != "Getting ready to play" {
+		t.Fatal(a.Details)
+	}
+	if BuildActivity(cfg, PresenceInput{Tab: "vHome", Hidden: true}) != nil {
+		t.Fatal("tray should hide presence")
+	}
+	if a = BuildActivity(cfg, PresenceInput{Hidden: true, Starting: true}); a.Details != "Starting Rocket League" {
+		t.Fatal(a.Details)
+	}
+	pm := MatchState{InMatch: true, Playlist: 6, Seen: now, Players: []statsPlayer{{TeamNum: 0}, {TeamNum: 0}, {TeamNum: 1}, {TeamNum: 1}}}
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &pm}); a.Details != "Rocket League · 2s" {
+		t.Fatal(a.Details)
 	}
 	cfg.Launcher = false
 	if BuildActivity(cfg, PresenceInput{}) != nil {

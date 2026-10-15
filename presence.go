@@ -223,6 +223,9 @@ type presenceMgr struct {
 	mu         sync.Mutex
 	cfg        PresenceCfg
 	tab        string
+	hidden     bool
+	starting   bool
+	mapCount   int
 	opened     time.Time
 	gameStart  time.Time
 	ipc        *discordIPC
@@ -304,7 +307,8 @@ func (p *presenceMgr) tick() {
 	}
 	match, live := p.stats.snapshot()
 	in := PresenceInput{Version: appVersion, RLRunning: running, GameStart: p.gameStart, Match: &match,
-		MyIDs: []string{p.steamID}, MyName: p.steamName, Tab: p.tab, LaunchOpen: p.opened}
+		MyIDs: []string{p.steamID}, MyName: p.steamName, Tab: p.tab, LaunchOpen: p.opened,
+		Hidden: p.hidden, Starting: p.starting && !running, MapCount: p.mapCount}
 	if running {
 		in.EAC = eacRunning()
 		if p.cfg.Maps {
@@ -392,6 +396,27 @@ func setPresenceTab(t string) {
 	presence.tab = t
 	presence.lastSend = time.Time{}
 	presence.mu.Unlock()
+}
+
+// Zustand aus der Oberflaeche: Spiel startet gerade, Anzahl Maps
+func setPresenceCtx(starting bool, maps int) {
+	presence.mu.Lock()
+	if presence.starting != starting || presence.mapCount != maps {
+		presence.lastSend = time.Time{}
+	}
+	presence.starting, presence.mapCount = starting, maps
+	presence.mu.Unlock()
+}
+
+// ZL im Tray versteckt / wieder sichtbar
+func setPresenceHidden(h bool) {
+	presence.mu.Lock()
+	if presence.hidden != h {
+		presence.lastSend = time.Time{}
+	}
+	presence.hidden = h
+	presence.mu.Unlock()
+	go presence.tick()
 }
 
 func presenceShutdown() {

@@ -142,7 +142,7 @@ func (m *MatchState) Apply(raw []byte, now time.Time) {
 
 // Einfache Namen: "2s Ranked", "3s Casual", "Freeplay" ...
 var playlistNames = map[int]string{
-	1: "1s Casual", 2: "2s Casual", 3: "3s Casual", 4: "4s Casual", 6: "Private Match", 7: "Season", 8: "Exhibition",
+	1: "1s Casual", 2: "2s Casual", 3: "3s Casual", 4: "4s Casual", 7: "Season", 8: "Exhibition",
 	9: "Freeplay", 10: "1s Ranked", 11: "2s Ranked", 12: "3s Ranked", 13: "3s Ranked",
 	15: "Snow Day", 16: "Rocket Labs", 17: "Hoops", 18: "Rumble", 19: "Freeplay", 20: "Training",
 	21: "Training", 22: "Tournament", 23: "Dropshot", 24: "Exhibition", 26: "Ranked",
@@ -238,6 +238,9 @@ type PresenceInput struct {
 	Swaps      map[string]string // Arena-Datei -> Map-Titel
 	Tab        string            // vHome | vDl | vBrowse
 	LaunchOpen time.Time
+	Hidden     bool // ZL liegt im Tray
+	Starting   bool // Play wurde gedrueckt, Spiel startet gerade
+	MapCount   int  // heruntergeladene Workshop-Maps
 }
 
 type Activity struct {
@@ -318,13 +321,13 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 		// Workshop-Map im Freeplay
 		if fresh && cfg.Maps && in.Swaps != nil && m.Arena != "" {
 			if t := swapTitleFor(in.Swaps, m.Arena); t != "" {
-				a.Details, a.State = "Freeplay", t
+				a.Details, a.State = "Rocket League · Freeplay", t
 				break
 			}
 		}
 		if fresh && cfg.Match {
 			mode := modeName(m)
-			a.Details = mode
+			a.Details = "Rocket League · " + mode
 			if !m.Started.IsZero() {
 				start = m.Started
 			}
@@ -357,20 +360,29 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 		}
 		// keine Matchdaten: ohne Anti-Cheat geht nur Offline-Spiel
 		if in.EAC {
-			a.Details = "In the menus"
+			a.Details, a.State = "Rocket League", "In the menus"
 		} else {
-			a.Details = "Freeplay"
+			a.Details = "Rocket League · Freeplay"
 		}
-	case cfg.Launcher:
+	case in.Starting:
+		a.Details, a.State = "Starting Rocket League", "Almost ready …"
+	case cfg.Launcher && !in.Hidden:
 		start = in.LaunchOpen
-		a.Details = "In ZLauncher"
 		switch in.Tab {
 		case "vDl":
-			a.State = "Swapping workshop maps"
+			a.Details = "Swapping workshop maps"
+			switch {
+			case in.MapCount == 1:
+				a.State = "1 map ready to play"
+			case in.MapCount > 1:
+				a.State = fmt.Sprintf("%d maps ready to play", in.MapCount)
+			default:
+				a.State = "Picking a map"
+			}
 		case "vBrowse":
-			a.State = "Browsing workshop maps"
+			a.Details, a.State = "Browsing workshop maps", "Looking for something new"
 		default:
-			a.State = "Getting ready to play"
+			a.Details, a.State = "Getting ready to play", "Rocket League"
 		}
 	default:
 		return nil

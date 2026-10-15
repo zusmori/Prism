@@ -1044,18 +1044,6 @@
   .hcontent::before{content:"";position:absolute;left:-32px;right:-32px;bottom:-30px;height:calc(100% + 80px);z-index:-1;pointer-events:none;
     background:radial-gradient(70% 90% at 0% 100%,rgb(9 9 11 / .7),transparent 70%)}
   .titlebar .drag{gap:0}
-  .fr .fa button.rm{color:#fca5a5;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.32)}
-  .fr .fa button.rm:hover{color:#fff;background:rgba(220,38,38,.55);border-color:rgba(248,113,113,.8);box-shadow:0 0 14px -2px rgba(239,68,68,.8)}
-  .mdl.danger .ico{background:radial-gradient(circle at 50% 35%,rgba(239,68,68,.25),rgba(239,68,68,.05));border-color:rgba(239,68,68,.4);box-shadow:0 0 30px -6px rgba(239,68,68,.55)}
-  .mdl.danger .ico .gi{color:#f87171}
-  .rmwho{display:flex;align-items:center;gap:10px;justify-content:center;margin:14px 0 4px}
-  .rmwho i{width:38px;height:38px;border-radius:10px;background:#1b1b22 center/cover no-repeat}
-  .rmwho b{font-size:15px}
-  .rmsteps{margin-top:12px;text-align:left;font-size:12.5px;color:var(--muted);line-height:1.55;padding:10px 13px;border-radius:11px;background:var(--panel);border:1px solid var(--line)}
-  .rmsteps b{color:var(--text)}
-  .btn.red{background:#b91c1c;box-shadow:0 8px 24px -10px rgba(220,38,38,.7)}
-  .btn.red:hover{background:#c62828}
-  .btn.red::before{display:none}
 
   /* ---------- Game Boost ---------- */
   .bchip{position:relative;display:flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 11px;border-radius:999px;cursor:pointer;font:inherit;color:#d4d4dc;
@@ -1147,11 +1135,10 @@
   .fr .fa .fbs button{transform:translateX(14px) scale(.85);opacity:0;transition:transform .4s var(--spring),opacity .25s var(--ease),background .2s,border-color .2s,color .2s,box-shadow .25s}
   .fr:hover .fa .fx,.fr:focus-within .fa .fx{opacity:0;width:0;margin:0;border-width:0;transform:translateX(10px)}
   .fr:hover .fa .fx svg{transform:rotate(180deg)}
-  .fr:hover .fa .fbs,.fr:focus-within .fa .fbs{max-width:110px;opacity:1}
+  .fr:hover .fa .fbs,.fr:focus-within .fa .fbs{max-width:72px;opacity:1}
   .fr:hover .fa .fbs button,.fr:focus-within .fa .fbs button{transform:none;opacity:1}
   .fr:hover .fa .fbs button:nth-child(1){transition-delay:0s,0s,0s,0s,0s,0s}
   .fr:hover .fa .fbs button:nth-child(2){transition-delay:.04s,.04s,0s,0s,0s,0s}
-  .fr:hover .fa .fbs button:nth-child(3){transition-delay:.08s,.08s,0s,0s,0s,0s}
   .fr .fa .fbs button:hover{transform:translateY(-1px) scale(1.06)!important}
   .fr.offline .fa .fx,.fr.unknown .fa .fx{opacity:.7}
 </style>
@@ -1398,18 +1385,6 @@
     <button class="cancel" id="eacCancel">Cancel</button>
   </div>
 </div>
-<div class="mdl danger" id="rmDlg">
-  <div class="box">
-    <div class="ico"><span class="gi" data-ic="userx"></span></div>
-    <h3>Remove friend?</h3>
-    <div class="rmwho"><i id="rmAv"></i><b id="rmName"></b></div>
-    <div class="rmsteps">Steam doesn't let other apps remove friends directly. ZL opens the profile in Steam for you, then click <b>⋯</b> (More) and <b>Remove Friend</b>.</div>
-    <div class="btns">
-      <button class="btn ghost" id="rmCancel"><span class="lbl">Cancel</span></button>
-      <button class="btn red" id="rmGo"><span class="lbl">Open in Steam</span></button>
-    </div>
-  </div>
-</div>
 <div class="mdl" id="setDlg">
   <div class="box sbox">
     <div class="shead"><span class="gi" data-ic="gear"></span><h3>Settings</h3>
@@ -1439,9 +1414,9 @@
         <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
           <div class="tx"><b>Discord Rich Presence</b><small>Show what you're doing in Rocket League on your Discord profile.</small></div><span class="tg" id="tgRpc"></span></div>
         <div class="dsub" id="rpcOpts">
-          <div class="srow" id="setRpcMatch" role="switch" tabindex="0"><div class="tx"><b>Match status</b><small>Mode and goals, e.g. "2s Ranked · 2 : 1". Freeplay just shows "Freeplay".</small></div><span class="tg" id="tgRpcMatch"></span></div>
+          <div class="srow" id="setRpcMatch" role="switch" tabindex="0"><div class="tx"><b>Match status</b><small>Mode and goals, e.g. "Rocket League · 2s Ranked" and "2 : 1".</small></div><span class="tg" id="tgRpcMatch"></span></div>
           <div class="srow" id="setRpcMaps" role="switch" tabindex="0"><div class="tx"><b>Workshop map names</b><small>Shows which workshop map you're playing in Freeplay.</small></div><span class="tg" id="tgRpcMaps"></span></div>
-          <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps" when Rocket League isn't running.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
+          <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps". Nothing is shown while ZL sits in the tray.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
           <div class="srow" id="setRpcTime" role="switch" tabindex="0"><div class="tx"><b>Elapsed time</b><small>How long you've been playing.</small></div><span class="tg" id="tgRpcTime"></span></div>
           <div class="srow" id="setRpcButton" role="switch" tabindex="0"><div class="tx"><b>"Get ZLauncher" button</b><small>A button others can click to download the launcher.</small></div><span class="tg" id="tgRpcButton"></span></div>
         </div>
@@ -2430,7 +2405,6 @@ document.addEventListener('keydown', e => {
   if ($('steamDlg').classList.contains('show')) $('steamCancel').onclick();
   else if ($('eacDlg').classList.contains('show')) $('eacCancel').onclick();
   else if ($('playDlg').classList.contains('show')) $('playCancel').onclick();
-  else if ($('rmDlg').classList.contains('show')) $('rmCancel').onclick();
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
@@ -2495,6 +2469,7 @@ function heroPlay(on){ const v = hero.front; if (!v) return; on ? v.play().catch
 document.addEventListener('visibilitychange', () => heroPlay(!document.hidden && tab === 'vHome'));
 function paintRL(st){
   home.st = st;
+  try { if (has('setPresenceCtx')) setPresenceCtx(!!home.launching && !st.running, maps.length); } catch (e) {}
   const s = $('hStat'), tx = $('hStatTx');
   s.classList.toggle('run', !!st.running); s.classList.toggle('eac', !!(st.running && st.eac));
   if (home.launching && !st.running){ tx.innerHTML = '<b>Starting Rocket League …</b>'; }
@@ -2646,14 +2621,13 @@ function renderFriends(animate){
       const ch = changes[f.id];
       if (ch){ d.classList.add('chg', 'c-' + ch.kind); setTimeout(() => d.classList.remove('chg', 'c-' + ch.kind), 3200); }
       d.innerHTML = `<div class="fav"></div><div class="ft"><b></b><small></small></div>
-        <div class="fa"><span class="fx"><svg viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg></span><div class="fbs"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button><button class="rm" title="Remove friend">${icon('userx')}</button></div></div>`;
+        <div class="fa"><span class="fx"><svg viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg></span><div class="fbs"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button></div></div>`;
       if (f.avatar) d.querySelector('.fav').style.backgroundImage = `url("${f.avatar}")`;
       d.querySelector('b').textContent = f.name;
       const sub = f.state === 'ingame' ? (f.game || 'In-Game') : f.state === 'online' ? 'Online' : f.state === 'away' ? 'Away' : (f.note || 'Offline');
       const sm = d.querySelector('small'); sm.textContent = sub;
       if (ch && ch.text){ sm.innerHTML = ch.text; setTimeout(() => { if (d.isConnected) sm.textContent = sub; }, 4200); }
-      const [bp, bc, br] = d.querySelectorAll('.fa .fbs button');
-      br.onclick = e => { e.stopPropagation(); askRemoveFriend(f); };
+      const [bp, bc] = d.querySelectorAll('.fa .fbs button');
       bp.onclick = e => { e.stopPropagation(); has('openSteamProfile') && openSteamProfile(f.id); };
       bc.onclick = e => { e.stopPropagation(); has('openFriendChat') && openFriendChat(f.id); };
       d.onclick = () => has('openFriendChat') && openFriendChat(f.id);
@@ -2734,24 +2708,6 @@ async function toggleBoost(e){
 }
 $('boostChip').onclick = toggleBoost;
 paintBoost(false);
-
-/* ---------- Freund entfernen (ueber den Steam-Client) ---------- */
-let rmFriend = null;
-function askRemoveFriend(f){
-  rmFriend = f;
-  $('rmName').textContent = f.name;
-  $('rmAv').style.backgroundImage = f.avatar ? `url("${f.avatar}")` : '';
-  $('rmDlg').classList.add('show'); Sfx.ui('present');
-}
-const closeRm = () => $('rmDlg').classList.remove('show');
-$('rmCancel').onclick = () => { closeRm(); Sfx.ui('dismiss'); };
-$('rmDlg').addEventListener('mousedown', e => { if (e.target === $('rmDlg')){ closeRm(); Sfx.ui('dismiss'); } });
-$('rmGo').onclick = () => {
-  if (rmFriend && has('openFriendInSteam')) openFriendInSteam(rmFriend.id);
-  closeRm(); Sfx.ui('tick');
-  toast('Opened ' + (rmFriend ? rmFriend.name : 'the profile') + ' in Steam. Click ⋯ → Remove Friend.', true);
-  home.fAt = 0;   // danach Liste bald neu laden
-};
 
 /* ---------- Logo im Video: Hover-Animation ---------- */
 (() => {
