@@ -67,12 +67,20 @@ func emitUI(e DlEvent) {
 	}
 }
 
+// Downloads laufen ueber den Steam-Client - ohne laufendes Steam geht nichts.
+var errSteamClosed = errors.New("Steam isn't running. Open Steam, log in and try again.")
+
+func steamRunning() bool { return processRunning("steam.exe") }
+
 func queueDownload(idStr string) error {
 	if _, err := strconv.ParseUint(idStr, 10, 64); err != nil {
 		return errors.New("Invalid map id.")
 	}
 	helperMu.Lock()
 	defer helperMu.Unlock()
+	if helperCmd == nil && !steamRunning() {
+		return errSteamClosed
+	}
 	if helperCmd == nil {
 		if err := startHelper(); err != nil {
 			return err

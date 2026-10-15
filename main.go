@@ -531,6 +531,7 @@ func main() {
 		runSteamHelper()
 		return
 	}
+	afterUpdate(os.Args)
 	_ = os.MkdirAll(backupDir, 0755)
 	_ = os.MkdirAll(ownDir, 0755)
 	loadMeta()
@@ -660,6 +661,37 @@ func main() {
 		if strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "http://") {
 			open(u)
 		}
+	})
+	// ---- Steam / Updates ----
+	w.Bind("steamRunning", func() bool { return steamRunning() })
+	w.Bind("openSteam", func() { open("steam://open/main") })
+	w.Bind("getVersion", func() string { return appVersion })
+	w.Bind("checkUpdateAsync", func(cb int) {
+		go func() {
+			res, err := checkUpdate()
+			payload, msg := "null", ""
+			if err != nil {
+				msg = err.Error()
+			} else {
+				b, _ := json.Marshal(res)
+				payload = string(b)
+			}
+			m, _ := json.Marshal(msg)
+			w.Dispatch(func() { w.Eval(fmt.Sprintf("window.__browsed(%d,%s,%s)", cb, payload, m)) })
+		}()
+	})
+	w.Bind("installUpdateAsync", func(cb int) {
+		go func() {
+			err := installUpdate(func(pct float64) {
+				w.Dispatch(func() { w.Eval(fmt.Sprintf("window.__upd && window.__upd(%.1f)", pct)) })
+			})
+			msg := ""
+			if err != nil {
+				msg = err.Error()
+			}
+			m, _ := json.Marshal(msg)
+			w.Dispatch(func() { w.Eval(fmt.Sprintf("window.__browsed(%d,true,%s)", cb, m)) })
+		}()
 	})
 	w.Bind("toggleFav", func(key string) bool { return toggleFav(key) })
 	w.Bind("openOwn", func() { open(ownDir) })
