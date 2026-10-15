@@ -781,12 +781,15 @@
     radial-gradient(50% 60% at 15% 90%,rgb(var(--acdd-rgb) / .35),transparent 65%),var(--panel)}
   .hshade{position:absolute;inset:0;background:linear-gradient(90deg,var(--bg) 0%,rgb(9 9 11 / .85) 35%,rgb(9 9 11 / .25) 75%,transparent),
     linear-gradient(0deg,rgb(9 9 11 / .7),transparent 50%);pointer-events:none}
-  .hcontent{position:absolute;left:30px;right:30px;bottom:28px;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+  .hcontent{position:absolute;left:32px;right:32px;bottom:30px;display:flex;flex-direction:column;align-items:flex-start;gap:18px}
   .hcontent .tag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgb(var(--ac2-rgb));
     background:rgb(var(--ac-rgb) / .14);border:1px solid rgb(var(--ac-rgb) / .3);padding:3px 9px;border-radius:999px}
   .hcontent h1{font-size:clamp(26px,3.4vw,38px);font-weight:700;line-height:1.08;letter-spacing:-.4px;text-shadow:0 4px 30px rgba(0,0,0,.6)}
   .hcontent h1 span{background:linear-gradient(90deg,#fff,rgb(var(--ac3-rgb)));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .hstat{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .hstat{display:flex;align-items:center;gap:9px;height:40px;padding:0 15px 0 13px;border-radius:999px;font-size:12.5px;color:#a1a1aa;white-space:nowrap;
+    background:rgb(12 12 16 / .45);border:1px solid rgba(255,255,255,.09);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05);transition:border-color .4s var(--ease)}
+  .hstat.run{border-color:rgba(126,226,168,.35)}
   .hstat b{color:var(--text);font-weight:600}
   .hstat .dot{--c:113 113 122;animation:none;box-shadow:none}
   .hstat.run .dot{--c:126 226 168;animation:pulse 2.2s cubic-bezier(.4,0,.6,1) infinite}
@@ -928,7 +931,7 @@
   .leftcol .card,.friends.card{cursor:default}
 
   /* ---------- Rocket League Logo ---------- */
-  .rllogo{display:none;width:clamp(150px,16vw,200px);height:auto;margin:-18px 0 -14px -2px;user-select:none;
+  .rllogo{display:none;width:clamp(200px,24vw,290px);height:auto;margin:-26px 0 -22px -3px;user-select:none;
     filter:drop-shadow(0 4px 22px rgba(0,0,0,.55)) drop-shadow(0 0 1px rgba(0,0,0,.4));opacity:0;transform:translateY(6px)}
   .rllogo.ok{display:block;animation:logoin .8s var(--ease) .15s forwards}
   @keyframes logoin{to{opacity:1;transform:none}}
@@ -1016,6 +1019,18 @@
   @keyframes gooff{0%{filter:none}100%{filter:grayscale(.7) brightness(.75)}}
   .fr.chg .ft small b{font-weight:700}
   .fsec span.bump,.fh .fon.bump{animation:bump .5s var(--spring)}
+
+  /* ---------- Home: Marke oben links im Video, Zeile mit Play + Status ---------- */
+  .hbrand{position:absolute;top:18px;left:20px;z-index:2;display:flex;align-items:center;gap:11px;pointer-events:none;
+    animation:secin .7s var(--ease) .2s backwards}
+  .hbrand svg{width:30px;height:30px;flex:none;overflow:visible;filter:drop-shadow(0 0 12px rgb(var(--ac-rgb) / .55)) drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+  .hbt b{display:block;font-size:15px;font-weight:700;letter-spacing:.2px;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.7)}
+  .hbt b span{font-weight:500;color:rgba(255,255,255,.72)}
+  .hbt small{display:block;margin-top:1px;font-size:10.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:rgb(var(--ac3-rgb));text-shadow:0 1px 8px rgba(0,0,0,.7)}
+  .hrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .hcontent::before{content:"";position:absolute;left:-32px;right:-32px;bottom:-30px;height:calc(100% + 80px);z-index:-1;pointer-events:none;
+    background:radial-gradient(70% 90% at 0% 100%,rgb(9 9 11 / .7),transparent 70%)}
+  .titlebar .drag{gap:0}
 </style>
 
 </head>
@@ -1028,7 +1043,6 @@
   <div class="titlebar in" style="--d:0s">
     <div class="drag" id="drag">
       <svg id="tbLogo" width="22" height="22" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
-      <div class="brand"><span>zusmori's</span> Launcher</div>
     </div>
         <div class="tabs" id="tabs">
       <span class="ink"></span>
@@ -1051,6 +1065,10 @@
         <video class="hv" id="hv1" muted loop playsinline preload="auto" disablepictureinpicture></video>
         <video class="hv" id="hv2" muted loop playsinline preload="auto" disablepictureinpicture></video>
         <div class="hshade"></div>
+        <div class="hbrand">
+          <svg id="heroBrand" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
+          <div class="hbt"><b><span>zusmori's</span> Launcher</b><small id="hVer">ZL</small></div>
+        </div>
         <button class="hswap" id="hSwap" title="Show in Swap Maps">
           <div class="hsh"><span class="dot"></span><b>Active swaps</b><span class="hsn" id="hSwapN"></span>
             <svg class="hsgo" width="12" height="12" viewBox="0 0 16 16"><path d="M6 3.5l4.5 4.5L6 12.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
@@ -1059,10 +1077,9 @@
         <div class="hcontent">
           <img class="rllogo" id="rlLogo" alt="Rocket League" draggable="false">
           <span class="tag" id="rlTag"><span class="gi" data-ic="car"></span>Rocket League</span>
-          <h1 id="hTitle">Ready to <span>play?</span></h1>
-          <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
-          <div class="hbtns">
+          <div class="hrow">
             <button class="lbtn pri play" id="playBtn"><span class="li"><span class="gi" data-ic="play"></span></span><span><b>Play</b><small id="playSub">With or without Anti-Cheat</small></span></button>
+            <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
           </div>
         </div>
       </div>
@@ -2193,7 +2210,7 @@ document.addEventListener('keydown', e => {
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
-(async () => { try { if (has('getVersion')) $('verLbl').textContent = 'Version ' + await getVersion(); } catch (e) {} })();
+(async () => { try { if (has('getVersion')){ const v = await getVersion(); $('verLbl').textContent = 'Version ' + v; $('hVer').textContent = 'ZL · v' + v; } } catch (e) {} })();
 
 /* ---------- Home: Rocket League Logo (aus dem Steam-Cache) ---------- */
 (async () => {
@@ -2257,9 +2274,14 @@ function paintRL(st){
   const s = $('hStat'), tx = $('hStatTx');
   s.classList.toggle('run', !!st.running); s.classList.toggle('eac', !!(st.running && st.eac));
   if (home.launching && !st.running){ tx.innerHTML = '<b>Starting Rocket League …</b>'; }
-  else if (st.running){ tx.innerHTML = '<b>Rocket League is running</b> · ' + (st.eac ? 'with Anti-Cheat' : 'without Anti-Cheat'); }
+  else if (st.running){
+    home.since = home.since || Date.now();
+    const m = Math.floor((Date.now() - home.since) / 60000), h = Math.floor(m / 60);
+    tx.innerHTML = '<b>In game</b> · ' + (m < 1 ? 'just started' : h ? h + ' h ' + (m % 60) + ' min' : m + ' min');
+  }
   else if (!st.found){ tx.innerHTML = '<b>Rocket League not found</b> · set the folder under Swap Maps'; }
   else tx.innerHTML = '<b>Not running</b>' + (st.steam ? '' : ' · Steam is closed');
+  if (!st.running) home.since = null;
   if (st.running && home.launching){ home.launching = null; Sfx.ui('done'); }
   const b = $('playBtn');
   b.classList.toggle('busy', !!home.launching);
@@ -2684,7 +2706,7 @@ async function outro(){
 window.__requestClose = () => requestClose();
 
 /* ---------- Beim Schliessen nachfragen, wenn noch eine Map getauscht ist ---------- */
-drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo'));
+drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo')); drawLogo($('heroBrand'));
 let asking = false;
 function askKeep(s){
   return new Promise(resolve => {
