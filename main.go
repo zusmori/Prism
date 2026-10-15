@@ -607,9 +607,23 @@ func main() {
 	})
 
 	// ---- Browse Maps / Downloads / Favoriten ----
-	w.Bind("browseAsync", func(id int, sort, query string, page int) {
+	w.Bind("recommendedAsync", func(id int) {
 		go func() {
-			res, err := browseWorkshop(sort, query, page)
+			res, err := recommendedMaps()
+			payload, msg := "null", ""
+			if err != nil {
+				msg = err.Error()
+			} else {
+				b, _ := json.Marshal(res)
+				payload = string(b)
+			}
+			m, _ := json.Marshal(msg)
+			w.Dispatch(func() { w.Eval(fmt.Sprintf("window.__browsed(%d,%s,%s)", id, payload, m)) })
+		}()
+	})
+	w.Bind("browseAsync", func(id int, sort, period, query string, page int) {
+		go func() {
+			res, err := browseWorkshop(sort, period, query, page)
 			payload := "null"
 			msg := ""
 			if err != nil {

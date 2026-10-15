@@ -41,7 +41,34 @@ var (
 	webClient = &http.Client{Timeout: 20 * time.Second}
 )
 
-func browseWorkshop(sort, query string, page int) (BrowsePage, error) {
+// Von zusmori empfohlene Maps (oben im Browse-Tab)
+var recommendedIDs = []string{"3766065896", "3527331867", "3784853552", "3766064185", "3496414470"}
+
+func recommendedMaps() ([]BrowseItem, error) {
+	items, err := fileDetails(recommendedIDs)
+	if err != nil {
+		return nil, err
+	}
+	fillAuthors(items)
+	return items, nil
+}
+
+// Zeitraum in Tagen (-1 = alles)
+func periodDays(period string) int {
+	switch period {
+	case "day":
+		return 1
+	case "week":
+		return 7
+	case "month":
+		return 30
+	case "year":
+		return 365
+	}
+	return -1
+}
+
+func browseWorkshop(sort, period, query string, page int) (BrowsePage, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -51,18 +78,31 @@ func browseWorkshop(sort, query string, page int) (BrowsePage, error) {
 		"p":          {strconv.Itoa(page)},
 		"numperpage": {"30"},
 	}
-	switch {
-	case strings.TrimSpace(query) != "":
-		q.Set("searchtext", strings.TrimSpace(query))
-		q.Set("browsesort", "textsearch")
-		q.Set("actualsort", "textsearch")
-	case sort == "new":
-		q.Set("browsesort", "mostrecent")
-		q.Set("actualsort", "mostrecent")
+	query = strings.TrimSpace(query)
+	days := periodDays(period)
+	steamSort := "trend"
+	switch sort {
+	case "subs":
+		steamSort = "totaluniquesubscribers"
+	case "new":
+		steamSort = "mostrecent"
 	default:
-		q.Set("browsesort", "trend")
-		q.Set("actualsort", "trend")
-		q.Set("days", "-1")
+		if query != "" {
+			steamSort = "textsearch" // "Popular" + Suche = beste Treffer
+		}
+	}
+	q.Set("browsesort", steamSort)
+	q.Set("actualsort", steamSort)
+	if query != "" {
+		q.Set("searchtext", query)
+	}
+	if steamSort == "trend" {
+		// Beliebt im gewaehlten Zeitraum (auch aeltere Maps)
+		q.Set("days", strconv.Itoa(days))
+	} else if days > 0 {
+		// sonst: nur Maps, die im Zeitraum veroeffentlicht wurden
+		q.Set("created_date_range_filter_start", strconv.FormatInt(time.Now().Add(-time.Duration(days)*24*time.Hour).Unix(), 10))
+		q.Set("created_date_range_filter_end", "0")
 	}
 	req, _ := http.NewRequest("GET", "https://steamcommunity.com/workshop/browse/?"+q.Encode(), nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZMS")

@@ -295,18 +295,108 @@
 
   /* ================= Browse ================= */
   #vBrowse{display:flex;flex-direction:column;padding:4px 18px 18px;gap:14px}
-  .bbar{display:flex;gap:10px;align-items:center;flex:none}
-  .bbar .search{flex:1;margin:0;max-width:520px}
-  .bbar .search input{height:40px;background:var(--panel)}
-  .seg{position:relative;display:flex;padding:3px;border-radius:11px;background:var(--panel);border:1px solid var(--line)}
-  .seg button{position:relative;z-index:1;border:0;background:none;height:32px;padding:0 14px;border-radius:8px;cursor:pointer;
-    font-size:12.5px;font-weight:600;color:var(--muted);transition:color .25s}
-  .seg button.on{color:#fff}
-  .seg .ink{position:absolute;top:3px;bottom:3px;border-radius:8px;background:#1c1a26;border:1px solid rgba(139,92,246,.3);
-    transition:left .4s var(--spring),width .4s var(--spring)}
-  .bstat{margin-left:auto;color:var(--faint);font-size:12px}
-  .grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));grid-auto-rows:max-content;gap:14px;
-    align-content:start;padding:2px 4px 8px 2px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  /* leuchtende Outline-Icons */
+  .gi{display:inline-grid;place-items:center;flex:none;color:var(--accent2)}
+  .gi svg{overflow:visible;filter:drop-shadow(0 0 2.5px rgba(167,139,250,.9)) drop-shadow(0 0 7px rgba(139,92,246,.55));
+    transition:filter .35s var(--ease),transform .4s var(--spring)}
+  .gi svg *{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .bbar{position:relative;z-index:5;display:flex;gap:10px;align-items:center;flex:none}
+  .bsrch{position:relative;flex:1;min-width:0;max-width:560px}
+  .bsrch .gi{position:absolute;left:13px;top:50%;transform:translateY(-50%);pointer-events:none}
+  .bsrch input{width:100%;height:42px;padding:0 38px 0 38px;border-radius:12px;border:1px solid var(--line);background:var(--panel);
+    color:var(--text);font:inherit;outline:none;user-select:text;transition:border-color .25s,box-shadow .25s,background .25s}
+  .bsrch input::placeholder{color:var(--faint)}
+  .bsrch input:hover{border-color:var(--line2)}
+  .bsrch input:focus{border-color:rgba(139,92,246,.5);box-shadow:0 0 0 3px var(--accent-soft),0 0 22px -6px rgba(139,92,246,.55);background:#100f15}
+  .bsrch:focus-within .gi svg{filter:drop-shadow(0 0 3px rgba(196,181,253,1)) drop-shadow(0 0 10px rgba(139,92,246,.8));transform:scale(1.08)}
+  .bclr{position:absolute;right:7px;top:50%;width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--faint);cursor:pointer;
+    display:grid;place-items:center;transform:translateY(-50%) scale(.6);opacity:0;pointer-events:none;
+    transition:opacity .2s,transform .3s var(--spring),background .15s,color .15s}
+  .bclr.on{opacity:1;transform:translateY(-50%);pointer-events:auto}
+  .bclr:hover{background:#1c1c23;color:var(--text)}
+
+  /* Filter-Pillen */
+  .fdd{position:relative;flex:none}
+  .fpill{height:42px;display:flex;align-items:center;gap:9px;padding:0 12px 0 13px;border-radius:12px;border:1px solid var(--line);
+    background:var(--panel);cursor:pointer;text-align:left;transition:border-color .25s,background .25s,box-shadow .25s}
+  .fpill:hover{border-color:var(--line2);background:var(--panel2)}
+  .fpill:hover .gi svg,.fdd.open .fpill .gi svg{filter:drop-shadow(0 0 3px rgba(196,181,253,1)) drop-shadow(0 0 10px rgba(139,92,246,.8))}
+  .fdd.open .fpill{border-color:rgba(139,92,246,.5);box-shadow:0 0 0 3px var(--accent-soft),0 0 22px -6px rgba(139,92,246,.5)}
+  .fpill .fcap{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+  .fpill .fcap small{font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--faint)}
+  .fpill .fcap span{font-size:13px;font-weight:600;white-space:nowrap}
+  .fpill .fcap span.swap{animation:fswap .35s var(--ease)}
+  @keyframes fswap{from{opacity:0;transform:translateY(5px)}}
+  .fpill .chev{opacity:.5;margin-left:2px;transition:transform .35s var(--ease)}
+  .fdd.open .fpill .chev{transform:rotate(180deg)}
+  .fmenu{position:absolute;right:0;top:calc(100% + 8px);min-width:100%;width:max-content;z-index:40;background:#121216;border:1px solid var(--line2);
+    border-radius:13px;padding:6px;box-shadow:0 24px 60px -12px rgba(0,0,0,.85),0 0 0 1px rgba(139,92,246,.05);
+    opacity:0;transform:translateY(-6px) scale(.97);transform-origin:top right;pointer-events:none;
+    transition:opacity .2s var(--ease),transform .3s var(--ease)}
+  .fdd.open .fmenu{opacity:1;transform:none;pointer-events:auto}
+  .fopt{display:flex;align-items:center;gap:11px;width:100%;padding:9px 30px 9px 10px;border:0;border-radius:9px;background:none;color:#cfcfd8;
+    font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;position:relative;
+    opacity:0;transform:translateY(4px);transition:background .15s,color .15s,opacity .3s var(--ease),transform .35s var(--ease)}
+  .fdd.open .fopt{opacity:1;transform:none;transition-delay:0s,0s,calc(var(--i)*22ms),calc(var(--i)*22ms)}
+  .fopt .gi{color:var(--muted)}
+  .fopt .gi svg{filter:none}
+  .fopt:hover,.fopt.hl{background:#1a1a21;color:#fff}
+  .fopt:hover .gi,.fopt.on .gi{color:var(--accent2)}
+  .fopt:hover .gi svg,.fopt.on .gi svg{filter:drop-shadow(0 0 2.5px rgba(167,139,250,.9)) drop-shadow(0 0 7px rgba(139,92,246,.55))}
+  .fopt.on{color:#fff}
+  .fopt.on::after{content:"";position:absolute;right:12px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--accent2);
+    box-shadow:0 0 8px 1px rgba(167,139,250,.8)}
+
+  /* Scrollbereich */
+  .bscroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:2px 4px 10px 2px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .bsect{display:flex;align-items:center;gap:9px;padding:4px 2px 12px}
+  .bsect b{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#e4e0f5;white-space:nowrap}
+  .bsect small{color:var(--faint);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .bsect small.swap{animation:fswap .35s var(--ease)}
+  .bsect i{flex:1;min-width:20px;height:1px;background:linear-gradient(90deg,var(--line2),transparent)}
+  .bsect.later{padding-top:22px}
+
+  /* Empfohlen */
+  .rec{position:relative;overflow:hidden;max-height:640px;transition:opacity .35s var(--ease),max-height .5s var(--ease),margin .4s var(--ease)}
+  .rec.gone{opacity:0;max-height:0!important;pointer-events:none}
+  .rnav{display:flex;gap:4px}
+  .rnav button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer;display:grid;place-items:center;
+    transition:background .2s,border-color .2s,opacity .25s}
+  .rnav button:hover{background:var(--panel2);border-color:rgba(139,92,246,.4)}
+  .rnav button[disabled]{opacity:.3;pointer-events:none}
+  .rnav.hide{display:none}
+  .rrow{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);gap:14px;overflow-x:auto;overflow-y:hidden;
+    padding:4px 4px 8px;margin:-4px -4px 0;scroll-snap-type:x proximity;scroll-padding-inline:4px;scroll-behavior:smooth;scrollbar-width:none}
+  .rrow::-webkit-scrollbar{display:none}
+  .rrow > .card{scroll-snap-align:start}
+  .rec.fade-r .rrow{mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  .rec.fade-l .rrow{mask-image:linear-gradient(90deg,transparent,#000 12%)}
+  .rec.fade-l.fade-r .rrow{mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+  .card.rcard{border-color:rgba(139,92,246,.32);background:linear-gradient(170deg,rgba(124,58,237,.1),var(--panel) 45%);
+    box-shadow:0 0 0 1px rgba(139,92,246,.06),0 12px 34px -20px rgba(139,92,246,.75)}
+  .card.rcard:hover{border-color:rgba(167,139,250,.6);box-shadow:0 0 0 1px rgba(167,139,250,.15),0 18px 44px -16px rgba(139,92,246,.8)}
+  .rpick{position:absolute;left:9px;top:9px;z-index:1;display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 6px;border-radius:999px;
+    font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#ede9fe;
+    background:rgba(16,12,28,.72);border:1px solid rgba(167,139,250,.45);backdrop-filter:blur(6px);box-shadow:0 0 14px -2px rgba(139,92,246,.6)}
+
+  /* Laden beim Runterscrollen */
+  .bmore{display:flex;align-items:center;justify-content:center;gap:12px;height:0;opacity:0;overflow:hidden;color:var(--muted);font-size:12.5px;font-weight:600;
+    transition:height .35s var(--ease),opacity .3s var(--ease)}
+  .bmore.space{height:64px}
+  .bmore.on{height:64px;opacity:1}
+  .orb{display:flex;gap:6px}
+  .orb i{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 10px 2px rgba(139,92,246,.7);animation:orb 1.05s var(--ease) infinite}
+  .orb i:nth-child(2){animation-delay:.14s} .orb i:nth-child(3){animation-delay:.28s}
+  @keyframes orb{0%,80%,100%{transform:translateY(0) scale(.75);opacity:.45}40%{transform:translateY(-7px) scale(1);opacity:1}}
+  .bmore .bar{position:relative;width:120px;height:2px;border-radius:2px;background:#1f1d29;overflow:hidden}
+  .bmore .bar::after{content:"";position:absolute;top:0;bottom:0;width:40%;border-radius:2px;
+    background:linear-gradient(90deg,transparent,#a78bfa,transparent);box-shadow:0 0 10px #8b5cf6;animation:barrun 1.2s ease-in-out infinite}
+  @keyframes barrun{from{left:-40%}to{left:100%}}
+  .bend{display:none;align-items:center;gap:10px;justify-content:center;padding:20px 0 6px;color:var(--faint);font-size:12px}
+  .bend.on{display:flex;animation:fadein .5s var(--ease)}
+  .bend::before,.bend::after{content:"";width:40px;height:1px;background:var(--line2)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));grid-auto-rows:max-content;gap:14px;align-content:start}
   .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
     display:flex;flex-direction:column;transition:transform .35s var(--ease),border-color .3s,box-shadow .35s var(--ease)}
   .card:hover{transform:translateY(-3px);border-color:var(--line2);box-shadow:0 18px 40px -18px rgba(0,0,0,.9)}
@@ -701,14 +791,25 @@
   </main>
   <section id="vBrowse" class="pane off" style="--dir:24px">
     <div class="bbar">
-      <div class="search">
-        <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#fff" stroke-width="1.6" fill="none"/><path d="M11 11l3.5 3.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
-        <input id="bsearch" placeholder="Search the Steam Workshop …">
+      <div class="bsrch">
+        <span class="gi" data-ic="search"></span>
+        <input id="bsearch" placeholder="Search the Steam Workshop …" spellcheck="false">
+        <button class="bclr" id="bclr" title="Clear search"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
       </div>
-      <div class="seg" id="sortSeg"><span class="ink"></span><button class="on" data-sort="popular">Popular</button><button data-sort="new">Newest</button></div>
-      <span class="bstat" id="bstat"></span>
+      <div class="fdd" id="fSort"></div>
+      <div class="fdd" id="fTime"></div>
     </div>
-    <div class="grid" id="grid"></div>
+    <div class="bscroll" id="bscroll">
+      <section class="rec" id="rec">
+        <div class="bsect"><span class="gi" data-ic="spark"></span><b>Recommended</b><small>Hand-picked by zusmori</small><i></i>
+          <div class="rnav hide" id="rnav"><button id="recL" title="Back"><span class="gi" data-ic="left"></span></button><button id="recR" title="More"><span class="gi" data-ic="right"></span></button></div></div>
+        <div class="rrow" id="recRow"></div>
+      </section>
+      <div class="bsect" id="allHead"><span class="gi" id="allIc"></span><b id="allTitle">Popular</b><small id="allSub"></small><i></i></div>
+      <div class="grid" id="grid"></div>
+      <div class="bmore" id="bmore"><span class="orb"><i></i><i></i><i></i></span><span>Loading more maps</span><span class="bar"></span></div>
+      <div class="bend" id="bend">That's all of them</div>
+    </div>
   </section>
   </div>
 </div>
@@ -1125,46 +1226,121 @@ function setTab(t){
   $('vDl').classList.toggle('off', t !== 'vDl');
   $('vBrowse').classList.toggle('off', t !== 'vBrowse');
 
-  if (t === 'vBrowse' && !browse.loaded) loadBrowse(true);
+  if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 window.addEventListener('resize', () => {
   moveInk($('tabs'), document.querySelector('#tabs .tab.on'));
-  moveInk($('sortSeg'), document.querySelector('#sortSeg button.on'));
 });
-requestAnimationFrame(() => { moveInk($('tabs'), document.querySelector('#tabs .tab.on')); moveInk($('sortSeg'), document.querySelector('#sortSeg button.on')); });
+requestAnimationFrame(() => { moveInk($('tabs'), document.querySelector('#tabs .tab.on')); });
 const inkRO = new ResizeObserver(() => {
   // waehrend sich ein Tab vergroessert, Markierung ohne Verzoegerung mitziehen
-  [['tabs', '#tabs .tab.on'], ['sortSeg', '#sortSeg button.on']].forEach(([w, sel]) => {
+  [['tabs', '#tabs .tab.on']].forEach(([w, sel]) => {
     const ink = $(w).querySelector('.ink'); ink.style.transition = 'none';
     moveInk($(w), document.querySelector(sel));
     requestAnimationFrame(() => ink.style.transition = '');
   });
 });
-document.querySelectorAll('#tabs .tab, #sortSeg button').forEach(el => inkRO.observe(el));
+document.querySelectorAll('#tabs .tab').forEach(el => inkRO.observe(el));
 document.fonts && document.fonts.ready.then(() => inkRO.takeRecords && moveInk($('tabs'), document.querySelector('#tabs .tab.on')));
 
 /* ---------- Browse Maps ---------- */
-const browse = {sort: 'popular', q: '', page: 0, more: true, loading: false, loaded: false, token: 0, items: []};
+// Outline-Icons (leuchten per CSS-Glow)
+const ICONS = {
+  search: '<circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5l3.4 3.4"/>',
+  flame:  '<path d="M8 14.4c-2.7 0-4.6-1.9-4.6-4.4 0-2.7 2.1-3.9 2.7-6.9 1.5 1 2.4 2.5 2.4 3.8.7-.5 1.2-1.3 1.4-2.3 1.7 1.4 2.8 3.2 2.8 5.4 0 2.5-1.9 4.4-4.7 4.4z"/><path d="M8 14.4c-1.1 0-1.9-.8-1.9-1.9 0-1.2.9-1.8 1.4-2.9.9.7 2.4 1.6 2.4 2.9 0 1.1-.8 1.9-1.9 1.9z"/>',
+  users:  '<circle cx="6" cy="5.4" r="2.3"/><path d="M1.9 13.6c.4-2.4 2-3.7 4.1-3.7s3.7 1.3 4.1 3.7"/><path d="M10.6 3.3a2.1 2.1 0 0 1 0 4.1M12 9.9c1.2.5 2 1.6 2.2 3.7"/>',
+  spark:  '<path d="M7 1.8l1.4 3.9 3.9 1.4-3.9 1.4L7 12.4 5.6 8.5 1.7 7.1l3.9-1.4z"/><path d="M12.6 10.6v3.6M10.8 12.4h3.6"/>',
+  sun:    '<circle cx="8" cy="8" r="2.7"/><path d="M8 1.6v1.5M8 12.9v1.5M1.6 8h1.5M12.9 8h1.5M3.5 3.5l1 1M11.5 11.5l1 1M3.5 12.5l1-1M11.5 4.5l1-1"/>',
+  week:   '<rect x="2.3" y="3.3" width="11.4" height="10.4" rx="2"/><path d="M2.3 6.6h11.4M5.4 1.8v2.8M10.6 1.8v2.8M5.5 9.9h5"/>',
+  month:  '<rect x="2.3" y="3.3" width="11.4" height="10.4" rx="2"/><path d="M2.3 6.6h11.4M5.4 1.8v2.8M10.6 1.8v2.8M5.3 9.3h.1M8 9.3h.1M10.7 9.3h.1M5.3 11.6h.1M8 11.6h.1"/>',
+  year:   '<path d="M13.6 8a5.6 5.6 0 1 1-1.7-4"/><path d="M13.7 2.4v2.7H11"/><path d="M8 5.2V8l1.9 1.3"/>',
+  all:    '<path d="M5.2 5.5C3.6 5.5 2.4 6.6 2.4 8s1.2 2.5 2.8 2.5C7.9 10.5 8.1 5.5 10.8 5.5c1.6 0 2.8 1.1 2.8 2.5s-1.2 2.5-2.8 2.5C8.1 10.5 7.9 5.5 5.2 5.5z"/>',
+  left:   '<path d="M10 3.5L5.5 8l4.5 4.5"/>',
+  right:  '<path d="M6 3.5l4.5 4.5L6 12.5"/>',
+  chev:   '<path d="M4 6.2l4 4 4-4"/>'
+};
+const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
+document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.closest('.rnav') ? 13 : 16));
+
+const SORTS = [{v: 'popular', l: 'Popular', ic: 'flame'}, {v: 'subs', l: 'Most subscribed', ic: 'users'}, {v: 'new', l: 'Newest', ic: 'spark'}];
+const PERIODS = [{v: 'day', l: 'Today', ic: 'sun'}, {v: 'week', l: 'This week', ic: 'week'}, {v: 'month', l: 'This month', ic: 'month'},
+  {v: 'year', l: 'This year', ic: 'year'}, {v: 'all', l: 'All time', ic: 'all'}];
+
+const browse = {sort: 'popular', period: 'all', q: '', page: 0, more: true, loading: false, loaded: false, token: 0, items: []};
+const rec = {items: [], ids: new Set(), state: 'idle'};
 const dls = {};   // id -> {state, pct, msg}
 let bseq = 0; const bpend = {};
 window.__browsed = (id, data, err) => { const p = bpend[id]; delete bpend[id]; p && (err ? p.reject(err) : p.resolve(data)); };
-const browseCall = (sort, q, page) => new Promise((res, rej) => {
+const browseCall = (sort, period, q, page) => new Promise((res, rej) => {
   if (!has('browseAsync')) return rej('Not available in preview');
-  const id = ++bseq; bpend[id] = {resolve: res, reject: rej}; browseAsync(id, sort, q, page);
+  const id = ++bseq; bpend[id] = {resolve: res, reject: rej}; browseAsync(id, sort, period, q, page);
+});
+const recCall = () => new Promise((res, rej) => {
+  if (!has('recommendedAsync')) return rej('Not available in preview');
+  const id = ++bseq; bpend[id] = {resolve: res, reject: rej}; recommendedAsync(id);
 });
 const fmtN = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : '' + n;
 const thumbURL = u => !u ? '' : /^https?:/.test(u) ? u + (u.includes('?') ? '&' : '?') + 'imw=480&imh=270&ima=fit&impolicy=Letterbox' : u;
 
-function skeletons(n){
-  const g = $('grid');
+/* ---- Filter-Dropdowns ---- */
+const fdds = [];
+function filterDD(el, cap, opts, get, set){
+  el.innerHTML = `<button class="fpill"><span class="gi"></span><span class="fcap"><small>${cap}</small><span></span></span>
+    <svg class="chev" width="12" height="12" viewBox="0 0 16 16"><path d="M4 6.2l4 4 4-4" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <div class="fmenu"></div>`;
+  const pill = el.querySelector('.fpill'), menu = el.querySelector('.fmenu');
+  menu.innerHTML = opts.map((o, i) => `<button class="fopt" data-v="${o.v}" style="--i:${i}"><span class="gi">${icon(o.ic)}</span>${o.l}</button>`).join('');
+  const paint = anim => {
+    const o = opts.find(x => x.v === get());
+    pill.querySelector('.gi').innerHTML = icon(o.ic);
+    const lbl = pill.querySelector('.fcap span'); lbl.textContent = o.l;
+    if (anim){ lbl.classList.remove('swap'); void lbl.offsetWidth; lbl.classList.add('swap'); }
+    menu.querySelectorAll('.fopt').forEach(b => b.classList.toggle('on', b.dataset.v === o.v));
+  };
+  const close = () => el.classList.remove('open');
+  pill.onclick = e => {
+    e.stopPropagation();
+    const open = !el.classList.contains('open');
+    fdds.forEach(d => d.close());
+    if (open){ el.classList.add('open'); Sfx.ui('tick'); }
+  };
+  menu.querySelectorAll('.fopt').forEach(b => b.onclick = e => {
+    e.stopPropagation(); close();
+    if (b.dataset.v === get()) return;
+    set(b.dataset.v); paint(true); Sfx.ui('tab');
+  });
+  paint(false);
+  const d = {close}; fdds.push(d); return d;
+}
+document.addEventListener('click', () => fdds.forEach(d => d.close()));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fdds.forEach(d => d.close()); });
+filterDD($('fSort'), 'Sort', SORTS, () => browse.sort, v => { browse.sort = v; loadBrowse(true); });
+filterDD($('fTime'), 'Time range', PERIODS, () => browse.period, v => { browse.period = v; loadBrowse(true); });
+
+
+function paintHead(){
+  const s = SORTS.find(x => x.v === browse.sort), p = PERIODS.find(x => x.v === browse.period);
+  $('allIc').innerHTML = icon(browse.q ? 'search' : s.ic);
+  $('allTitle').textContent = browse.q ? 'Results' : s.l;
+  const sub = browse.q ? `"${browse.q}" · ${browse.sort === 'popular' ? 'Best match' : s.l} · ${p.l}` : p.l;
+  const sm = $('allSub'); sm.textContent = sub; sm.classList.remove('swap'); void sm.offsetWidth; sm.classList.add('swap');
+  // Empfehlungen nur ohne Suche
+  $('rec').classList.toggle('gone', !!browse.q || rec.state === 'error');
+  $('allHead').classList.toggle('later', !browse.q && rec.state !== 'error');
+}
+paintHead();
+
+/* ---- Karten ---- */
+function skeletons(n, into = $('grid')){
+  const ref = into.querySelector('.sentinel');
   for (let i = 0; i < n; i++){
     const c = document.createElement('div'); c.className = 'card sk enter'; c.style.animationDelay = i * 30 + 'ms';
     c.innerHTML = '<div class="cimg skel"></div><div class="cbody"><div class="ctitle skel"></div><div class="cmeta skel"></div><div class="dl skel" style="border:0"></div></div>';
-    g.appendChild(c);
+    ref ? into.insertBefore(c, ref) : into.appendChild(c);
   }
 }
-function clearSkeletons(){ $('grid').querySelectorAll('.card.sk').forEach(c => c.remove()); }
+function clearSkeletons(from = $('grid')){ from.querySelectorAll('.card.sk').forEach(c => c.remove()); }
 
 function dlButton(id){
   const d = dls[id];
@@ -1182,60 +1358,94 @@ function paintCard(c){
   b.querySelector('.fill').style.width = st.pct + '%';
   b.title = dls[id]?.state === 'error' ? dls[id].msg : '';
 }
-function refreshCards(){ $('grid').querySelectorAll('.card:not(.sk)').forEach(paintCard); }
+const allCards = () => $('bscroll').querySelectorAll('.card:not(.sk)');
+function refreshCards(){ allCards().forEach(paintCard); }
 
+function makeCard(it, i, pick){
+  const c = document.createElement('div'); c.className = 'card enter' + (pick ? ' rcard' : ''); c.style.animationDelay = Math.min(i, 12) * 35 + 'ms';
+  c.__id = it.id;
+  c.innerHTML = `<div class="cimg">${pick ? `<span class="rpick"><span class="gi">${icon('spark', 11)}</span>Pick</span>` : ''}<img alt="" loading="lazy" decoding="async"></div>
+    <div class="cbody"><div><div class="ctitle"></div><div class="cby"></div></div>
+    <div class="cmeta"><span title="Subscribers"><svg width="11" height="11" viewBox="0 0 16 16"><path d="M8 2v8m0 0l-3.5-3.5M8 10l3.5-3.5M2.5 13.5h11" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>${fmtN(it.subs)}</span>${it.mb ? `<span>${(+it.mb).toFixed(1).replace(/\.0$/, '')} MB</span>` : ''}</div>
+    <button class="dl"><div class="fill"></div><span>Download</span></button></div>`;
+  c.querySelector('.ctitle').textContent = it.title;
+  const by = c.querySelector('.cby'); if (it.author) by.textContent = 'by ' + it.author; else by.remove();
+  const img = c.querySelector('img');
+  img.onload = () => img.classList.add('ok');
+  img.onerror = () => { img.remove(); c.querySelector('.cimg').classList.add('skel'); };
+  img.src = thumbURL(it.preview);
+  c.querySelector('.dl').onclick = e => { e.stopPropagation(); startDownload(it, c); };
+  c.onclick = () => openDetails(it, c);
+  paintCard(c);
+  return c;
+}
 function addCards(items){
   const g = $('grid'), sent = g.querySelector('.sentinel');
-  items.forEach((it, i) => {
-    const c = document.createElement('div'); c.className = 'card enter'; c.style.animationDelay = Math.min(i, 12) * 35 + 'ms';
-    c.__id = it.id;
-    c.innerHTML = `<div class="cimg"><img alt="" loading="lazy" decoding="async"></div>
-      <div class="cbody"><div><div class="ctitle"></div><div class="cby"></div></div>
-      <div class="cmeta"><span title="Subscribers"><svg width="11" height="11" viewBox="0 0 16 16"><path d="M8 2v8m0 0l-3.5-3.5M8 10l3.5-3.5M2.5 13.5h11" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>${fmtN(it.subs)}</span>${it.mb ? `<span>${(+it.mb).toFixed(1).replace(/\.0$/, '')} MB</span>` : ''}</div>
-      <button class="dl"><div class="fill"></div><span>Download</span></button></div>`;
-    c.querySelector('.ctitle').textContent = it.title;
-    const by = c.querySelector('.cby'); if (it.author) by.textContent = 'by ' + it.author; else by.remove();
-    const img = c.querySelector('img');
-    img.onload = () => img.classList.add('ok');
-    img.onerror = () => { img.remove(); c.querySelector('.cimg').classList.add('skel'); };
-    img.src = thumbURL(it.preview);
-    c.querySelector('.dl').onclick = e => { e.stopPropagation(); startDownload(it, c); };
-    c.onclick = () => openDetails(it, c);
-    paintCard(c);
-    sent ? g.insertBefore(c, sent) : g.appendChild(c);
-  });
+  items.forEach((it, i) => { const c = makeCard(it, i); sent ? g.insertBefore(c, sent) : g.appendChild(c); });
 }
 
+/* ---- Empfohlene Maps ---- */
+function recNav(){
+  const r = $('recRow'), over = r.scrollWidth > r.clientWidth + 4;
+  const atL = r.scrollLeft < 8, atR = r.scrollLeft + r.clientWidth > r.scrollWidth - 8;
+  $('rnav').classList.toggle('hide', !over);
+  $('recL').disabled = atL; $('recR').disabled = atR;
+  $('rec').classList.toggle('fade-l', over && !atL); $('rec').classList.toggle('fade-r', over && !atR);
+}
+$('recRow').addEventListener('scroll', recNav, {passive: true});
+new ResizeObserver(recNav).observe($('recRow'));
+const recStep = dir => { const r = $('recRow'), c = r.querySelector('.card'); r.scrollBy({left: dir * ((c ? c.offsetWidth : 240) + 14), behavior: 'smooth'}); Sfx.ui('tick'); };
+$('recL').onclick = () => recStep(-1); $('recR').onclick = () => recStep(1);
+
+async function loadRec(){
+  if (rec.state !== 'idle') return;
+  rec.state = 'loading';
+  skeletons(5, $('recRow')); recNav();
+  try {
+    rec.items = (await recCall()) || [];
+    rec.ids = new Set(rec.items.map(x => x.id));
+    rec.state = rec.items.length ? 'ok' : 'error';
+  } catch (e) { rec.state = 'error'; }
+  clearSkeletons($('recRow'));
+  rec.items.forEach((it, i) => $('recRow').appendChild(makeCard(it, i, true)));
+  // gleiche Maps nicht doppelt in der Liste darunter
+  if (!browse.q) $('grid').querySelectorAll('.card:not(.sk)').forEach(c => rec.ids.has(c.__id) && c.remove());
+  paintHead(); recNav();
+}
+
+/* ---- Liste mit Nachladen ---- */
+function setLoading(more){ const b = $('bmore'); b.classList.toggle('on', more); b.classList.toggle('space', browse.more && browse.items.length > 0); }
 async function loadBrowse(reset){
-  const g = $('grid');
+  const g = $('grid'), sc = $('bscroll');
   if (reset){
-    browse.token++; browse.page = 0; browse.more = true; browse.items = [];
+    browse.token++; browse.page = 0; browse.more = true; browse.items = []; browse.loading = false;
     g.innerHTML = '<div class="sentinel"></div>';
     observer.observe(g.querySelector('.sentinel'));
+    $('bend').classList.remove('on'); setLoading(false);
+    paintHead();
+    if (sc.scrollTop > 0) sc.scrollTo({top: 0, behavior: 'smooth'});
   }
   if (browse.loading || !browse.more) return;
   browse.loading = true; browse.loaded = true;
   const token = browse.token, page = browse.page + 1;
-  skeletons(page === 1 ? 12 : 6);
-  $('bstat').textContent = 'Loading …';
+  if (page === 1) skeletons(12); else setLoading(true);
   try {
-    const res = await browseCall(browse.sort, browse.q, page);
+    const res = await browseCall(browse.sort, browse.period, browse.q, page);
     if (token !== browse.token) return;
     clearSkeletons();
     browse.page = page; browse.more = !!res.hasMore && res.items.length > 0;
     const fresh = res.items.filter(it => !browse.items.some(x => x.id === it.id));
     browse.items.push(...fresh);
-    addCards(fresh);
+    addCards(fresh.filter(it => browse.q || !rec.ids.has(it.id)));
     if (!browse.items.length){
       const e = document.createElement('div'); e.className = 'bempty';
-      e.textContent = browse.q ? `No maps found for "${browse.q}".` : 'No maps found.';
+      e.textContent = browse.q ? `No maps found for "${browse.q}".` : 'No maps in this time range.';
       g.insertBefore(e, g.querySelector('.sentinel'));
     }
-    $('bstat').textContent = browse.items.length ? browse.items.length + ' maps' : '';
+    $('bend').classList.toggle('on', !browse.more && browse.items.length > 6);
   } catch (err) {
     if (token !== browse.token) return;
     clearSkeletons();
-    $('bstat').textContent = '';
     if (!browse.items.length){
       const e = document.createElement('div'); e.className = 'bempty';
       e.innerHTML = '<div></div><button class="btn"><span class="lbl">Try again</span></button>';
@@ -1244,29 +1454,26 @@ async function loadBrowse(reset){
       g.insertBefore(e, g.querySelector('.sentinel'));
     } else toast(err, false);
   } finally {
-    if (token === browse.token) browse.loading = false;
+    if (token === browse.token){ browse.loading = false; setLoading(false); }
   }
   // Bildschirm noch nicht voll? gleich weiterladen
   const sent = g.querySelector('.sentinel');
-  if (browse.more && sent && sent.getBoundingClientRect().top < g.getBoundingClientRect().bottom + 200) loadBrowse(false);
+  if (token === browse.token && browse.more && sent && sent.getBoundingClientRect().top < sc.getBoundingClientRect().bottom + 200) loadBrowse(false);
 }
 const observer = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting) && tab === 'vBrowse') loadBrowse(false); },
-  {root: $('grid'), rootMargin: '400px'});
+  {root: $('bscroll'), rootMargin: '400px'});
 
 let searchTimer;
+const runSearch = () => { clearTimeout(searchTimer); const v = $('bsearch').value.trim(); if (v === browse.q) return; browse.q = v; loadBrowse(true); };
 $('bsearch').addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { browse.q = $('bsearch').value.trim(); loadBrowse(true); }, 450);
+  $('bclr').classList.toggle('on', !!$('bsearch').value);
+  clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 450);
 });
-$('bsearch').addEventListener('keydown', e => { if (e.key === 'Enter'){ clearTimeout(searchTimer); browse.q = $('bsearch').value.trim(); loadBrowse(true); } });
-document.querySelectorAll('#sortSeg button').forEach(b => b.onclick = () => {
-  if (b.classList.contains('on')) return;
-  document.querySelectorAll('#sortSeg button').forEach(x => x.classList.toggle('on', x === b));
-  moveInk($('sortSeg'), b);
-  browse.sort = b.dataset.sort;
-  if (browse.q){ browse.q = ''; $('bsearch').value = ''; }
-  loadBrowse(true);
+$('bsearch').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runSearch();
+  if (e.key === 'Escape' && $('bsearch').value){ $('bsearch').value = ''; $('bclr').classList.remove('on'); runSearch(); }
 });
+$('bclr').onclick = () => { $('bsearch').value = ''; $('bclr').classList.remove('on'); runSearch(); $('bsearch').focus(); };
 
 /* ---------- Downloads ---------- */
 const titles = {};
@@ -1298,7 +1505,7 @@ window.__dl = async e => {
     Sfx.ui('done');
     await refresh(true);
   }
-  $('grid').querySelectorAll('.card').forEach(c => { if (c.__id === e.id) paintCard(c); });
+  allCards().forEach(c => { if (c.__id === e.id) paintCard(c); });
   if (detItem && detItem.id === e.id) paintDetDl();
   updateBadge();
 };
