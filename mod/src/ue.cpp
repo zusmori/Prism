@@ -158,8 +158,10 @@ bool IsValid(const void* obj) {
 	}
 }
 
+bool killFlagCheck = true;
 bool IsAlive(const void* obj) {
 	if (!IsValid(obj)) return false;
+	if (!killFlagCheck) return true;
 	try {
 		return (Read<uint64_t>(obj, 0x10) & 0x20000000ull) == 0; // ObjectFlags & RF_PendingKill
 	} catch (...) {

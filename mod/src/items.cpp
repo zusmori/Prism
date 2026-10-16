@@ -390,6 +390,10 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			try { TickPreview(); } catch (...) {}
 			return;
 		}
+		if (ue::killFlagCheck && !ue::IsAlive(caller)) { // ein tickender Controller wird nicht geloescht
+			ue::killFlagCheck = false;
+			zl::Log("WARNING: delete flag check doesn't fit this game version - turned off");
+		}
 		if (localPC.load() != caller) {
 			localPC = caller;
 			void* pri = nullptr; void* pawn = nullptr;

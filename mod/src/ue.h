@@ -42,6 +42,7 @@ bool CheckObjects(void* knownObject);
 bool IsValid(const void* obj);
 // Lebt das Objekt und ist nicht zum Loeschen markiert (RF_PendingKill)?
 bool IsAlive(const void* obj);
+extern bool killFlagCheck; // wird abgeschaltet, falls die Flag-Pruefung nicht passt
 
 int ObjectCount();
 void* ObjectAt(int i);
