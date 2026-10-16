@@ -24,7 +24,7 @@ std::atomic<bool> menuOpen{false};
 static void __fastcall ProcessEventHook(void* obj, void* fn, void* params, void* result) {
 	items::RunQueue();
 	try {
-		items::OnProcessEvent(obj, fn);
+		items::OnProcessEvent(obj, fn, params);
 	} catch (...) {}
 	ue::ProcessEventOrig(obj, fn, params, result);
 }
@@ -71,6 +71,17 @@ static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 		return 0;
 	}
 	if (menuOpen && imguiReady) {
+		// Rocket League erzeugt selbst keine Zeichen-Nachrichten: Zeichen aus den Tasten ableiten
+		static wchar_t lastSynth = 0;
+		if (msg == WM_CHAR && lastSynth && wchar_t(wp) == lastSynth) { lastSynth = 0; return 0; }
+		if (msg == WM_KEYDOWN && ImGui::GetIO().WantTextInput) {
+			BYTE ks[256];
+			wchar_t buf[4] = {0};
+			if (GetKeyboardState(ks) && ToUnicode(UINT(wp), (lp >> 16) & 0xFF, ks, buf, 4, 0) == 1 && buf[0] >= 32) {
+				ImGui::GetIO().AddInputCharacterUTF16(buf[0]);
+				lastSynth = buf[0];
+			}
+		}
 		ImGui_ImplWin32_WndProcHandler(h, msg, wp, lp);
 		// Eingaben nicht ans Spiel weitergeben, solange das Menue offen ist
 		switch (msg) {
@@ -95,6 +106,7 @@ static HRESULT __stdcall PresentHook(IDXGISwapChain* sc, UINT sync, UINT flags) 
 				CreateRTV(sc);
 				ImGui::CreateContext();
 				ImGui::GetIO().IniFilename = nullptr;
+				gui::Fonts();
 				ImGui_ImplWin32_Init(gameWnd);
 				ImGui_ImplDX11_Init(device, context);
 				gui::Style();

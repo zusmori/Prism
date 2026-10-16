@@ -31,7 +31,7 @@ bool Setup();          // Klassen/Eigenschaften suchen
 bool IsReady();
 void LoadProducts();   // Item-Liste lesen
 void ApplyNow();       // Overrides schreiben und Loadout neu laden
-void OnProcessEvent(void* caller, void* fn); // vor dem Original aufgerufen
+void OnProcessEvent(void* caller, void* fn, void* params); // vor dem Original aufgerufen
 
 // GUI-Thread (mit Sperre)
 extern std::mutex mu;

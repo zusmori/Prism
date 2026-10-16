@@ -49,8 +49,12 @@ void RunQueue() {
 // ---------- Engine-Infos ----------
 static void *clsDB, *clsProduct, *clsSlot, *clsPC, *clsPRI;
 static int offProducts = -1, offLabel = -1, offLongLabel = -1, offSlot = -1, offQuality = -1, offSlotIndex = -1;
-static int offPlayer = -1, offPRI = -1, offClient = -1, offFull = -1;
+static int offPlayer = -1, offPRI = -1, offClient = -1, offFull = -1, offPawn = -1, offPawnPRI = -1;
 static void *fnSet = nullptr, *fnSetInternal = nullptr;
+static void *clsCar = nullptr, *clsLocalPlayer = nullptr, *fnCarSetLoadout = nullptr, *fnTeamIndex = nullptr;
+static int offLPActor = -1, offTeamRet = -1;
+static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
+static std::atomic<void*> localPC{nullptr};
 static bool ready = false;
 
 bool IsReady() { return ready; }
@@ -80,6 +84,25 @@ bool Setup() {
 	zl::Log("offsets: products=%x label=%x long=%x slot=%x quality=%x slotIndex=%x player=%x pri=%x client=%x full=%x",
 		offProducts, offLabel, offLongLabel, offSlot, offQuality, offSlotIndex, offPlayer, offPRI, offClient, offFull);
 	zl::Log("functions: OnLoadoutsSet=%p OnLoadoutsSetInternal=%p", fnSet, fnSetInternal);
+	clsCar = ue::FindClass("Class TAGame.Car_TA");
+	clsLocalPlayer = ue::FindClass("Class Engine.LocalPlayer");
+	offPawn = ue::PropOffset(clsPC, "Pawn");
+	if (clsCar) {
+		offPawnPRI = ue::PropOffset(clsCar, "PlayerReplicationInfo");
+		fnCarSetLoadout = ue::FindFunction(clsCar, "SetLoadout");
+		fnTeamIndex = ue::FindFunction(clsCar, "GetLoadoutTeamIndex");
+		if (fnTeamIndex) offTeamRet = ue::PropOffset(fnTeamIndex, "ReturnValue");
+	}
+	if (clsLocalPlayer) offLPActor = ue::PropOffset(clsLocalPlayer, "Actor");
+	// alle PlayerTick-Funktionen merken: wer sie aufruft, ist der lokale Spieler
+	for (int i = 0; i < ue::ObjectCount(); i++) {
+		void* o = ue::ObjectAt(i);
+		try {
+			if (o && ue::Name(o) == "PlayerTick" && ue::Name(ue::ClassOf(o)) == "Function") tickFns.insert(o);
+		} catch (...) {}
+	}
+	zl::Log("car=%p localPlayer=%p pawn=%x pawnPRI=%x lpActor=%x Car.SetLoadout=%p GetLoadoutTeamIndex=%p ret=%x tickFns=%d",
+		clsCar, clsLocalPlayer, offPawn, offPawnPRI, offLPActor, fnCarSetLoadout, fnTeamIndex, offTeamRet, (int)tickFns.size());
 	ready = offProducts >= 0 && offSlot >= 0 && offSlotIndex >= 0 && offPlayer >= 0 && offPRI >= 0 && offClient >= 0 && fnSet;
 	return ready;
 }
@@ -128,13 +151,28 @@ void LoadProducts() {
 }
 
 // ---------- Loadout ----------
-static void* LocalPRI() {
-	for (void* pc : ue::Instances(clsPC)) {
-		try {
-			if (ue::Read<void*>(pc, offPlayer)) return ue::Read<void*>(pc, offPRI);
-		} catch (...) {}
-	}
+// Lokaler PlayerController: per PlayerTick erkannt, sonst ueber LocalPlayer.Actor bzw. Player != null
+static void* LocalPC() {
+	if (void* pc = localPC.load()) return pc;
+	try {
+		if (clsLocalPlayer && offLPActor >= 0)
+			for (void* lp : ue::Instances(clsLocalPlayer))
+				if (void* a = ue::Read<void*>(lp, offLPActor)) return a;
+		for (void* pc : ue::Instances(clsPC))
+			if (ue::Read<void*>(pc, offPlayer)) return pc;
+	} catch (...) {}
 	return nullptr;
+}
+static void* LocalPRI() {
+	void* pc = LocalPC();
+	try { return pc ? ue::Read<void*>(pc, offPRI) : nullptr; } catch (...) { return nullptr; }
+}
+static void* LocalCar() {
+	void* pc = LocalPC();
+	try {
+		void* pawn = (pc && offPawn >= 0) ? ue::Read<void*>(pc, offPawn) : nullptr;
+		return (pawn && ue::IsA(pawn, clsCar)) ? pawn : nullptr;
+	} catch (...) { return nullptr; }
 }
 
 static std::map<int, int> originals[2]; // Team -> Slot -> eigenes Item
@@ -175,21 +213,71 @@ static void WriteOverrides(void* pri) {
 
 void ApplyNow() {
 	if (!Setup()) return;
+	void* pc = LocalPC();
 	void* pri = LocalPRI();
 	if (!pri) {
-		zl::Log("apply: no local player yet");
+		static int n = 0;
+		if (n++ < 3) {
+			int pcs = (int)ue::Instances(clsPC).size(), lps = clsLocalPlayer ? (int)ue::Instances(clsLocalPlayer).size() : -1;
+			zl::Log("apply: no local player yet (pc=%p, controllers=%d, localPlayers=%d, ticks seen=%s)", pc, pcs, lps, localPC.load() ? "yes" : "no");
+		}
 		return;
 	}
 	WriteOverrides(pri);
 	applying = true;
+	void* car = LocalCar();
+	if (car && fnCarSetLoadout) {
+		int team = 0;
+		if (fnTeamIndex && offTeamRet >= 0) {
+			std::vector<uint8_t> p(size_t(ue::StructSize(fnTeamIndex)) + 16, 0);
+			ue::Call(car, fnTeamIndex, p.data());
+			team = *reinterpret_cast<int32_t*>(p.data() + offTeamRet);
+			if (team < 0 || team > 1) team = 0;
+		}
+		// Kopie des (schon geaenderten) Loadouts ans Auto geben
+		ue::TArray<int32_t> data = *ue::Ptr<ue::TArray<int32_t>>(pri, offClient + team * 0x10);
+		std::vector<uint8_t> p(size_t(ue::StructSize(fnCarSetLoadout)) + 16, 0);
+		memcpy(p.data(), &data, sizeof data);
+		ue::Call(car, fnCarSetLoadout, p.data());
+		zl::Log("apply: Car.SetLoadout on %p (team %d, %d products)", car, team, data.count);
+	} else {
+		zl::Log("apply: no car (pawn) right now");
+	}
 	ue::Call(pri, fnSet);
 	applying = false;
 	restore.clear();
 	zl::Log("apply: done for PRI %p", pri);
 }
 
-void OnProcessEvent(void* caller, void* fn) {
-	if (!ready || applying || !caller || (fn != fnSet && fn != fnSetInternal)) return;
+static void PatchParams(void* params) {
+	std::map<int, int> ov;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		ov = overrides;
+	}
+	auto* a = reinterpret_cast<ue::TArray<int32_t>*>(params);
+	if (!a || !a->data || a->count <= 0 || a->count > 64) return;
+	for (auto& [slot, id] : ov)
+		if (slot < a->count) a->data[slot] = id;
+}
+
+void OnProcessEvent(void* caller, void* fn, void* params) {
+	if (!ready || !caller || !fn) return;
+	if (tickFns.count(fn)) { // lokaler Spieler
+		if (localPC.load() != caller && ue::IsA(caller, clsPC)) {
+			localPC = caller;
+			zl::Log("local player controller: %p", caller);
+		}
+		return;
+	}
+	if (applying) return;
+	if (fn == fnCarSetLoadout) { // Auto bekommt sein Loadout (z. B. nach Respawn): unsere Items eintragen
+		bool mine = false;
+		try { mine = offPawnPRI >= 0 && ue::Read<void*>(caller, offPawnPRI) == LocalPRI(); } catch (...) {}
+		if (mine) PatchParams(params);
+		return;
+	}
+	if (fn != fnSet && fn != fnSetInternal) return;
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		if (overrides.empty() && restore.empty()) return;
