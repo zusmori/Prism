@@ -72,6 +72,11 @@ void ZLauncherItems::onUnload() {}
 
 void ZLauncherItems::Poll() {
 	ReadLoadout(false);
+	{ // Presets oder Farbe in ZLauncher geaendert?
+		std::error_code ec;
+		auto t = fs::last_write_time(dir_ / "settings.json", ec);
+		if (!ec && t != settingsTime_) { settingsTime_ = t; ReadTheme(); }
+	}
 	if (!dbDone_) DumpDatabase();
 	gameWrapper->SetTimeout([this](GameWrapper*) { Poll(); }, 1.0f);
 }
@@ -79,7 +84,24 @@ void ZLauncherItems::Poll() {
 void ZLauncherItems::ReadTheme() {
 	try {
 		auto j = json::parse(ReadFile(dir_ / "settings.json"), nullptr, false);
-		if (j.is_discarded() || !j.contains("theme")) return;
+		if (j.is_discarded()) return;
+		if (j.contains("itemPresets") && j["itemPresets"].is_array()) {
+			std::vector<std::pair<std::string, std::map<int, zl::LoadoutItem>>> ps;
+			for (auto& p : j["itemPresets"]) {
+				if (!p.is_object()) continue;
+				std::map<int, zl::LoadoutItem> m;
+				if (p.contains("items") && p["items"].is_object())
+					for (auto& [k, v] : p["items"].items()) {
+						if (!v.is_object()) continue;
+						zl::LoadoutItem li{v.value("id", 0), v.value("paint", 0)};
+						if (li.id > 0 && kSlots.count(std::atoi(k.c_str()))) m[std::atoi(k.c_str())] = li;
+					}
+				ps.push_back({p.value("name", std::string("Preset")), m});
+			}
+			std::lock_guard<std::mutex> lk(mu_);
+			presets_ = std::move(ps);
+		}
+		if (!j.contains("theme")) return;
 		std::string t = j["theme"].get<std::string>();
 		if (t == "blue") { accent_[0] = 0.231f; accent_[1] = 0.510f; accent_[2] = 0.965f; }
 		else if (t == "cyan") { accent_[0] = 0.024f; accent_[1] = 0.714f; accent_[2] = 0.831f; }

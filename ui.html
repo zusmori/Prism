@@ -1403,6 +1403,46 @@
   .iempty p{max-width:400px;margin:0 auto;color:var(--muted);line-height:1.55;font-size:13px}
   .iempty .rowb{display:flex;gap:8px;justify-content:center;margin-top:16px}
   .iempty .sbtn{height:36px;font-size:13px}
+
+  /* Presets */
+  .ipbtn em{font-style:normal;min-width:18px;height:18px;padding:0 5px;border-radius:9px;display:inline-grid;place-items:center;font-size:10.5px;font-weight:700;
+    color:#fff;background:rgb(var(--btn-rgb))}
+  .ipbtn em:empty{display:none}
+  .ipbtn.on,.ipbtn:hover{color:var(--text)}
+  .ipbtn.act{color:#fff;border-color:rgb(var(--ac-rgb) / .55);background:rgb(var(--ac-rgb) / .14)}
+  .imain.presets .itiles{right:calc(min(420px,100%) + 10px)}
+  .imain.presets .ipset{transform:none;opacity:1;pointer-events:auto}
+  .pssave{display:flex;gap:8px;margin:0 14px 10px}
+  .pssave input,.psimp input{flex:1;min-width:0;height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s}
+  .pssave input:focus,.psimp input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
+  .pssave .sbtn,.psimp .sbtn{height:36px;padding:0 16px;font-size:13px}
+  .pslist{flex:1;min-height:0;overflow-y:auto;padding:0 10px 10px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .psc{position:relative;display:flex;align-items:center;gap:11px;padding:10px 10px 10px 12px;border-radius:12px;cursor:pointer;background:var(--panel2);border:1px solid var(--line);
+    transition:border-color .2s,background .2s,transform .25s var(--spring);animation:frin .3s var(--ease) backwards}
+  .psc:hover{border-color:var(--line2);background:var(--hover)}
+  .psc.on{border-color:rgb(var(--ac-rgb) / .6);background:rgb(var(--ac-rgb) / .12)}
+  .psc .pic3{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:rgb(var(--ac-rgb) / .14);border:1px solid rgb(var(--ac-rgb) / .3)}
+  .psc .pic3 svg{width:16px;height:16px}
+  .psc .t{flex:1;min-width:0}
+  .psc b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .psc small{display:block;font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .psc .dots{display:flex;gap:3px;margin-top:4px}
+  .psc .dots i{width:6px;height:6px;border-radius:50%;background:var(--qc)}
+  .psc .acts{display:flex;gap:2px;opacity:0;transition:opacity .2s}
+  .psc:hover .acts,.psc.edit .acts{opacity:1}
+  .psc .acts button{width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;transition:background .2s,color .2s}
+  .psc .acts button:hover{background:rgba(255,255,255,.08);color:#fff}
+  .psc .acts button.del:hover{background:rgba(247,161,173,.12);color:var(--err)}
+  .psc .acts svg{width:14px;height:14px}
+  .psc .acts svg *{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .psc input{width:100%;height:26px;padding:0 8px;border-radius:7px;border:1px solid rgb(var(--ac-rgb) / .5);background:var(--bg);color:#fff;font:inherit;font-size:13px;outline:none}
+  .psc.saved{animation:pssaved .6s var(--spring)}
+  @keyframes pssaved{40%{transform:scale(1.03);border-color:rgb(var(--ac2-rgb))}}
+  .psempty{padding:26px 16px;text-align:center;color:var(--faint);font-size:12.5px;line-height:1.5}
+  .psfoot{display:flex;gap:8px;padding:10px 14px 12px;border-top:1px solid var(--line)}
+  .psfoot .ibtn{flex:1;justify-content:center}
+  .psimp{display:flex;gap:8px;padding:0 14px;max-height:0;opacity:0;overflow:hidden;transition:max-height .3s var(--ease),opacity .2s,padding .3s}
+  .psimp.on{max-height:60px;opacity:1;padding:0 14px 12px}
 </style>
 
 </head>
@@ -1541,7 +1581,7 @@
   </main>
   <section id="vItems" class="pane off" style="--dir:24px">
     <div class="ibar">
-      <div class="ipres" id="iPresets"></div>
+      <button class="ibtn ipbtn" id="iPresetBtn"><span class="gi" data-ic="bookmark"></span><span id="iPresetTx">Presets</span><em id="iPresetN"></em></button>
       <span class="isp"></span>
       <button class="ibtn" id="iRandom" title="Random loadout"><span class="gi" data-ic="dice"></span>Shuffle</button>
       <button class="ibtn" id="iReset" title="Use your own items again"><span class="gi" data-ic="year"></span>Reset</button>
@@ -1556,6 +1596,17 @@
         <div class="isrch"><span class="gi" data-ic="search"></span><input id="iSearch" placeholder="Search …" spellcheck="false"></div>
         <div class="iplist" id="ipList"></div>
         <div class="ipaint" id="iPaint"></div>
+      </div>
+      <div class="ipick ipset" id="iPresetPanel">
+        <div class="iph"><span class="gi" data-ic="bookmark"></span><b>Presets</b><span class="ipc" id="psCount"></span>
+          <button class="ipx" id="psClose" title="Close"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button></div>
+        <div class="pssave"><input id="psName" maxlength="24" placeholder="Name your loadout …" spellcheck="false"><button class="sbtn go" id="psSave">Save</button></div>
+        <div class="pslist" id="psList"></div>
+        <div class="psfoot">
+          <button class="ibtn" id="psCopy" title="Copy a BakkesMod code of your loadout"><span class="gi" data-ic="copy"></span>Copy code</button>
+          <button class="ibtn" id="psImport" title="Paste a BakkesMod item code"><span class="gi" data-ic="down"></span>Import code</button>
+        </div>
+        <div class="psimp" id="psImp"><input id="psCode" placeholder="Paste a BakkesMod code …" spellcheck="false"><button class="sbtn go" id="psImpGo">Load</button></div>
       </div>
       <div class="iempty" id="iEmpty"></div>
     </div>
@@ -2321,7 +2372,7 @@ function setTab(t){
   heroPlay(t === 'vHome');
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
-  if (t === 'vItems') itemsEnter(); else if (typeof itemsClosePick === 'function' && items.pick !== null){ items.pick = null; $('vItems').querySelector('.imain').classList.remove('picking'); }
+  if (t === 'vItems') itemsEnter(); else if (typeof itemsClosePick === 'function'){ items.pick = null; $('vItems').querySelector('.imain').classList.remove('picking', 'presets'); $('iPresetBtn').classList.remove('on'); }
   if (t === 'vDl') guideFirst(); else guideOpen(false, false, true);
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -2403,7 +2454,12 @@ const ICONS = {
   burst:  '<path d="M8 1.8v3M8 11.2v3M1.8 8h3M11.2 8h3M3.6 3.6l2.1 2.1M10.3 10.3l2.1 2.1M3.6 12.4l2.1-2.1M10.3 5.7l2.1-2.1"/><circle cx="8" cy="8" r="1.4"/>',
   wave:   '<path d="M1.8 6c2-2 4-2 6 0s4 2 6 0M1.8 10.5c2-2 4-2 6 0s4 2 6 0"/>',
   music:  '<path d="M6 12.3V3.4l7-1.4v8.7"/><circle cx="4.3" cy="12.3" r="1.8"/><circle cx="11.3" cy="10.7" r="1.8"/>',
-  dice:   '<rect x="2.2" y="2.2" width="11.6" height="11.6" rx="2.6"/><path d="M5.4 5.4v.1M10.6 5.4v.1M8 8v.1M5.4 10.6v.1M10.6 10.6v.1"/>'
+  dice:   '<rect x="2.2" y="2.2" width="11.6" height="11.6" rx="2.6"/><path d="M5.4 5.4v.1M10.6 5.4v.1M8 8v.1M5.4 10.6v.1M10.6 10.6v.1"/>',
+  bookmark:'<path d="M4 2.4h8a.6.6 0 0 1 .6.6v10.9L8 11l-4.6 2.9V3a.6.6 0 0 1 .6-.6z"/>',
+  copy:   '<rect x="5.2" y="5.2" width="8.4" height="8.4" rx="1.6"/><path d="M10.8 5.2V3.6a1.2 1.2 0 0 0-1.2-1.2H3.6a1.2 1.2 0 0 0-1.2 1.2v6a1.2 1.2 0 0 0 1.2 1.2h1.6"/>',
+  pen:    '<path d="M10.6 2.6l2.8 2.8-7.9 7.9-3.3.5.5-3.3z"/>',
+  trash:  '<path d="M2.8 4.4h10.4M6.2 4.4V3a.8.8 0 0 1 .8-.8h2a.8.8 0 0 1 .8.8v1.4M4.2 4.4l.6 8.6a1 1 0 0 0 1 .9h4.4a1 1 0 0 0 1-.9l.6-8.6"/>',
+  save:   '<path d="M3 2.6h8.2l2.2 2.2v8a.6.6 0 0 1-.6.6H3.2a.6.6 0 0 1-.6-.6V3.2a.6.6 0 0 1 .4-.6z"/><path d="M5.2 2.6v3.2h5V2.6M5 13.4V9.4h6v4"/>'
 };
 const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
 document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.closest('.rnav') ? 13 : 16));
@@ -3258,6 +3314,7 @@ function itemsUpdateTile(slot, bump){
 // ---- Auswahl-Panel ----
 function itemsOpenPick(slot){
   if (items.pick === slot){ itemsClosePick(); return; }
+  if ($('vItems').querySelector('.imain').classList.contains('presets')){ $('vItems').querySelector('.imain').classList.remove('presets'); $('iPresetBtn').classList.remove('on'); }
   items.pick = slot; items.kb = -1; Sfx.ui('present');
   $('iSearch').value = '';
   $('vItems').querySelector('.imain').classList.add('picking');
@@ -3316,7 +3373,7 @@ function itemsChoose(id){
     items.st.items[s] = {id, paint: d && d.paint && cur ? cur.paint || 0 : 0};
     if (slot === 0 && items.st.items[1]){ const dec = items.byId.get(items.st.items[1].id); if (dec && dec.bodies && dec.bodies.length && !dec.bodies.includes(id)){ delete items.st.items[1]; itemsUpdateTile(1, true); } }
   }
-  Sfx.ui('fav'); items.preset = null; itemsRenderPresets();
+  Sfx.ui('fav'); itemsRenderPresets();
   $('ipList').querySelectorAll('.ipr2').forEach(r => r.classList.toggle('on', +r.dataset.id === id));
   itemsSave(); itemsUpdateTile(slot, true); itemsRenderPaint();
 }
@@ -3332,7 +3389,7 @@ $('iSearch').addEventListener('keydown', e => {
   else if (e.key === 'Escape'){ e.stopPropagation(); itemsClosePick(); }
 });
 $('ipClose').onclick = itemsClosePick;
-$('vItems').querySelector('.imain').addEventListener('mousedown', e => { if (items.pick !== null && !e.target.closest('.ipick') && !e.target.closest('.itile')) itemsClosePick(); });
+$('vItems').querySelector('.imain').addEventListener('mousedown', e => { if (e.target.closest('.ipick') || e.target.closest('.itile')) return; itemsClosePick(); itemsClosePresets(); });
 function itemsRenderPaint(){
   const slot = items.pick, cur = slot !== null && items.st.items[slot], d = cur && items.byId.get(cur.id), p = $('iPaint');
   if (!d || !d.paint){ p.classList.remove('on'); return; }
@@ -3341,43 +3398,134 @@ function itemsRenderPaint(){
   p.classList.add('on');
   p.querySelectorAll('.pch').forEach(b => b.onclick = () => {
     const c = items.st.items[items.pick]; if (!c) return;
-    c.paint = +b.dataset.p; Sfx.ui('tick'); items.preset = null; itemsRenderPresets();
+    c.paint = +b.dataset.p; Sfx.ui('tick'); itemsRenderPresets();
     p.querySelectorAll('.pch').forEach(x => x.classList.toggle('on', x === b));
     itemsSave(); itemsUpdateTile(items.pick, false);
   });
 }
 
-// ---- Presets, Shuffle, Reset ----
+// ---- Presets ----
 function itemsPresets(){ return Array.isArray(settings.itemPresets) ? settings.itemPresets : []; }
-function itemsRenderPresets(){
-  const ps = itemsPresets();
-  $('iPresets').innerHTML = ps.map((p, i) => `<button class="ipr${items.preset === i ? ' on' : ''}" data-i="${i}" title="Load preset">${esc(p.name)}<span class="del" data-del="${i}" title="Delete">
-    <svg width="9" height="9" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></button>`).join('') +
-    (ps.length < 8 ? `<button class="ipr add" id="iAddPreset">+ Save loadout</button>` : '');
-  $('iPresets').querySelectorAll('.ipr[data-i]').forEach(b => b.onclick = e => {
-    const di = e.target.closest('[data-del]');
-    const ps2 = itemsPresets();
-    if (di){ e.stopPropagation(); ps2.splice(+di.dataset.del, 1); settings.itemPresets = ps2; saveSetting('itemPresets', ps2); items.preset = null; Sfx.ui('unfav'); itemsRenderPresets(); return; }
-    const p = ps2[+b.dataset.i]; if (!p) return;
-    items.st.items = JSON.parse(JSON.stringify(p.items || {})); items.preset = +b.dataset.i;
-    Sfx.ui('swap'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick();
-  });
-  const add = $('iAddPreset');
-  if (add) add.onclick = () => {
-    if (!Object.keys(items.st.items).length){ toast('Pick some items first.', false); return; }
-    add.outerHTML = `<span class="ipr on"><input id="iPresetName" maxlength="20" placeholder="Name …" value="Loadout ${itemsPresets().length + 1}"></span>`;
-    const inp = $('iPresetName'); inp.focus(); inp.select();
-    let fin = false;
-    const done = ok => {
-      if (fin) return; fin = true;
-      const name = inp.value.trim();
-      if (ok && name){ const ps2 = itemsPresets(); ps2.push({name, items: JSON.parse(JSON.stringify(items.st.items))}); settings.itemPresets = ps2; saveSetting('itemPresets', ps2); items.preset = ps2.length - 1; Sfx.ui('done'); }
-      setTimeout(itemsRenderPresets, 0);
-    };
-    inp.onkeydown = e => { if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false); };
-    inp.onblur = () => done(true);
-  };
+function savePresets(ps){ settings.itemPresets = ps; saveSetting('itemPresets', ps); }
+const loadoutKey = it => JSON.stringify(Object.keys(it || {}).sort((a, b) => a - b).map(k => [k, it[k].id, it[k].paint || 0]));
+function activePreset(){ const k = loadoutKey(items.st.items); return itemsPresets().findIndex(p => loadoutKey(p.items) === k); }
+function presetSummary(p){
+  const it = p.items || {}, names = [];
+  [0, 1, 2, 3, 15].forEach(s => { const d = it[s] && items.byId.get(it[s].id); if (d) names.push(d.name); });
+  const n = Object.keys(it).length;
+  return (names.slice(0, 3).join(' · ') || 'Your own items') + (n > 3 ? ` +${n - Math.min(3, names.length)}` : '');
 }
+function itemsRenderPresets(){
+  const ps = itemsPresets(), act = activePreset();
+  $('iPresetN').textContent = ps.length || '';
+  $('iPresetTx').textContent = act >= 0 ? ps[act].name : 'Presets';
+  $('iPresetBtn').classList.toggle('act', act >= 0);
+  if (!$('vItems').querySelector('.imain').classList.contains('presets')) return;
+  $('psCount').textContent = ps.length ? ps.length + ' saved' : '';
+  if (!ps.length){ $('psList').innerHTML = '<div class="psempty">No presets yet.<br>Build a loadout and save it above.</div>'; return; }
+  $('psList').innerHTML = ps.map((p, i) => {
+    const dots = Object.values(p.items || {}).slice(0, 10).map(x => { const d = items.byId.get(x.id); return `<i style="--qc:${(IQ[d ? d.q : 0] || IQ[0])[1]}"></i>`; }).join('');
+    return `<div class="psc${i === act ? ' on' : ''}" data-i="${i}" style="animation-delay:${i * 30}ms"><span class="pic3 gi">${icon('bookmark', 16)}</span>
+      <span class="t"><b>${esc(p.name)}</b><small>${esc(presetSummary(p))}</small><span class="dots">${dots}</span></span>
+      <span class="acts"><button data-a="upd" title="Save current loadout into this preset">${icon('save', 14)}</button><button data-a="ren" title="Rename">${icon('pen', 14)}</button><button data-a="del" class="del" title="Delete">${icon('trash', 14)}</button></span></div>`;
+  }).join('');
+}
+$('psList').addEventListener('click', e => {
+  const c = e.target.closest('.psc'); if (!c || c.classList.contains('edit')) return;
+  const i = +c.dataset.i, ps = itemsPresets(), p = ps[i]; if (!p) return;
+  const a = e.target.closest('[data-a]')?.dataset.a;
+  if (a === 'del'){ ps.splice(i, 1); savePresets(ps); Sfx.ui('unfav'); itemsRenderPresets(); return; }
+  if (a === 'upd'){
+    if (!Object.keys(items.st.items).length){ toast('Pick some items first.', false); return; }
+    p.items = JSON.parse(JSON.stringify(items.st.items)); savePresets(ps); Sfx.ui('done'); itemsRenderPresets();
+    $('psList').querySelector(`.psc[data-i="${i}"]`)?.classList.add('saved'); toast(`Saved to “${p.name}”.`, true); return;
+  }
+  if (a === 'ren'){
+    c.classList.add('edit');
+    const b = c.querySelector('b'); b.innerHTML = `<input maxlength="24" value="${esc(p.name)}">`;
+    const inp = b.querySelector('input'); inp.focus(); inp.select();
+    let fin = false;
+    const done = ok => { if (fin) return; fin = true; const v = inp.value.trim(); if (ok && v){ p.name = v; savePresets(ps); Sfx.ui('tick'); } setTimeout(itemsRenderPresets, 0); };
+    inp.onkeydown = ev => { ev.stopPropagation(); if (ev.key === 'Enter') done(true); else if (ev.key === 'Escape') done(false); };
+    inp.onblur = () => done(true);
+    return;
+  }
+  items.st.items = JSON.parse(JSON.stringify(p.items || {}));
+  Sfx.ui('swap'); itemsSave(); itemsRenderTiles(); itemsRenderPresets();
+});
+function savePresetNew(){
+  const inp = $('psName');
+  if (!Object.keys(items.st.items).length){ toast('Pick some items first.', false); return; }
+  const ps = itemsPresets();
+  if (ps.length >= 30){ toast('You can keep up to 30 presets.', false); return; }
+  const name = inp.value.trim() || 'Loadout ' + (ps.length + 1);
+  ps.unshift({name, items: JSON.parse(JSON.stringify(items.st.items))}); savePresets(ps);
+  inp.value = ''; Sfx.ui('done'); itemsRenderPresets();
+  $('psList').querySelector('.psc')?.classList.add('saved');
+}
+$('psSave').onclick = savePresetNew;
+$('psName').addEventListener('keydown', e => { if (e.key === 'Enter') savePresetNew(); });
+function itemsOpenPresets(){
+  const m = $('vItems').querySelector('.imain');
+  if (m.classList.contains('presets')){ itemsClosePresets(); return; }
+  if (items.pick !== null){ items.pick = null; m.classList.remove('picking'); $('iTiles').querySelectorAll('.itile.on').forEach(t => t.classList.remove('on')); }
+  m.classList.add('presets'); $('iPresetBtn').classList.add('on'); $('psImp').classList.remove('on'); Sfx.ui('present');
+  itemsRenderPresets();
+  setTimeout(() => $('psName').focus({preventScroll: true}), 80);
+}
+function itemsClosePresets(){
+  const m = $('vItems').querySelector('.imain'); if (!m.classList.contains('presets')) return;
+  m.classList.remove('presets'); $('iPresetBtn').classList.remove('on'); Sfx.ui('dismiss');
+}
+$('iPresetBtn').onclick = itemsOpenPresets;
+$('psClose').onclick = itemsClosePresets;
+$('iPresetPanel').addEventListener('keydown', e => { if (e.key === 'Escape'){ e.stopPropagation(); itemsClosePresets(); } });
+
+// ---- BakkesMod-Code (gleiches Format wie BakkesModLoadoutLib v4) ----
+function bmEncode(it){
+  const buf = new Uint8Array(2048); let bit = 0;
+  const w = (v, n) => { for (let i = 0; i < n; i++){ if (v & 1) buf[bit >> 3] |= 1 << (bit & 7); else buf[bit >> 3] &= ~(1 << (bit & 7)); bit++; v >>>= 1; } };
+  w(4, 6); w(0, 18); w(1, 1);
+  const at = bit; w(0, 4); let n = 0;
+  Object.keys(it).map(Number).sort((a, b) => a - b).forEach(s => { const x = it[s]; if (!x || x.id <= 0 || n >= 15) return; n++; w(s, 5); w(x.id, 16); w(x.paint > 0 ? 1 : 0, 1); if (x.paint > 0) w(x.paint, 6); });
+  const end = bit; bit = at; w(n, 4); bit = end;
+  w(0, 1); w(0, 6); w(0, 6);
+  const cur = bit, bytes = (cur >> 3) + (cur & 7 ? 1 : 0);
+  let crc = 0xFF; bit = 6; w(bytes, 10);
+  for (let i = 3; i < bytes; i++) crc ^= buf[i];
+  w(crc, 8); bit = cur;
+  return btoa(String.fromCharCode(...buf.slice(0, (cur >> 3) + 1)));
+}
+function bmDecode(code){
+  const raw = atob(code.trim()), buf = Uint8Array.from(raw, c => c.charCodeAt(0)); let bit = 0;
+  const r = n => { let v = 0; for (let i = 0; i < n; i++){ v |= ((buf[bit >> 3] >> (bit & 7)) & 1) << i; bit++; } return v >>> 0; };
+  const ver = r(6), size = r(10), crc = r(8);
+  let c = 0xFF; for (let i = 3; i < size && i < buf.length; i++) c ^= buf[i];
+  if (c !== crc) throw new Error('crc');
+  r(1);
+  const out = {}, count = r(4);
+  for (let i = 0; i < count; i++){ const s = r(5), id = r(ver >= 4 ? 16 : 13), painted = r(1), paint = painted ? r(6) : 0; if (id > 0) out[s] = {id, paint}; }
+  return out;
+}
+$('psCopy').onclick = async () => {
+  if (!Object.keys(items.st.items).length){ toast('Pick some items first.', false); return; }
+  const code = bmEncode(items.st.items);
+  try { await navigator.clipboard.writeText(code); toast('BakkesMod code copied.', true); }
+  catch (e) { $('psImp').classList.add('on'); $('psCode').value = code; $('psCode').select(); }
+  Sfx.ui('tick');
+};
+$('psImport').onclick = () => { const o = $('psImp').classList.toggle('on'); Sfx.ui('tick'); if (o) setTimeout(() => $('psCode').focus(), 50); };
+function importCode(){
+  try {
+    const it = bmDecode($('psCode').value);
+    if (!Object.keys(it).length) throw 0;
+    items.st.items = it; $('psCode').value = ''; $('psImp').classList.remove('on');
+    Sfx.ui('swap'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); toast('Loadout loaded. Save it as a preset to keep it.', true);
+  } catch (e) { Sfx.ui('error'); toast("That doesn't look like a BakkesMod item code.", false); }
+}
+$('psImpGo').onclick = importCode;
+$('psCode').addEventListener('keydown', e => { if (e.key === 'Enter') importCode(); });
+
 $('iRandom').onclick = () => {
   if (!items.db) return;
   const rnd = a => a[Math.floor(Math.random() * a.length)];
@@ -3388,13 +3536,13 @@ $('iRandom').onclick = () => {
     const it = rnd(pool);
     next[slot] = {id: it.id, paint: it.paint && Math.random() < .5 ? rnd(itemsPaints())[0] : 0};
   });
-  items.st.items = next; items.preset = null;
+  items.st.items = next;
   const b = $('iRandom'); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin');
   Sfx.ui('swap'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick();
 };
 $('iReset').onclick = () => {
   if (!Object.keys(items.st.items).length) return;
-  items.st.items = {}; items.preset = null; Sfx.ui('restore'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick();
+  items.st.items = {}; Sfx.ui('restore'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick();
 };
 function itemsSave(){
   items.pending = true; clearTimeout(items.saveT);

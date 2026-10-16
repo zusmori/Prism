@@ -60,10 +60,12 @@ private:
 	std::map<int, zl::LoadoutItem> loadout_;
 	bool enabled_ = true;
 	fs::file_time_type loadoutTime_{};
+	fs::file_time_type settingsTime_{};
 	std::string lastCode_;
 	bool open_ = false;
 	bool dbDone_ = false;
 	float accent_[3] = {0.545f, 0.361f, 0.965f};
+	std::vector<std::pair<std::string, std::map<int, zl::LoadoutItem>>> presets_; // aus ZLauncher (settings.json)
 
 	void DumpDatabase();
 	void ReadLoadout(bool force);

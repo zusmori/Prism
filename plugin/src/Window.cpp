@@ -98,6 +98,22 @@ void ZLauncherItems::Render() {
 	ImGui::TextColored(ac, "ZLAUNCHER");
 	ImGui::SameLine();
 	ImGui::TextDisabled("Items");
+	if (!presets_.empty()) {
+		ImGui::SameLine(ImGui::GetWindowWidth() - 340);
+		ImGui::PushItemWidth(190);
+		int act = -1;
+		for (size_t i = 0; i < presets_.size(); i++) {
+			bool same = presets_[i].second.size() == loadout_.size();
+			if (same) for (auto& [k, v] : presets_[i].second) { auto f = loadout_.find(k); if (f == loadout_.end() || f->second.id != v.id || f->second.paint != v.paint) { same = false; break; } }
+			if (same) { act = (int)i; break; }
+		}
+		if (ImGui::BeginCombo("##preset", act >= 0 ? presets_[act].first.c_str() : "Presets")) {
+			for (size_t i = 0; i < presets_.size(); i++)
+				if (ImGui::Selectable(presets_[i].first.c_str(), (int)i == act)) { loadout_ = presets_[i].second; changed = true; }
+			ImGui::EndCombo();
+		}
+		ImGui::PopItemWidth();
+	}
 	ImGui::SameLine(ImGui::GetWindowWidth() - 130);
 	if (ImGui::Checkbox("Item swap", &enabled_)) changed = true;
 	ImGui::Spacing();
