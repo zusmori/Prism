@@ -2,6 +2,7 @@
 #include "gui.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <cstdio>
 #include <string>
@@ -184,6 +185,16 @@ void Render(bool* open) {
 	ImGui::PushFont(fSmall);
 	dl->AddText(ImVec2(o.x + 102, o.y + 42), U(Rgb(120, 120, 135)), "Only you can see these  ·  F8 to close");
 	ImGui::PopFont();
+	// Fenster am Kopf verschieben
+	ImGui::SetCursorPos(ImVec2(0, 0));
+	ImGui::InvisibleButton("##drag", ImVec2(W.x - 70, 74));
+	if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0, 0.0f)) {
+		ImVec2 d = io.MouseDelta;
+		ImVec2 np(o.x + d.x, o.y + d.y);
+		np.x = std::clamp(np.x, 40.0f - W.x, io.DisplaySize.x - 40.0f); // nie ganz aus dem Bild
+		np.y = std::clamp(np.y, 0.0f, io.DisplaySize.y - 40.0f);
+		ImGui::SetWindowPos(np);
+	}
 	// Schliessen
 	ImGui::SetCursorPos(ImVec2(W.x - 52, 18));
 	if (ImGui::InvisibleButton("##close", ImVec2(32, 32))) *open = false;
@@ -300,6 +311,29 @@ void Render(bool* open) {
 	ImGui::PopFont();
 
 	if (pick >= 0 && pick != cur) items::Set(curSlot, pick);
+}
+
+void Toast(float t) {
+	ImGuiIO& io = ImGui::GetIO();
+	// rein (0.35 s), stehen, raus (0.5 s)
+	float in = std::clamp(t / 0.35f, 0.0f, 1.0f);
+	float out = std::clamp((kToastSeconds - t) / 0.5f, 0.0f, 1.0f);
+	float a = std::min(in, out);
+	float ease = 1.0f - (1.0f - in) * (1.0f - in) * (1.0f - in);
+	const ImVec2 sz(380, 66);
+	ImVec2 p((io.DisplaySize.x - sz.x) / 2, 28 + (ease - 1.0f) * 24);
+	ImDrawList* d = ImGui::GetForegroundDrawList();
+	auto A = [&](ImVec4 c) { c.w *= a; return U(c); };
+	d->AddRectFilled(ImVec2(p.x, p.y + 4), ImVec2(p.x + sz.x, p.y + sz.y + 6), A(Rgb(0, 0, 0, 0.35f)), 16); // Schatten
+	d->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), A(Rgb(14, 14, 19, 0.97f)), 16);
+	d->AddRectFilledMultiColor(ImVec2(p.x + 1, p.y + 1), ImVec2(p.x + 200, p.y + sz.y - 1), A(Acc(0.14f)), A(Acc(0.0f)), A(Acc(0.0f)), A(Acc(0.14f)));
+	d->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), A(Acc(0.35f)), 16);
+	// Symbol: Kreis in Akzentfarbe mit Haken
+	ImVec2 c(p.x + 34, p.y + sz.y / 2);
+	d->AddCircleFilled(c, 15, A(Acc(0.22f)));
+	d->AddCircleFilled(c, 4.5f + 1.5f * (0.5f + 0.5f * sinf(t * 4.0f)), A(accent));
+	d->AddText(fBold, 16.0f, ImVec2(p.x + 62, p.y + 13), A(Rgb(255, 255, 255)), "Item Swapper active");
+	d->AddText(fSmall, 13.5f, ImVec2(p.x + 62, p.y + 35), A(Rgb(150, 150, 165)), "Press F8 to pick your items  ·  ZLauncher");
 }
 
 } // namespace gui

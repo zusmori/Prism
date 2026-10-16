@@ -293,16 +293,28 @@ static HRESULT __stdcall PresentHook(IDXGISwapChain* sc, UINT sync, UINT flags) 
 				zl::Log("overlay ready (window %p)", gameWnd);
 			}
 		}
-		if (imguiReady && menuOpen) {
+		// Hinweis beim Spielstart: kurz einblenden, nicht anklickbar
+		static unsigned long long toastStart = 0;
+		if (imguiReady && !toastStart) toastStart = GetTickCount64() + 1500;
+		float toastT = toastStart ? float((long long)(GetTickCount64() - toastStart)) / 1000.0f : -1.0f;
+		bool toast = toastT >= 0.0f && toastT < gui::kToastSeconds;
+		if (imguiReady && (menuOpen || toast)) {
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
-			PollMouse();
-			PollKeys();
-			if (!menuOpen) { OnMenuToggled(); return presentOrig(sc, sync, flags); }
+			if (menuOpen) {
+				PollMouse();
+				PollKeys();
+				if (!menuOpen) { OnMenuToggled(); return presentOrig(sc, sync, flags); }
+			} else {
+				ImGui::GetIO().MouseDrawCursor = false;
+			}
 			ImGui::NewFrame();
-			bool open = true;
-			gui::Render(&open);
-			if (!open) { menuOpen = false; OnMenuToggled(); }
+			if (menuOpen) {
+				bool open = true;
+				gui::Render(&open);
+				if (!open) { menuOpen = false; OnMenuToggled(); }
+			}
+			if (toast) gui::Toast(toastT);
 			ImGui::Render();
 			if (!rtv) CreateRTV(sc);
 			context->OMSetRenderTargets(1, &rtv, nullptr);
