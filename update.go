@@ -30,7 +30,7 @@ import (
 )
 
 // Bei jedem Release mit hochzaehlen (passend zum Tag, z. B. v1.2.0)
-const appVersion = "1.2.9"
+const appVersion = "1.3.0"
 
 const (
 	releaseAPI = "https://api.github.com/repos/zusmori/zusmoris-map-swapper/releases/latest"

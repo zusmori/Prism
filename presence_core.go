@@ -382,6 +382,8 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 			default:
 				a.State = "Picking a map"
 			}
+		case "vItems":
+			a.Details, a.State = "Picking items", "Item swap"
 		case "vBrowse":
 			a.Details, a.State = "Browsing workshop maps", "Looking for something new"
 		default: // Home

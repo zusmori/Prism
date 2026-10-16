@@ -1304,6 +1304,93 @@
   .kx:hover{background:rgba(255,255,255,.12);color:#fff;transform:rotate(90deg)}
   .klater{height:34px;padding:0 16px;border-radius:10px;border:1px solid var(--line2);background:none;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,border-color .2s}
   .klater:hover{background:var(--hover);border-color:#3a3a46}
+
+  /* ================= Items ================= */
+  #vItems{display:flex;flex-direction:column;gap:12px;padding:2px 18px 14px}
+  .ihead{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .iht{flex:1;min-width:220px}
+  .iht h2{display:flex;align-items:center;gap:9px;font-size:20px;font-weight:700;color:#fff}
+  .iht h2 .gi svg{width:18px;height:18px}
+  .iht small{display:block;margin-top:2px;font-size:12.5px;color:var(--muted)}
+  .istat{display:flex;align-items:center;gap:8px;height:32px;padding:0 13px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--muted);
+    background:var(--panel);border:1px solid var(--line2);transition:color .3s,border-color .3s,background .3s}
+  .istat .dot{width:8px;height:8px;border-radius:50%;background:#52525b;transition:background .3s,box-shadow .3s}
+  .istat.ok{color:var(--ok);border-color:rgba(126,226,168,.3);background:rgba(126,226,168,.06)}
+  .istat.ok .dot{background:var(--ok);box-shadow:0 0 8px rgba(126,226,168,.8);animation:idot 2s ease-in-out infinite}
+  @keyframes idot{50%{box-shadow:0 0 2px rgba(126,226,168,.4)}}
+  .istat.warn{color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.06)}
+  .istat.warn .dot{background:#fbbf24}
+  .itog{display:flex;align-items:center;gap:10px;height:32px;padding:0 6px 0 13px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:600;
+    background:var(--panel);border:1px solid var(--line2);transition:border-color .2s,background .2s}
+  .itog:hover{border-color:rgb(var(--ac-rgb) / .5)}
+  .itog:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(var(--ac-rgb) / .35)}
+  .ibody{flex:1;min-height:0;display:grid;grid-template-columns:230px minmax(0,1fr);gap:12px}
+  .ipanel{background:var(--panel);border:1px solid var(--line);border-radius:16px;min-height:0}
+  .islots{overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .isl{position:relative;display:flex;align-items:center;gap:11px;width:100%;padding:8px 10px;border:0;border-radius:11px;background:none;cursor:pointer;text-align:left;
+    font:inherit;color:var(--text);transition:background .2s}
+  .isl:hover{background:var(--hover)}
+  .isl.on{background:rgb(var(--ac-rgb) / .14)}
+  .isl.on::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:rgb(var(--ac2-rgb));box-shadow:0 0 10px rgb(var(--ac-rgb))}
+  .isl .sic2{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line2)}
+  .isl.on .sic2{background:rgb(var(--ac-rgb) / .2);border-color:rgb(var(--ac-rgb) / .45)}
+  .isl .sic2 svg{width:15px;height:15px}
+  .isl .t{min-width:0;flex:1}
+  .isl b{display:block;font-size:13px;font-weight:600}
+  .isl small{display:block;font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
+  .isl small.set{color:rgb(var(--ac3-rgb))}
+  .isl small.pop{animation:subin .4s var(--ease)}
+  .imain{position:relative;display:flex;flex-direction:column;overflow:hidden}
+  .ibar{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .isrch{flex:1;display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line2);transition:border-color .2s,box-shadow .2s}
+  .isrch:focus-within{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
+  .isrch input{flex:1;min-width:0;border:0;background:none;outline:none;color:var(--text);font:inherit;font-size:13px}
+  .isrch input::placeholder{color:var(--faint)}
+  .icount{font-size:12px;color:var(--faint);white-space:nowrap}
+  .ireset{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--line2);background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:color .2s,border-color .2s}
+  .ireset:hover{color:var(--text);border-color:#3a3a46}
+  .igrid{flex:1;min-height:0;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-rows:96px;gap:9px;align-content:start;
+    scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .icard{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:10px 11px;border-radius:13px;cursor:pointer;text-align:left;
+    font:inherit;color:var(--text);background:linear-gradient(160deg,color-mix(in srgb, var(--qc) 16%, var(--panel2)),var(--panel2) 70%);border:1px solid var(--line2);
+    transition:transform .25s var(--spring),border-color .2s,box-shadow .25s;animation:frin .3s var(--ease) backwards}
+  .icard::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:var(--qc);opacity:.85}
+  .icard .bg{position:absolute;right:-6px;top:-4px;width:58px;height:58px;color:var(--qc);opacity:.18;transition:opacity .25s,transform .4s var(--spring)}
+  .icard .bg svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+  .icard b{position:relative;font-size:12.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .icard small{position:relative;font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--qc);margin-top:3px;opacity:.9}
+  .icard:hover{transform:translateY(-2px);border-color:color-mix(in srgb, var(--qc) 55%, transparent);box-shadow:0 10px 24px -14px var(--qc)}
+  .icard:hover .bg{opacity:.32;transform:rotate(-8deg) scale(1.08)}
+  .icard.on{border-color:rgb(var(--ac2-rgb));box-shadow:0 0 0 1px rgb(var(--ac2-rgb)),0 12px 26px -14px rgb(var(--ac-rgb))}
+  .icard .ck{position:absolute;top:8px;left:8px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:rgb(var(--btn-rgb));
+    box-shadow:0 0 10px rgb(var(--ac-rgb) / .8);transform:scale(0);transition:transform .35s var(--spring)}
+  .icard.on .ck{transform:none}
+  .icard .ck svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .icard .pd{position:absolute;top:9px;right:9px;width:12px;height:12px;border-radius:50%;background:var(--pc);border:2px solid var(--panel2);box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+  .icard.def{--qc:#8b8b98;justify-content:center;align-items:center;text-align:center}
+  .icard.def b{color:var(--muted)}
+  .imore{grid-column:1/-1;text-align:center;font-size:12px;color:var(--faint);padding:8px}
+  .ipaint{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:0 14px;max-height:0;opacity:0;overflow:hidden;border-top:1px solid transparent;
+    transition:max-height .35s var(--ease),opacity .25s,padding .35s var(--ease),border-color .3s}
+  .ipaint.on{max-height:120px;opacity:1;padding:11px 14px;border-color:var(--line)}
+  .ipaint .pl{font-size:12px;font-weight:600;color:var(--muted);margin-right:4px}
+  .pch{width:24px;height:24px;border-radius:50%;border:2px solid transparent;background:var(--pc);cursor:pointer;padding:0;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);transition:transform .25s var(--spring),border-color .2s}
+  .pch:hover{transform:scale(1.15)}
+  .pch.on{border-color:#fff;transform:scale(1.12);box-shadow:0 0 12px var(--pc)}
+  .pch.none{background:repeating-linear-gradient(135deg,#2a2a33 0 4px,#1b1b22 4px 8px)}
+  .iempty{position:absolute;inset:0;display:none;place-items:center;padding:30px;text-align:center;background:var(--panel);z-index:2}
+  .iempty.on{display:grid}
+  .iempty .ico2{width:62px;height:62px;margin:0 auto 14px;border-radius:18px;display:grid;place-items:center;background:rgb(var(--ac-rgb) / .14);border:1px solid rgb(var(--ac-rgb) / .35);
+    box-shadow:0 0 30px -8px rgb(var(--ac-rgb) / .7)}
+  .iempty .ico2 svg{width:26px;height:26px}
+  .iempty h3{font-size:17px;color:#fff;margin-bottom:6px}
+  .iempty p{max-width:420px;margin:0 auto;color:var(--muted);line-height:1.55;font-size:13px}
+  .iempty .rowb{display:flex;gap:10px;justify-content:center;margin-top:18px}
+  .ifoot{font-size:12px;color:var(--faint);display:flex;align-items:center;gap:8px}
+  .key{display:inline-grid;place-items:center;min-width:26px;height:22px;padding:0 6px;border-radius:6px;font-size:11px;font-weight:700;color:var(--text);
+    background:var(--panel2);border:1px solid var(--line2);box-shadow:0 2px 0 var(--line2)}
+  @media (max-width:820px){ .ibody{grid-template-columns:180px minmax(0,1fr)} }
 </style>
 
 </head>
@@ -1321,6 +1408,7 @@
       <button class="tab on" data-tab="vHome">Home</button>
       <button class="tab" data-tab="vDl">Swap Maps</button>
       <button class="tab" data-tab="vBrowse">Browse Maps <span class="badge" id="dlBadge"></span></button>
+      <button class="tab" data-tab="vItems">Items</button>
     </div>
     <button class="upill" id="updPill" title="A new version of ZLauncher is available"><span class="gi" data-ic="down"></span>Update<i></i></button>
     <button class="wbtn gear" id="setBtn" title="Settings"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -1439,6 +1527,27 @@
 
     </section>
   </main>
+  <section id="vItems" class="pane off" style="--dir:24px">
+    <div class="ihead">
+      <div class="iht"><h2><span class="gi" data-ic="spark"></span>Items</h2><small>Use any item in Rocket League. Only you can see them.</small></div>
+      <div class="istat" id="iStat"><span class="dot"></span><span id="iStatTx">Checking …</span></div>
+      <div class="itog" id="iToggle" role="switch" aria-checked="true" tabindex="0"><span>Item swap</span><span class="tg on" id="iTg"></span></div>
+    </div>
+    <div class="ibody">
+      <aside class="ipanel islots" id="iSlots"></aside>
+      <section class="ipanel imain">
+        <div class="ibar">
+          <div class="isrch"><span class="gi" data-ic="search"></span><input id="iSearch" placeholder="Search items …" spellcheck="false"></div>
+          <span class="icount" id="iCount"></span>
+          <button class="ireset" id="iReset" title="Use your own items again">Reset all</button>
+        </div>
+        <div class="igrid" id="iGrid"></div>
+        <div class="ipaint" id="iPaint"></div>
+        <div class="iempty" id="iEmpty"></div>
+      </section>
+    </div>
+    <div class="ifoot"><span class="key">F8</span> opens the item menu in Rocket League · Works without Anti-Cheat only (Freeplay, training, offline matches)</div>
+  </section>
   <section id="vBrowse" class="pane off" style="--dir:24px">
     <div class="bscroll" id="bscroll"><div class="bwrap">
       <div class="bbar" id="bbar">
@@ -2182,7 +2291,7 @@ document.addEventListener('contextmenu', e => { if (e.target.tagName !== 'INPUT'
 
 /* ---------- Tabs ---------- */
 let tab = 'vHome', installed = new Set();
-const PANES = ['vHome', 'vDl', 'vBrowse'];
+const PANES = ['vHome', 'vDl', 'vBrowse', 'vItems'];
 function moveInk(wrap, btn){
   const ink = wrap.querySelector('.ink'), r = btn.getBoundingClientRect(), w = wrap.getBoundingClientRect();
   ink.style.left = (r.left - w.left - wrap.clientLeft) + 'px'; ink.style.width = r.width + 'px';
@@ -2200,6 +2309,7 @@ function setTab(t){
   heroPlay(t === 'vHome');
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
+  if (t === 'vItems') itemsEnter();
   if (t === 'vDl') guideFirst(); else guideOpen(false, false, true);
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -2272,7 +2382,15 @@ const ICONS = {
   gpu:    '<rect x="1.8" y="4.2" width="12.4" height="7.4" rx="1.3"/><circle cx="10.4" cy="7.9" r="1.9"/><path d="M4.3 6.6h2.6M4.3 9.2h2.6M3.6 11.6v2"/>',
   discord:'<path d="M5.6 4.1c-1 .2-1.9.5-2.7 1-1.1 1.7-1.6 3.6-1.5 5.6.9.7 2 1.2 3.1 1.5l.7-1.1M10.4 4.1c1 .2 1.9.5 2.7 1 1.1 1.7 1.6 3.6 1.5 5.6-.9.7-2 1.2-3.1 1.5l-.7-1.1M4.6 10.6c2.2 1 4.6 1 6.8 0M5.9 4.1L6.3 5c1.1-.2 2.3-.2 3.4 0l.4-.9"/><circle cx="6" cy="8.4" r=".9"/><circle cx="10" cy="8.4" r=".9"/>',
   user:   '<circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.6c.5-2.6 2.5-4 5-4s4.5 1.4 5 4"/>',
-  help:   '<circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 0 1 3.7.5c0 1.3-1.9 1.6-1.9 2.8M8 11.6v.1"/>'
+  help:   '<circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 0 1 3.7.5c0 1.3-1.9 1.6-1.9 2.8M8 11.6v.1"/>',
+  wheel:  '<circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.2"/><path d="M8 2v3.8M8 10.2V14M2 8h3.8M10.2 8H14"/>',
+  layers: '<path d="M8 2.2l5.8 3-5.8 3-5.8-3z"/><path d="M2.2 8.2l5.8 3 5.8-3M2.2 11l5.8 3 5.8-3"/>',
+  drop:   '<path d="M8 1.9c2.4 3 4.2 5.2 4.2 7.4A4.2 4.2 0 0 1 3.8 9.3C3.8 7.1 5.6 4.9 8 1.9z"/>',
+  hat:    '<path d="M3 11.5c0-4 2.2-7 5-7s5 3 5 7"/><path d="M1.5 11.5h13"/>',
+  flag:   '<path d="M4 14.2V2"/><path d="M4 2.6c2.5-1.2 4.5 1.4 8 0v5.6c-3.5 1.4-5.5-1.2-8 0"/>',
+  burst:  '<path d="M8 1.8v3M8 11.2v3M1.8 8h3M11.2 8h3M3.6 3.6l2.1 2.1M10.3 10.3l2.1 2.1M3.6 12.4l2.1-2.1M10.3 5.7l2.1-2.1"/><circle cx="8" cy="8" r="1.4"/>',
+  wave:   '<path d="M1.8 6c2-2 4-2 6 0s4 2 6 0M1.8 10.5c2-2 4-2 6 0s4 2 6 0"/>',
+  music:  '<path d="M6 12.3V3.4l7-1.4v8.7"/><circle cx="4.3" cy="12.3" r="1.8"/><circle cx="11.3" cy="10.7" r="1.8"/>'
 };
 const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
 document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.closest('.rnav') ? 13 : 16));
@@ -3040,6 +3158,172 @@ $('setBoost').onclick = toggleBoost;
 $('setBoost').onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleBoost(); } };
 paintBoost();
 
+
+/* ---------- Items (Item Swapper ueber BakkesMod) ---------- */
+const ISLOTS = [[0, 'Car', 'car'], [1, 'Decal', 'layers'], [7, 'Paint Finish', 'drop'], [12, 'Accent Finish', 'drop'], [2, 'Wheels', 'wheel'], [3, 'Boost', 'flame'],
+  [5, 'Topper', 'hat'], [4, 'Antenna', 'flag'], [15, 'Goal Explosion', 'burst'], [14, 'Trail', 'wave'], [13, 'Engine Audio', 'sound'], [18, 'Anthem', 'music']];
+const IQ = [['Common', '#a9a9b4'], ['Uncommon', '#6eb4ff'], ['Rare', '#5a8cff'], ['Very Rare', '#a064ff'], ['Import', '#e64646'], ['Exotic', '#f0c83c'],
+  ['Black Market', '#f05ac8'], ['Premium', '#5adc8c'], ['Limited', '#fa9632'], ['Legacy', '#c8c878']];
+const IPAINT_FALLBACK = [[1, 'Crimson', '#c8102e'], [2, 'Lime', '#7fff00'], [3, 'Black', '#1a1a1a'], [4, 'Sky Blue', '#62b6f0'], [5, 'Cobalt', '#3b4fd8'], [6, 'Burnt Sienna', '#8a4b24'],
+  [7, 'Forest Green', '#1f7a3a'], [8, 'Purple', '#8a2be2'], [9, 'Pink', '#ff69b4'], [10, 'Orange', '#ff8c1a'], [11, 'Grey', '#8a8a8a'], [12, 'Titanium White', '#f5f5f5'],
+  [13, 'Saffron', '#f4d03f'], [14, 'Gold', '#d4af37'], [15, 'Rose Gold', '#e0a899'], [16, 'White Gold', '#efe6c8'], [17, 'Onyx', '#2b2b2f'], [18, 'Platinum', '#d8dde3']];
+const items = {db: null, byId: new Map(), dbTime: -1, st: {enabled: true, items: {}}, stKey: '', slot: 0, limit: 120, saveT: null, pending: false, status: null};
+
+async function itemsEnter(){ await itemsRefresh(true); }
+async function itemsRefresh(first){
+  let st = null;
+  try { if (has('itemsStatus')) st = await itemsStatus(); } catch (e) {}
+  if (!st) st = {bakkesmod: false, db: false};
+  items.status = st;
+  if (st.db && st.dbTime !== items.dbTime){
+    try {
+      const raw = has('getItemsDB') ? await getItemsDB() : '';
+      const db = JSON.parse(raw || 'null');
+      if (db && db.items){ items.db = db; items.byId = new Map(db.items.map(i => [i.id, i])); items.dbTime = st.dbTime; first = true; }
+    } catch (e) {}
+  }
+  if (!items.pending){
+    try {
+      const cur = has('getItems') ? await getItems() : null;
+      const key = JSON.stringify(cur);
+      if (cur && key !== items.stKey){ items.st = {enabled: cur.enabled !== false, items: cur.items || {}}; items.stKey = key; first = true; }
+    } catch (e) {}
+  }
+  itemsPaintStatus();
+  if (first){ itemsRenderSlots(); itemsRenderGrid(); itemsRenderPaint(); }
+}
+function itemsPaintStatus(){
+  const st = items.status || {}, b = $('iStat'), tx = $('iStatTx');
+  b.className = 'istat';
+  if (!st.bakkesmod){ b.classList.add('warn'); tx.textContent = 'BakkesMod needed'; }
+  else if (st.error){ b.classList.add('warn'); tx.textContent = st.error; }
+  else if (st.loaded){ b.classList.add('ok'); tx.textContent = items.st.enabled ? 'Active in game' : 'In game · item swap off'; }
+  else tx.textContent = 'Ready · play without Anti-Cheat';
+  const on = items.st.enabled !== false;
+  $('iTg').classList.toggle('on', on); $('iToggle').setAttribute('aria-checked', on);
+  // Leer-Zustaende
+  const e = $('iEmpty');
+  if (!st.bakkesmod){
+    e.innerHTML = `<div><div class="ico2"><span class="gi">${icon('spark', 26)}</span></div><h3>Get BakkesMod first</h3>
+      <p>The item swap runs on BakkesMod, the free Rocket League mod. Install it once and ZLauncher does the rest: it adds its own item menu (F8) and loads everything when you play without Anti-Cheat.</p>
+      <div class="rowb"><button class="sbtn go" id="iGetBM">Get BakkesMod<span class="gi">${icon('ext', 13)}</span></button><button class="sbtn" id="iRecheck">I've installed it</button></div></div>`;
+    $('iGetBM').onclick = () => { if (has('getBakkesMod')) getBakkesMod(); };
+    $('iRecheck').onclick = () => { Sfx.ui('tick'); itemsRefresh(true); };
+    e.classList.add('on');
+  } else if (!items.db){
+    e.innerHTML = `<div><div class="ico2"><span class="gi">${icon('play', 26)}</span></div><h3>Load your item list</h3>
+      <p>Start Rocket League once without Anti-Cheat. ZLauncher reads every item from the game, this only takes a few seconds. After that you can pick items here any time.</p>
+      <div class="rowb"><button class="sbtn go" id="iPlay">Play without Anti-Cheat</button></div></div>`;
+    $('iPlay').onclick = () => { setTab('vHome'); setTimeout(() => launch(false), 350); };
+    e.classList.add('on');
+  } else e.classList.remove('on');
+}
+function itemName(slot){
+  const it = items.st.items[slot];
+  if (!it || !it.id) return '';
+  const d = items.byId.get(it.id);
+  return d ? d.name : '#' + it.id;
+}
+function itemsRenderSlots(){
+  const have = new Set((items.db?.items || []).map(i => i.slot));
+  $('iSlots').innerHTML = ISLOTS.filter(([i]) => !items.db || have.has(i)).map(([i, label, ic]) => {
+    const n = itemName(i);
+    return `<button class="isl${i === items.slot ? ' on' : ''}" data-s="${i}"><span class="sic2 gi">${icon(ic, 15)}</span><span class="t"><b>${label}</b><small class="${n ? 'set' : ''}">${n ? esc(n) : 'Your own'}</small></span></button>`;
+  }).join('');
+  $('iSlots').querySelectorAll('.isl').forEach(b => b.onclick = () => {
+    const s = +b.dataset.s; if (s === items.slot) return;
+    items.slot = s; items.limit = 120; $('iSearch').value = ''; Sfx.ui('tab');
+    $('iSlots').querySelectorAll('.isl').forEach(x => x.classList.toggle('on', x === b));
+    itemsRenderGrid(); itemsRenderPaint(); $('iGrid').scrollTop = 0;
+  });
+}
+function itemsFiltered(){
+  if (!items.db) return [];
+  const q = $('iSearch').value.trim().toLowerCase(), slot = items.slot;
+  const body = items.st.items[0]?.id || 0;
+  return items.db.items.filter(i => i.slot === slot && (!q || i.name.toLowerCase().includes(q)) &&
+    (slot !== 1 || !body || !i.bodies || !i.bodies.length || i.bodies.includes(body)));
+}
+function itemsPaints(){
+  const ps = items.db?.paints?.length ? items.db.paints.map(p => [p.id, p.name, p.color]) : IPAINT_FALLBACK;
+  return ps;
+}
+function itemsRenderGrid(){
+  const list = itemsFiltered(), cur = items.st.items[items.slot];
+  const ic = (ISLOTS.find(x => x[0] === items.slot) || [0, '', 'spark'])[2];
+  $('iCount').textContent = list.length + (list.length === 1 ? ' item' : ' items');
+  const paints = new Map(itemsPaints().map(p => [p[0], p[2]]));
+  let h = `<button class="icard def${!cur ? ' on' : ''}" data-id="0"><span class="ck"><svg viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><b>Your own item</b></button>`;
+  list.slice(0, items.limit).forEach((i, n) => {
+    const q = IQ[i.q] || IQ[0], on = cur && cur.id === i.id;
+    let sub = q[0];
+    if (i.slot === 1 && i.bodies && i.bodies.length === 1){ const b = items.byId.get(i.bodies[0]); if (b) sub = b.name; }
+    const pc = on && cur.paint ? paints.get(cur.paint) : '';
+    h += `<button class="icard${on ? ' on' : ''}" data-id="${i.id}" style="--qc:${q[1]};animation-delay:${Math.min(n, 24) * 12}ms"><span class="bg">${icon(ic, 58)}</span>
+      <span class="ck"><svg viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>${pc ? `<span class="pd" style="--pc:${pc}"></span>` : ''}<b>${esc(i.name)}</b><small>${esc(sub)}</small></button>`;
+  });
+  if (list.length > items.limit) h += `<div class="imore">Scroll for more …</div>`;
+  $('iGrid').innerHTML = h;
+}
+$('iGrid').addEventListener('click', e => {
+  const c = e.target.closest('.icard'); if (!c) return;
+  const id = +c.dataset.id, s = String(items.slot), cur = items.st.items[s];
+  if (!id){ if (!cur) return; delete items.st.items[s]; }
+  else {
+    if (cur && cur.id === id) return;
+    const d = items.byId.get(id);
+    items.st.items[s] = {id, paint: d && d.paint && cur ? cur.paint || 0 : 0};
+    // anderes Auto: unpassenden Decal entfernen
+    if (items.slot === 0 && items.st.items[1]){ const dec = items.byId.get(items.st.items[1].id); if (dec && dec.bodies && dec.bodies.length && !dec.bodies.includes(id)) delete items.st.items[1]; }
+  }
+  Sfx.ui('fav');
+  $('iGrid').querySelectorAll('.icard.on').forEach(x => x.classList.remove('on'));
+  c.classList.add('on');
+  itemsSave(); itemsSlotLabel(items.slot); if (items.slot === 0) itemsSlotLabel(1); itemsRenderPaint();
+});
+$('iGrid').addEventListener('scroll', () => {
+  const g = $('iGrid');
+  if (g.scrollTop + g.clientHeight > g.scrollHeight - 300 && itemsFiltered().length > items.limit){ items.limit += 120; const t = g.scrollTop; itemsRenderGrid(); g.scrollTop = t; }
+});
+let iSearchT;
+$('iSearch').addEventListener('input', () => { clearTimeout(iSearchT); iSearchT = setTimeout(() => { items.limit = 120; itemsRenderGrid(); $('iGrid').scrollTop = 0; }, 120); });
+function itemsSlotLabel(slot){
+  const b = $('iSlots').querySelector(`.isl[data-s="${slot}"] small`); if (!b) return;
+  const n = itemName(slot); b.textContent = n || 'Your own'; b.classList.toggle('set', !!n);
+  b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+}
+function itemsRenderPaint(){
+  const cur = items.st.items[items.slot], d = cur && items.byId.get(cur.id), p = $('iPaint');
+  if (!d || !d.paint){ p.classList.remove('on'); return; }
+  p.innerHTML = `<span class="pl">Paint</span><button class="pch none${!cur.paint ? ' on' : ''}" data-p="0" title="Unpainted"></button>` +
+    itemsPaints().map(([id, name, c]) => `<button class="pch${cur.paint === id ? ' on' : ''}" data-p="${id}" title="${esc(name)}" style="--pc:${c}"></button>`).join('');
+  p.classList.add('on');
+  p.querySelectorAll('.pch').forEach(b => b.onclick = () => {
+    const c = items.st.items[items.slot]; if (!c) return;
+    c.paint = +b.dataset.p; Sfx.ui('tick');
+    p.querySelectorAll('.pch').forEach(x => x.classList.toggle('on', x === b));
+    const card = $('iGrid').querySelector(`.icard[data-id="${c.id}"]`);
+    if (card){ card.querySelector('.pd')?.remove(); if (c.paint){ const s = document.createElement('span'); s.className = 'pd'; s.style.setProperty('--pc', b.style.getPropertyValue('--pc')); card.appendChild(s); } }
+    itemsSave();
+  });
+}
+function itemsSave(){
+  items.pending = true; clearTimeout(items.saveT);
+  items.saveT = setTimeout(async () => {
+    const st = {enabled: items.st.enabled !== false, items: items.st.items};
+    try { if (has('setItems')) await setItems(st); items.stKey = JSON.stringify(st); } catch (e) { toast(e, false); }
+    items.pending = false;
+    itemsPaintStatus();
+  }, 250);
+}
+function itemsToggle(){ items.st.enabled = !(items.st.enabled !== false); Sfx.ui('tab'); itemsPaintStatus(); itemsSave(); }
+$('iToggle').onclick = itemsToggle;
+$('iToggle').onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); itemsToggle(); } };
+$('iReset').onclick = () => {
+  if (!Object.keys(items.st.items).length) return;
+  items.st.items = {}; Sfx.ui('restore'); itemsSave(); itemsRenderSlots(); itemsRenderGrid(); itemsRenderPaint();
+};
+setInterval(() => { if (tab === 'vItems' && !appHidden && !document.hidden) itemsRefresh(false); }, 3000);
 /* ---------- Logo im Video: Hover-Animation ---------- */
 (() => {
   const box = document.querySelector('.hbrand'); let busy = false;
