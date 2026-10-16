@@ -97,10 +97,8 @@ void ZLauncherItems::Render() {
 	// Kopfzeile
 	ImGui::TextColored(ac, "ZLAUNCHER");
 	ImGui::SameLine();
-	ImGui::Text("Items");
-	ImGui::SameLine();
-	ImGui::TextDisabled("  Only you can see these items");
-	ImGui::SameLine(ImGui::GetWindowWidth() - 150);
+	ImGui::TextDisabled("Items");
+	ImGui::SameLine(ImGui::GetWindowWidth() - 130);
 	if (ImGui::Checkbox("Item swap", &enabled_)) changed = true;
 	ImGui::Spacing();
 
@@ -112,11 +110,11 @@ void ZLauncherItems::Render() {
 		return;
 	}
 
-	const float footer = 74.0f;
+	const float footer = 40.0f;
 	const float h = ImGui::GetContentRegionAvail().y - footer;
 
 	// Links: Slots
-	ImGui::BeginChild("slots", ImVec2(210, h), false);
+	ImGui::BeginChild("slots", ImVec2(170, h), false);
 	ImGui::Dummy(ImVec2(0, 2));
 	for (auto& s : kSlotOrder) {
 		bool any = std::any_of(items_.begin(), items_.end(), [&](const ZLItem& i) { return i.slot == s.index; });
@@ -130,11 +128,12 @@ void ZLauncherItems::Render() {
 		ImGui::PushID(s.index);
 		ImVec2 p = ImGui::GetCursorScreenPos();
 		bool sel = curSlot_ == s.index;
-		if (ImGui::Selectable("##slot", sel, 0, ImVec2(0, 38))) { curSlot_ = s.index; search_[0] = 0; }
+		if (ImGui::Selectable("##slot", sel, 0, ImVec2(0, 26))) { curSlot_ = s.index; search_[0] = 0; }
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", cur.c_str());
 		ImDrawList* dl = ImGui::GetWindowDrawList();
-		if (sel) dl->AddRectFilled(ImVec2(p.x, p.y + 8), ImVec2(p.x + 3, p.y + 30), ImGui::GetColorU32(ac), 2.0f);
-		dl->AddText(ImVec2(p.x + 12, p.y + 3), ImGui::GetColorU32(ImGuiCol_Text), s.label);
-		dl->AddText(ImVec2(p.x + 12, p.y + 20), ImGui::GetColorU32(it != loadout_.end() ? acA(1.0f) : Rgb(130, 130, 145)), cur.c_str());
+		const float w = ImGui::GetWindowContentRegionWidth();
+		dl->AddText(ImVec2(p.x + 10, p.y + 5), ImGui::GetColorU32(sel ? ImGuiCol_Text : ImGuiCol_TextDisabled), s.label);
+		if (it != loadout_.end()) dl->AddCircleFilled(ImVec2(p.x + w - 10, p.y + 13), 3.0f, ImGui::GetColorU32(ac));
 		ImGui::PopID();
 	}
 	ImGui::EndChild();
@@ -157,7 +156,7 @@ void ZLauncherItems::Render() {
 	ImGui::BeginChild("rows", ImVec2(0, 0), false);
 	{
 		bool none = !loadout_.count(curSlot_);
-		if (ImGui::Selectable("  Default (your own item)", none, 0, ImVec2(0, 26))) { loadout_.erase(curSlot_); changed = true; }
+		if (ImGui::Selectable("  Your own", none, 0, ImVec2(0, 26))) { loadout_.erase(curSlot_); changed = true; }
 	}
 	ImGuiListClipper clip((int)shown.size(), 28.0f);
 	while (clip.Step()) {
@@ -207,9 +206,8 @@ void ZLauncherItems::Render() {
 		for (auto& p : paints_) chip(p.id, p.name.c_str(), ImVec4(p.r, p.g, p.b, 1.0f));
 		ImGui::NewLine();
 	} else {
-		ImGui::TextDisabled(ci ? "This item can't be painted." : "Pick an item. Changes apply right away.");
+		ImGui::TextDisabled(ci ? "No paint for this item." : "Only you can see these items.");
 	}
-	ImGui::TextDisabled("Works in Freeplay, training and offline matches. Edit your items in ZLauncher too.");
 
 	ImGui::End();
 	ImGui::PopStyleVar(pushedVar);
