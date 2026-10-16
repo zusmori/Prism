@@ -3,6 +3,7 @@
 // Das Loadout liegt in %APPDATA%\RLMapSwap\items.json und wird mit ZLauncher geteilt.
 #include "ZLauncherItems.h"
 
+#include <windows.h>
 #include <cstdlib>
 #include <fstream>
 #include <set>

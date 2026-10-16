@@ -1403,6 +1403,9 @@
   .iempty p{max-width:400px;margin:0 auto;color:var(--muted);line-height:1.55;font-size:13px}
   .iempty .rowb{display:flex;gap:8px;justify-content:center;margin-top:16px}
   .iempty .sbtn{height:36px;font-size:13px}
+  .ibarp{width:260px;height:6px;margin:16px auto 0;border-radius:6px;background:var(--panel2);overflow:hidden}
+  .ibarp i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,rgb(var(--ac-rgb)),rgb(var(--ac2-rgb)));box-shadow:0 0 12px rgb(var(--ac-rgb));transition:width .4s var(--ease)}
+  .iempty .ismall{margin-top:14px;font-size:11.5px;color:var(--faint)}
 
   /* Presets */
   .ipbtn em{font-style:normal;min-width:18px;height:18px;padding:0 5px;border-radius:9px;display:inline-grid;place-items:center;font-size:10.5px;font-weight:700;
@@ -3239,7 +3242,7 @@ const IPAINT_FALLBACK = [[1, 'Crimson', '#c8102e'], [2, 'Lime', '#7fff00'], [3, 
 const CK = '<span class="ck"><svg viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>';
 const items = {db: null, byId: new Map(), dbTime: -1, st: {enabled: true, items: {}}, stKey: '', pick: null, saveT: null, pending: false, status: null, preset: null, kb: -1};
 
-async function itemsEnter(){ await itemsRefresh(true); }
+async function itemsEnter(){ try { if (has('itemsSetup')) itemsSetup(false); } catch (e) {} await itemsRefresh(true); }
 async function itemsRefresh(first){
   let st = null;
   try { if (has('itemsStatus')) st = await itemsStatus(); } catch (e) {}
@@ -3261,28 +3264,45 @@ async function itemsRefresh(first){
   if (first){ itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick(); }
 }
 function itemsPaintStatus(){
-  const st = items.status || {}, b = $('iStat'), tx = $('iStatTx');
+  const st = items.status || {}, su = st.setup || {}, b = $('iStat'), tx = $('iStatTx');
   b.className = 'istat';
-  if (!st.bakkesmod){ b.classList.add('warn'); tx.textContent = 'BakkesMod needed'; }
+  const busy = su.state === 'checking' || su.state === 'downloading';
+  if (busy && !st.bakkesmod){ tx.textContent = 'Setting up …'; }
+  else if (su.state === 'outdated'){ b.classList.add('warn'); tx.textContent = 'Waiting for BakkesMod update'; }
+  else if (!st.bakkesmod){ b.classList.add('warn'); tx.textContent = 'Not set up'; }
+  else if (st.vcredist === false){ b.classList.add('warn'); tx.textContent = 'Runtime missing'; }
   else if (st.error){ b.classList.add('warn'); tx.textContent = st.error; }
   else if (st.loaded){ b.classList.add('ok'); tx.textContent = items.st.enabled ? 'In game · F8' : 'Off'; }
   else tx.textContent = items.st.enabled ? 'Ready' : 'Off';
-  b.title = st.bakkesmod ? 'Works without Anti-Cheat only. Press F8 in Rocket League to change items.' : '';
+  b.title = su.msg || (st.bakkesmod ? 'Works without Anti-Cheat only. Press F8 in Rocket League to change items.' : '');
   const on = items.st.enabled !== false;
   $('iTg').classList.toggle('on', on); $('iToggle').setAttribute('aria-checked', on);
   const e = $('iEmpty');
-  if (!st.bakkesmod){
-    e.innerHTML = `<div><h3>Get BakkesMod first</h3><p>Items run on BakkesMod, the free Rocket League mod. Install it once, ZLauncher does the rest.</p>
-      <div class="rowb"><button class="sbtn go" id="iGetBM">Get BakkesMod<span class="gi">${icon('ext', 13)}</span></button><button class="sbtn" id="iRecheck">I've installed it</button></div></div>`;
-    $('iGetBM').onclick = () => { if (has('getBakkesMod')) getBakkesMod(); };
-    $('iRecheck').onclick = () => { Sfx.ui('tick'); itemsRefresh(true); };
-    e.classList.add('on');
+  let html = '';
+  if (!st.bakkesmod && su.state !== 'error'){
+    const pct = Math.round(su.pct || 0);
+    html = `<div><h3>Setting up item swap</h3><p>${esc(su.msg || 'Getting everything ready …')}</p>
+      <div class="ibarp"><i style="width:${su.state === 'downloading' ? Math.max(4, pct) : 8}%"></i></div><p class="ismall">This only happens once. ZLauncher uses BakkesMod, the free Rocket League mod, and sets it up for you.</p></div>`;
+  } else if (!st.bakkesmod){
+    html = `<div><h3>Couldn't set up item swap</h3><p>${esc(su.msg || 'Something went wrong.')}</p><div class="rowb"><button class="sbtn go" id="iRetry">Try again</button></div></div>`;
+  } else if (st.vcredist === false){
+    html = `<div><h3>One more thing</h3><p>Items need the free Microsoft Visual C++ Runtime. Install it once, then come back.</p>
+      <div class="rowb"><button class="sbtn go" id="iVC">Get it from Microsoft<span class="gi">${icon('ext', 13)}</span></button><button class="sbtn" id="iRetry">Check again</button></div></div>`;
   } else if (!items.db){
-    e.innerHTML = `<div><h3>Load your item list</h3><p>Start Rocket League once without Anti-Cheat. ZLauncher reads all items from the game in a few seconds.</p>
-      <div class="rowb"><button class="sbtn go" id="iPlay">Play without Anti-Cheat</button></div></div>`;
-    $('iPlay').onclick = () => { setTab('vHome'); setTimeout(() => launch(false), 350); };
+    html = `<div><h3>Load your item list</h3><p>Start Rocket League once without Anti-Cheat. ZLauncher reads all items from the game in a few seconds.</p>
+      <div class="rowb"><button class="sbtn go" id="iPlay">Play without Anti-Cheat</button></div>${su.state === 'outdated' ? `<p class="ismall">${esc(su.msg)}</p>` : ''}</div>`;
+  }
+  if (html){
+    if (e.__html !== html){ e.innerHTML = html; e.__html = html;
+      const r = $('iRetry'); if (r) r.onclick = () => { Sfx.ui('tick'); try { itemsSetup(true); } catch (x) {} setTimeout(() => itemsRefresh(true), 400); };
+      const v = $('iVC'); if (v) v.onclick = () => { if (has('getVCRedist')) getVCRedist(); };
+      const pl = $('iPlay'); if (pl) pl.onclick = () => { setTab('vHome'); setTimeout(() => launch(false), 350); };
+    }
     e.classList.add('on');
-  } else e.classList.remove('on');
+  } else { e.classList.remove('on'); e.__html = ''; }
+  // waehrend der Einrichtung oefter nachsehen
+  clearTimeout(items.fastT);
+  if (busy && tab === 'vItems') items.fastT = setTimeout(() => itemsRefresh(false), 600);
 }
 const itemsPaints = () => items.db?.paints?.length ? items.db.paints.map(p => [p.id, p.name, p.color]) : IPAINT_FALLBACK;
 const paintOf = id => itemsPaints().find(p => p[0] === id);
