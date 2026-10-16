@@ -1,0 +1,17 @@
+-- The CXX compiler identification is MSVC 19.44.35229.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done (7.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: D:/a/zusmoris-map-swapper/zusmoris-map-swapper/build
+[1/6] Building CXX object CMakeFiles\ZLauncherItems.dir\external\imgui\imgui_draw.cpp.obj
+[2/6] Building CXX object CMakeFiles\ZLauncherItems.dir\external\imgui\imgui_widgets.cpp.obj
+[3/6] Building CXX object CMakeFiles\ZLauncherItems.dir\external\imgui\imgui.cpp.obj
+[4/6] Building CXX object CMakeFiles\ZLauncherItems.dir\src\Window.cpp.obj
+[5/6] Building CXX object CMakeFiles\ZLauncherItems.dir\src\ZLauncherItems.cpp.obj
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared\minwindef.h(250): warning C4099: 'HINSTANCE__': type name first seen using 'class' now seen using 'struct'
+C:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared\minwindef.h(250): note: see declaration of 'HINSTANCE__'
+[6/6] Linking CXX shared library ZLauncherItems.dll
