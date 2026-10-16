@@ -1565,6 +1565,8 @@
           <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in ZLauncher.</small></div><span class="tg" id="tgMute"></span></div>
         <div class="srow" id="setPlayTray" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="tray"></span>
           <div class="tx"><b>Hide while playing</b><small>ZLauncher goes to the tray when you start Rocket League and comes back when you close the game.</small></div><span class="tg" id="tgPlayTray"></span></div>
+        <div class="srow" id="setItemMod" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="spark"></span>
+          <div class="tx"><b>Item menu <span class="spill" style="color:rgb(var(--ac3-rgb));background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .35)">Beta</span></b><small>Press F8 in Rocket League to use any item. Only you can see them. Works when you play without Anti-Cheat.</small></div><span class="tg" id="tgItemMod"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
           <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit ZLauncher. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
       </div></div>
@@ -1913,7 +1915,7 @@ async function refresh(force){
 $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scrollWidth > el.clientWidth){ e.preventDefault(); el.scrollBy({left: e.deltaY + e.deltaX, behavior: 'smooth'}); } }, {passive: false});
 
 /* ---------- Einstellungen ---------- */
-const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: '', trayOnPlay: true,
+const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: '', trayOnPlay: true, itemMod: true,
   rpc: true, rpcMatch: true, rpcMaps: true, rpcLauncher: true, rpcTime: true, rpcButton: true, rpcHideTray: false};
 const RPC_KEYS = ['rpc', 'rpcMatch', 'rpcMaps', 'rpcLauncher', 'rpcTime', 'rpcButton', 'rpcHideTray'];
 const RPC_CHIPS = [['rcMatch', 'rpcMatch'], ['rcMaps', 'rpcMaps'], ['rcLauncher', 'rpcLauncher'], ['rcTray', 'rpcHideTray', true], ['rcTime', 'rpcTime'], ['rcButton', 'rpcButton']];
@@ -1955,6 +1957,7 @@ function paintSettings(){
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
   $('keepNote').innerHTML = settings.keepSwaps ? '<svg width="11" height="11" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3.5 7h9v7h-9z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>Swaps stay after closing' : '';
+  $('tgItemMod').classList.toggle('on', settings.itemMod !== false); $('setItemMod').setAttribute('aria-checked', settings.itemMod !== false);
   $('tgPlayTray').classList.toggle('on', settings.trayOnPlay !== false); $('setPlayTray').setAttribute('aria-checked', settings.trayOnPlay !== false);
   const rpcOn = settings.rpc !== false;
   $('tgRpc').classList.toggle('on', rpcOn); $('setRpc').setAttribute('aria-checked', rpcOn);
@@ -2014,7 +2017,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
+[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setItemMod', 'itemMod'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });

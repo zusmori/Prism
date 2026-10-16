@@ -19,6 +19,7 @@
 - **Friends** – see which Steam friends are online or in a game, live.
 - **Swap Maps** – play any workshop map in Freeplay. **Restore** puts the original arena back.
 - **Browse Maps** – find and download workshop maps right in the app.
+- **Item menu (beta)** – press **F8** in Rocket League to use any item in Freeplay and offline. Only you can see them, only without Anti-Cheat.
 - **Game Boost** – more performance while you play, reset when the game closes.
 - **Discord** – shows your mode and score on your profile, e.g. *2s Ranked · 2 : 1*.
 - 4 colors with video backgrounds, close to tray, automatic updates.
