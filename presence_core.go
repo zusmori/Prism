@@ -266,7 +266,7 @@ type ActivityButton struct {
 	URL   string `json:"url"`
 }
 
-const zlReleaseURL = "https://github.com/zusmori/zusmoris-map-swapper/releases/latest"
+const zlReleaseURL = "https://github.com/zusmori/ZLauncher/releases/latest"
 
 func myTeam(m *MatchState, ids []string, name string) int {
 	for _, p := range m.Players {

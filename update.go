@@ -33,7 +33,7 @@ import (
 const appVersion = "1.3.0"
 
 const (
-	releaseAPI = "https://api.github.com/repos/zusmori/zusmoris-map-swapper/releases/latest"
+	releaseAPI = "https://api.github.com/repos/zusmori/ZLauncher/releases/latest"
 	assetName  = "ZLauncher.exe"
 	zlAsset    = "ZL.exe"  // Name v1.2.3 bis v1.2.7
 	oldAsset   = "ZMS.exe" // Name bis v1.2.2
