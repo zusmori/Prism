@@ -54,7 +54,7 @@ static int offPlayer = -1, offPRI = -1, offClient = -1, offFull = -1, offPawn = 
 static void *fnSet = nullptr, *fnSetInternal = nullptr;
 static void *clsCar = nullptr, *clsLocalPlayer = nullptr, *fnCarSetLoadout = nullptr, *fnTeamIndex = nullptr;
 static int offLPActor = -1, offTeamRet = -1;
-static void *clsGameEvent = nullptr, *clsFreeplay = nullptr, *fnDestroyCars = nullptr, *fnRestartPlayers = nullptr;
+static void *clsGameEvent = nullptr, *clsFreeplay = nullptr, *clsFreeplayCar = nullptr, *fnDestroyCars = nullptr, *fnRestartPlayers = nullptr;
 static int offPRIGameEvent = -1;
 static std::atomic<unsigned long long> applyAt{0}; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
@@ -100,12 +100,13 @@ bool Setup() {
 	if (clsLocalPlayer) offLPActor = ue::PropOffset(clsLocalPlayer, "Actor");
 	clsGameEvent = ue::FindClass("Class TAGame.GameEvent_TA");
 	clsFreeplay = ue::FindClass("Class TAGame.GameEvent_Tutorial_FreePlay_TA");
+	clsFreeplayCar = ue::FindClass("Class TAGame.Car_Freeplay_TA");
 	offPRIGameEvent = ue::PropOffset(clsPRI, "GameEvent");
 	if (clsGameEvent) {
 		fnDestroyCars = ue::FindFunction(clsGameEvent, "DestroyCars");
 		fnRestartPlayers = ue::FindFunction(clsGameEvent, "RestartPlayers");
 	}
-	zl::Log("respawn: freeplay=%p priGameEvent=%x DestroyCars=%p RestartPlayers=%p", clsFreeplay, offPRIGameEvent, fnDestroyCars, fnRestartPlayers);
+	zl::Log("respawn: freeplay=%p freeplayCar=%p priGameEvent=%x DestroyCars=%p RestartPlayers=%p", clsFreeplay, clsFreeplayCar, offPRIGameEvent, fnDestroyCars, fnRestartPlayers);
 	// alle PlayerTick-Funktionen merken: wer sie aufruft, ist der lokale Spieler
 	for (int i = 0; i < ue::ObjectCount(); i++) {
 		void* o = ue::ObjectAt(i);
@@ -251,12 +252,19 @@ void ApplyNow() {
 	// das Spiel baut es dann ganz normal mit unserem Loadout auf.
 	void* ge = nullptr;
 	try { ge = offPRIGameEvent >= 0 ? ue::Read<void*>(pri, offPRIGameEvent) : nullptr; } catch (...) {}
-	bool freeplay = ue::IsValid(ge) && clsFreeplay && ue::IsA(ge, clsFreeplay);
-	if (freeplay && fnDestroyCars && fnRestartPlayers) {
-		ue::Call(ge, fnDestroyCars);
+	// Freeplay erkennt man am Auto (Car_Freeplay_TA); das Spiel selbst ist ein normales GameEvent_Soccar_TA
+	void* car = LocalCar();
+	bool freeplay = ue::IsValid(ge) && ((clsFreeplay && ue::IsA(ge, clsFreeplay)) || (car && clsFreeplayCar && ue::IsA(car, clsFreeplayCar)));
+	// Funktionen der echten Klasse des Spiels nehmen (Soccar ueberschreibt z. B. RestartPlayer)
+	void* gcls = ge ? ue::ClassOf(ge) : nullptr;
+	void* destroy = gcls ? ue::FindFunction(gcls, "DestroyCars") : nullptr;
+	void* restart = gcls ? ue::FindFunction(gcls, "RestartPlayers") : nullptr;
+	if (freeplay && destroy && restart) {
+		ue::Call(ge, destroy);
 		ue::Call(pri, fnSet);
-		ue::Call(ge, fnRestartPlayers);
-		zl::Log("apply: car respawned in freeplay (%s)", ue::Name(ge).c_str());
+		ue::Call(ge, restart);
+		void* now = LocalCar();
+		zl::Log("apply: car respawned in freeplay (%s, old car %p, new car %p %s)", ue::Name(ge).c_str(), car, now, now ? ue::Name(now).c_str() : "-");
 	} else {
 		ue::Call(pri, fnSet);
 		zl::Log("apply: not in freeplay (%s) - items show on the next spawn", ge ? ue::Name(ge).c_str() : "-");
@@ -298,8 +306,14 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (applying) return;
 	if (fn == fnCarSetLoadout) { // Auto bekommt sein Loadout (z. B. nach Respawn): unsere Items eintragen
 		bool mine = false;
-		try { mine = offPawnPRI >= 0 && ue::Read<void*>(caller, offPawnPRI) == LocalPRI(); } catch (...) {}
-		if (mine) PatchParams(params);
+		void* cpri = nullptr;
+		try { cpri = offPawnPRI >= 0 ? ue::Read<void*>(caller, offPawnPRI) : nullptr; } catch (...) {}
+		mine = cpri ? cpri == LocalPRI() : (clsFreeplayCar && ue::IsA(caller, clsFreeplayCar));
+		if (mine) {
+			PatchParams(params);
+			static int n = 0;
+			if (n++ < 20) zl::Log("car %s gets its loadout -> patched", ue::Name(caller).c_str());
+		}
 		return;
 	}
 	if (fn != fnSet && fn != fnSetInternal) return;
