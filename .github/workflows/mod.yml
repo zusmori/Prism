@@ -1,0 +1,50 @@
+name: Build in-game mod
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "mod/**"
+      - ".github/workflows/mod.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get ImGui and MinHook
+        shell: bash
+        run: |
+          mkdir -p mod/external
+          git clone --depth 1 --branch v1.91.9 https://github.com/ocornut/imgui mod/external/imgui
+          git clone --depth 1 https://github.com/TsudaKageyu/minhook mod/external/minhook
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake -S mod -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee build.log
+          cmake --build build 2>&1 | tee -a build.log
+
+      - name: Publish build (mod-build branch)
+        if: always()
+        shell: bash
+        run: |
+          mkdir out
+          cp build.log out/ 2>/dev/null || true
+          cp build/zlmod.dll out/ 2>/dev/null || true
+          echo "${{ github.sha }} ${{ job.status }}" > out/BUILD_INFO
+          cd out
+          git init -q -b mod-build
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Mod build for ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" mod-build
