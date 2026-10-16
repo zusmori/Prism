@@ -335,8 +335,31 @@ static bool NeedsApply(void* pri) {
 	return false;
 }
 
+// Laufend (alle 40 ms) pruefen, ob das Loadout des lokalen Spielers unsere Items hat. So stehen sie schon
+// drin, bevor das Auto beim Laden ins Freeplay/Match gebaut wird (kein kurzes Aufblitzen der eigenen Items).
+static void EnsureLocalLoadout() {
+	for (void* lp : localPlayers) {
+		void* pc = ue::Read<void*>(lp, offLPActor);
+		if (!pc || !ue::IsValid(pc)) continue;
+		void* pri = ue::Read<void*>(pc, offPRI);
+		if (!pri || !ue::IsValid(pri) || !ue::IsA(pri, clsPRI)) continue;
+		auto* cl = ue::Ptr<ue::TArray<int32_t>>(pri, offClient);
+		if (!cl->data || cl->count <= 0 || cl->count > 64) continue; // Hauptmenue: kein Loadout
+		if (!NeedsApply(pri)) continue;
+		WriteOverrides(pri);
+		writtenPRI = pri;
+		static int n = 0;
+		if (n++ < 10) zl::Log("loadout of %s ready -> items written", ue::Name(pri).c_str());
+	}
+}
+
 void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
+	static unsigned long long nextCheck = 0;
+	if (unsigned long long now = GetTickCount64(); now >= nextCheck) {
+		nextCheck = now + 40;
+		try { EnsureLocalLoadout(); } catch (...) {}
+	}
 	if (tickFns.count(fn)) { // lokaler Spieler
 		// Im Hauptmenue tickt auch ein Controller - der zaehlt nur, wenn er wirklich ein Auto faehrt
 		if (!ue::IsA(caller, clsPC)) return;
@@ -359,7 +382,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			if (pri && hasOv) {
 				bool missing = NeedsApply(pri), written = writtenPRI.load() == pri;
 				zl::Log("new game: items in loadout=%s, written on load=%s", missing ? "no" : "yes", written ? "yes" : "no");
-				if (missing || !written) applyAt = GetTickCount64() + 300; // sicherheitshalber einmal neu spawnen
+				if (missing) applyAt = GetTickCount64() + 300; // Auto wurde ohne unsere Items gebaut: einmal neu spawnen
 			}
 		}
 		inGame = true;

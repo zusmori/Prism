@@ -126,6 +126,7 @@ static void OnMenuToggled() {
 	if (!imguiReady) return;
 	ImGuiIO& io = ImGui::GetIO();
 	io.MouseDrawCursor = menuOpen;
+	gui::SetOpen(menuOpen);
 	if (menuOpen) {
 		if (clipCursorOrig) clipCursorOrig(nullptr); else ClipCursor(nullptr);
 		RECT rc{};
@@ -298,7 +299,7 @@ static HRESULT __stdcall PresentHook(IDXGISwapChain* sc, UINT sync, UINT flags) 
 		if (imguiReady && !toastStart) toastStart = GetTickCount64() + 1500;
 		float toastT = toastStart ? float((long long)(GetTickCount64() - toastStart)) / 1000.0f : -1.0f;
 		bool toast = toastT >= 0.0f && toastT < gui::kToastSeconds;
-		if (imguiReady && (menuOpen || toast)) {
+		if (imguiReady && (menuOpen || toast || gui::Visible())) {
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
 			if (menuOpen) {
@@ -309,10 +310,10 @@ static HRESULT __stdcall PresentHook(IDXGISwapChain* sc, UINT sync, UINT flags) 
 				ImGui::GetIO().MouseDrawCursor = false;
 			}
 			ImGui::NewFrame();
-			if (menuOpen) {
+			if (gui::Visible()) {
 				bool open = true;
 				gui::Render(&open);
-				if (!open) { menuOpen = false; OnMenuToggled(); }
+				if (!open && menuOpen) { menuOpen = false; OnMenuToggled(); }
 			}
 			if (toast) gui::Toast(toastT);
 			ImGui::Render();

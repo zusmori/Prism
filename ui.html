@@ -1555,6 +1555,19 @@
     <button class="cancel" id="eacCancel">Cancel</button>
   </div>
 </div>
+<div class="mdl warn" id="itemEacDlg">
+  <div class="box">
+    <div class="ico"><span class="gi" data-ic="warn"></span></div>
+    <h3>Item menu is still on</h3>
+    <p>You're starting Rocket League with <b style="white-space:nowrap">Easy Anti-Cheat</b> while the item menu is turned on. ZLauncher won't load it with Anti-Cheat, so you'll just have your own items.</p>
+    <p class="wrisk">Playing like this is <b>at your own risk</b>.</p>
+    <div class="btns">
+      <button class="btn danger" id="itemEacAnyway"><span class="lbl">Play anyway</span></button>
+      <button class="btn" id="itemEacOff"><span class="lbl">Turn off &amp; play</span></button>
+    </div>
+    <button class="cancel" id="itemEacCancel">Cancel</button>
+  </div>
+</div>
 <div class="mdl" id="setDlg">
   <div class="box sbox">
     <div class="shead"><span class="gi" data-ic="gear"></span><h3>Settings</h3>
@@ -2700,6 +2713,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('steamDlg').classList.contains('show')) $('steamCancel').onclick();
   else if ($('eacDlg').classList.contains('show')) $('eacCancel').onclick();
+  else if ($('itemEacDlg').classList.contains('show')) $('itemEacCancel').onclick();
   else if ($('playDlg').classList.contains('show')) $('playCancel').onclick();
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
@@ -2801,6 +2815,7 @@ function homeEnter(){
 async function launch(eac, force){
   if (home.launching) return;
   if (eac && !force && Object.keys(curState.swaps || {}).length) return askEac();
+  if (eac && force !== true && settings.itemMod !== false) return askItemEac();   // Hinweis: Item-Menue ist noch an
   home.launching = eac ? 'eac' : 'noeac'; paintRL(home.st || {found: true}); Sfx.ui('swap');
   const mine = home.launching;
   try {
@@ -2825,7 +2840,7 @@ function openPlay(){
 const closePlay = () => $('playDlg').classList.remove('show');
 $('playBtn').onclick = openPlay;
 $('pNoEac').onclick = () => { closePlay(); launch(false); };
-$('pEac').onclick = () => { closePlay(); setTimeout(() => launch(true), Object.keys(curState.swaps || {}).length ? 220 : 0); };
+$('pEac').onclick = () => { closePlay(); setTimeout(() => launch(true), (Object.keys(curState.swaps || {}).length || settings.itemMod !== false) ? 220 : 0); };
 $('playCancel').onclick = () => { closePlay(); Sfx.ui('dismiss'); };
 $('playDlg').addEventListener('mousedown', e => { if (e.target === $('playDlg')){ closePlay(); Sfx.ui('dismiss'); } });
 $('hSwap').onclick = () => {
@@ -2846,13 +2861,24 @@ function askEac(){
 function closeEac(){ $('eacDlg').classList.remove('show'); }
 $('eacCancel').onclick = () => { closeEac(); Sfx.ui('dismiss'); };
 $('eacDlg').addEventListener('mousedown', e => { if (e.target === $('eacDlg')){ closeEac(); Sfx.ui('dismiss'); } });
-$('eacAnyway').onclick = () => { closeEac(); setTimeout(() => launch(true, true), 200); };
+$('eacAnyway').onclick = () => { closeEac(); setTimeout(() => launch(true, 'maps'), 200); };
 $('eacGo').onclick = async () => {
   const b = $('eacGo'); if (b.classList.contains('busy')) return;
   b.classList.add('busy');
-  try { await call('restoreAsync'); await refresh(); closeEac(); Sfx.ui('restore'); setTimeout(() => launch(true, true), 250); }
+  try { await call('restoreAsync'); await refresh(); closeEac(); Sfx.ui('restore'); setTimeout(() => launch(true, 'maps'), 250); }
   catch (e) { $('eacErr').textContent = String(e); $('eacErr').classList.add('on'); Sfx.ui('error'); }
   b.classList.remove('busy');
+};
+
+// Mit Anti-Cheat starten, obwohl das Item-Menue an ist -> nur Hinweis
+function askItemEac(){ $('itemEacDlg').classList.add('show'); Sfx.ui('error'); }
+function closeItemEac(){ $('itemEacDlg').classList.remove('show'); }
+$('itemEacCancel').onclick = () => { closeItemEac(); Sfx.ui('dismiss'); };
+$('itemEacDlg').addEventListener('mousedown', e => { if (e.target === $('itemEacDlg')){ closeItemEac(); Sfx.ui('dismiss'); } });
+$('itemEacAnyway').onclick = () => { closeItemEac(); setTimeout(() => launch(true, true), 200); };
+$('itemEacOff').onclick = () => {
+  settings.itemMod = false; paintSettings(); saveSetting('itemMod', false);
+  closeItemEac(); setTimeout(() => launch(true, true), 200);
 };
 
 /* ---------- Home: Steam-Freunde ---------- */
