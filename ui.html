@@ -887,8 +887,8 @@
   .fsec.rl{color:rgb(var(--ac2-rgb))}
   .fsec.tog{cursor:pointer} .fsec.tog:hover{color:var(--muted)}
   .fsec .chv{transition:transform .3s var(--ease)} .fsec.closed .chv{transform:rotate(-90deg)}
-  .fr{position:relative;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 8px;border-radius:10px;cursor:pointer;transition:background .15s;animation:frin .4s var(--ease) backwards}
-  @keyframes frin{from{opacity:0;transform:translateX(8px)}}
+  .fr{position:relative;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 8px;border-radius:10px;cursor:pointer;transition:background .15s}
+  @keyframes frin{from{opacity:0;transform:translateY(6px)}}
   .fr:hover{background:var(--hover)}
   .fav{position:relative;width:34px;height:34px;flex:none;border-radius:9px;background:#1b1b22 center/cover no-repeat}
   .fav::after{content:"";position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;border:2.5px solid var(--panel);background:#52525b}
@@ -945,24 +945,46 @@
   @keyframes playpulse{50%{box-shadow:0 0 0 6px rgba(255,255,255,.08)}}
   .pbox{width:470px!important}
   .pbox h3{margin-bottom:4px!important}
-  .popts{display:flex;flex-direction:column;gap:10px;margin-top:18px}
-  .popt{position:relative;display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:15px;cursor:pointer;text-align:left;
-    font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line2);
-    transition:background .2s,border-color .25s,box-shadow .3s var(--ease),transform .2s var(--ease)}
-  .popt:hover{background:var(--panel2);border-color:rgb(var(--ac-rgb) / .55);transform:translateY(-2px);
-    box-shadow:0 14px 30px -16px rgb(var(--ac-rgb) / .8),0 0 0 3px rgb(var(--ac-rgb) / .1)}
-  .popt:active{transform:scale(.985)}
-  .popt .pic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:none;background:rgb(var(--ac-rgb) / .14);border:1px solid rgb(var(--ac-rgb) / .3)}
-  .popt .pic svg{width:20px;height:20px}
-  .popt.rec .pic{background:rgb(var(--btn-rgb));border-color:transparent} .popt.rec .pic .gi{color:#fff}
-  .popt .ptx{flex:1;min-width:0}
-  .popt .ptx b{display:block;font-size:15px;font-weight:600}
-  .popt .ptx small{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+  .pmain{position:relative;overflow:hidden;width:100%;display:flex;align-items:center;gap:15px;margin-top:20px;padding:18px 18px 18px 18px;border-radius:17px;cursor:pointer;text-align:left;
+    font:inherit;color:#fff;border:1px solid rgb(var(--ac2-rgb) / .55);
+    background:linear-gradient(135deg,rgb(var(--btn-rgb)),rgb(var(--acd-rgb)) 60%,rgb(var(--acdd-rgb)));
+    box-shadow:0 18px 40px -18px rgb(var(--ac-rgb) / .9),inset 0 1px 0 rgba(255,255,255,.18);
+    transition:transform .25s var(--spring),box-shadow .3s var(--ease),filter .2s}
+  .pmain:hover{transform:translateY(-2px);box-shadow:0 22px 46px -16px rgb(var(--ac-rgb)),inset 0 1px 0 rgba(255,255,255,.22);filter:brightness(1.06)}
+  .pmain:active{transform:scale(.985)}
+  .pmain:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(var(--ac-rgb) / .5),0 18px 40px -18px rgb(var(--ac-rgb) / .9)}
+  .pglow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 120% at 0% 0%,rgba(255,255,255,.22),transparent 60%)}
+  .pglow::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.18) 50%,transparent 65%);background-size:260% 100%;
+    animation:psheen 3.6s ease-in-out infinite}
+  @keyframes psheen{0%,55%{background-position:140% 0}100%{background-position:-140% 0}}
+  .pmain .pic{position:relative;width:52px;height:52px;border-radius:15px;display:grid;place-items:center;flex:none;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25)}
+  .pmain .pic .gi{color:#fff}
+  .pmain .pic svg{width:24px;height:24px;filter:drop-shadow(0 0 6px rgba(255,255,255,.55))}
+  .pmain .ptx{position:relative;flex:1;min-width:0}
+  .ptag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;padding:2px 7px;border-radius:999px;margin-bottom:5px;
+    background:rgba(255,255,255,.18);color:#fff}
+  .pmain .ptx b{display:block;font-size:17px;font-weight:700}
+  .pmain .ptx small{display:block;font-size:12.5px;color:rgba(255,255,255,.78);margin-top:2px}
+  .parr{position:relative;flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.14);transition:transform .3s var(--spring)}
+  .pmain:hover .parr{transform:translateX(3px)}
+  .pmain .pchip{position:relative}
+  .pmain .pchip.bad{background:rgba(20,14,0,.35)}
+  .psep{display:flex;align-items:center;gap:10px;margin:14px 2px 10px;font-size:11px;font-weight:600;letter-spacing:.4px;color:var(--faint);text-transform:uppercase}
+  .psep i{flex:1;height:1px;background:var(--line)}
+  .palt{width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:13px;cursor:pointer;text-align:left;
+    font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line2);transition:background .2s,border-color .25s,transform .2s var(--ease)}
+  .palt:hover{background:var(--panel2);border-color:rgb(var(--ac-rgb) / .45)}
+  .palt:active{transform:scale(.985)}
+  .palt .pic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;background:rgb(var(--ac-rgb) / .12);border:1px solid rgb(var(--ac-rgb) / .28)}
+  .palt .pic svg{width:15px;height:15px}
+  .palt .ptx{flex:1;min-width:0}
+  .palt .ptx b{display:block;font-size:13.5px;font-weight:600}
+  .palt .ptx small{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+  .mdl.show .pmain{animation:secin .45s var(--ease) backwards} .mdl.show .psep,.mdl.show .palt{animation:secin .45s .07s var(--ease) backwards}
   .pchip{flex:none;font-size:10.5px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:999px;white-space:nowrap}
   .pchip:empty{display:none}
   .pchip.ok{color:var(--ok);background:rgba(126,226,168,.1);border:1px solid rgba(126,226,168,.25)}
   .pchip.bad{color:#fbbf24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)}
-  .mdl.show .popt{animation:secin .45s var(--ease) backwards} .mdl.show .popt + .popt{animation-delay:.06s}
   /* ---------- Warnung ---------- */
   .mdl.warn .ico{background:radial-gradient(circle at 50% 35%,rgba(251,191,36,.25),rgba(251,191,36,.05));border-color:rgba(251,191,36,.4);
     box-shadow:0 0 30px -6px rgba(251,191,36,.55),inset 0 1px 0 rgba(255,255,255,.06)}
@@ -993,32 +1015,25 @@
   .fr.offline .fa button,.fr.unknown .fa button{opacity:.75}
   .fr:hover .fa button{opacity:1}
 
-  /* ---------- Freunde: Animationen bei Statuswechsel ---------- */
+  /* ---------- Freunde: Animationen bei Statuswechsel (schlicht) ---------- */
   .flist{position:relative}
-  .fr.noin{animation:none}
-  .fr:not(.fghost){z-index:1}
+  .fr.fin{animation:frin .35s var(--ease) backwards}
+  .fr .fav{transition:filter .6s var(--ease),box-shadow .6s var(--ease)}
+  .fr .fav::after{transition:background .6s var(--ease),box-shadow .6s var(--ease),opacity .6s}
+  .fr .ft small{transition:color .6s var(--ease)}
+  .fr .ft small.swap{animation:subin .4s var(--ease)}
+  @keyframes subin{from{opacity:0;transform:translateY(4px)}}
   .fr .ft,.fr .fa{position:relative;z-index:1}
-  .fghost{position:absolute;left:4px;right:2px;pointer-events:none;z-index:0;background:var(--panel)}
   .fr.chg{--cc:87 203 222}
   .fr.chg.c-game{--cc:144 186 60}
   .fr.chg.c-rl{--cc:var(--ac2-rgb)}
-  .fr.chg.c-off,.fr.chg.c-left{--cc:113 113 122}
+  .fr.chg.c-off,.fr.chg.c-left{--cc:140 140 150}
   .fr.chg::before{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;
-    background:linear-gradient(90deg,rgb(var(--cc) / .22),rgb(var(--cc) / .06) 60%,transparent);opacity:0;animation:chgflash 2.4s var(--ease)}
-  @keyframes chgflash{12%{opacity:1}70%{opacity:.6}100%{opacity:0}}
-  .fr.chg .fav::before{content:"";position:absolute;inset:-2px;border-radius:11px;border:2px solid rgb(var(--cc));opacity:0;animation:ripple 1.4s var(--ease) 2}
-  @keyframes ripple{0%{opacity:.9;transform:scale(.9)}100%{opacity:0;transform:scale(1.55)}}
-  .fr.chg .fav::after{animation:dotpop .7s var(--spring)}
-  @keyframes dotpop{0%{transform:scale(0)}60%{transform:scale(1.6)}}
-  .fr.chg .ft small{animation:subin .55s var(--ease)}
-  @keyframes subin{from{opacity:0;transform:translateY(7px)}}
-  .fr.chg.c-game::after,.fr.chg.c-rl::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;
-    background:linear-gradient(105deg,transparent 35%,rgb(var(--cc) / .35) 50%,transparent 65%);background-size:250% 100%;
-    animation:sweep2 1.3s .15s var(--ease) both}
-  @keyframes sweep2{from{background-position:130% 0}to{background-position:-130% 0}}
-  .fr.chg.c-off .fav{animation:gooff 1.6s var(--ease)}
-  @keyframes gooff{0%{filter:none}100%{filter:grayscale(.7) brightness(.75)}}
-  .fr.chg .ft small b{font-weight:700}
+    background:linear-gradient(90deg,rgb(var(--cc) / .16),rgb(var(--cc) / .04) 70%,transparent);animation:chgfade 3s var(--ease) forwards}
+  @keyframes chgfade{0%{opacity:0}12%{opacity:1}65%{opacity:1}100%{opacity:0}}
+  .fr .ft small b{font-weight:700}
+  .fleave{position:absolute!important;left:4px;right:2px;pointer-events:none;z-index:0;animation:fout .32s var(--ease) forwards}
+  @keyframes fout{to{opacity:0;transform:scale(.97)}}
   .fsec span.bump,.fh .fon.bump{animation:bump .5s var(--spring)}
 
   /* ---------- Home: Marke oben links im Video, Zeile mit Play + Status ---------- */
@@ -1206,6 +1221,9 @@
   .sfin{padding:4px 14px 14px;opacity:0;transform:translateY(-6px);transition:opacity .25s var(--ease),transform .4s var(--ease)}
   .sexp.open + .sfold .sfin{opacity:1;transform:none;transition-delay:.08s}
   .sfin.off{opacity:.4!important;pointer-events:none}
+  .srow.sub{padding-left:59px}
+  .srow.sub .tx b{font-size:13px}
+  .srow.off{opacity:.4;pointer-events:none}
   .blist{display:flex;flex-direction:column;gap:7px;padding-left:59px}
   .blist .bl{display:flex;gap:9px;font-size:12.5px;color:#b9b9c6}
   .blist .bl i{flex:none;width:6px;height:6px;margin-top:6px;border-radius:50%;background:rgb(var(--ac2-rgb));box-shadow:0 0 8px rgb(var(--ac-rgb))}
@@ -1270,7 +1288,7 @@
   .kin input{flex:1;min-width:0;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none;transition:border-color .2s,box-shadow .2s}
   .kin input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
   .kin input.bad{border-color:var(--err)}
-  .kft{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
+  .kft{display:flex;align-items:center;margin-top:16px;padding-left:2px}
   .kchk{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:var(--muted);user-select:none;transition:color .2s}
   .kchk:hover{color:var(--text)}
   .kchk input{position:absolute;opacity:0;pointer-events:none}
@@ -1281,6 +1299,9 @@
   .kchk:active .kbx{transform:scale(.9)}
   .kchk input:focus-visible + .kbx{box-shadow:0 0 0 3px rgb(var(--ac-rgb) / .4)}
   .kchk:has(input:checked){color:var(--text)}
+  .kx{position:absolute;top:12px;right:12px;z-index:3;width:30px;height:30px;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:rgb(10 10 14 / .35);
+    color:rgba(255,255,255,.75);cursor:pointer;display:grid;place-items:center;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:background .2s,color .2s,transform .3s var(--spring)}
+  .kx:hover{background:rgba(255,255,255,.12);color:#fff;transform:rotate(90deg)}
   .klater{height:34px;padding:0 16px;border-radius:10px;border:1px solid var(--line2);background:none;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,border-color .2s}
   .klater:hover{background:var(--hover);border-color:#3a3a46}
 </style>
@@ -1501,20 +1522,21 @@
 </div>
 <div class="mdl" id="playDlg">
   <div class="box pbox">
-    <h3>How do you want to play?</h3>
-    <p>Pick how Rocket League should start.</p>
-    <div class="popts">
-      <button class="popt rec" id="pNoEac">
-        <span class="pic"><span class="gi" data-ic="play"></span></span>
-        <span class="ptx"><b>Without Anti-Cheat</b><small>Freeplay, training and workshop maps</small></span>
-        <span class="pchip ok" id="pNoEacChip"></span>
-      </button>
-      <button class="popt" id="pEac">
-        <span class="pic"><span class="gi" data-ic="shield"></span></span>
-        <span class="ptx"><b>With Anti-Cheat</b><small>Online matches and ranked</small></span>
-        <span class="pchip bad" id="pEacChip"></span>
-      </button>
-    </div>
+    <h3>Play Rocket League</h3>
+    <p>Choose how the game should start.</p>
+    <button class="pmain" id="pEac">
+      <span class="pglow"></span>
+      <span class="pic"><span class="gi" data-ic="shield"></span></span>
+      <span class="ptx"><span class="ptag">Recommended</span><b>With Anti-Cheat</b><small>Online matches, ranked, tournaments and more</small></span>
+      <span class="pchip bad" id="pEacChip"></span>
+      <span class="parr"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6 3.5L10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </button>
+    <div class="psep"><i></i><span>or play offline</span><i></i></div>
+    <button class="palt" id="pNoEac">
+      <span class="pic"><span class="gi" data-ic="play"></span></span>
+      <span class="ptx"><b>Without Anti-Cheat</b><small>Freeplay, training and workshop maps</small></span>
+      <span class="pchip ok" id="pNoEacChip"></span>
+    </button>
     <button class="cancel" id="playCancel">Cancel</button>
   </div>
 </div>
@@ -1549,15 +1571,20 @@
           <div class="tx"><b>Game Boost <span class="spill" id="boostPill"></span></b><small>More performance while you play. Everything goes back to normal when the game closes.</small></div><span class="tg" id="tgBoost"></span></div>
         <button class="sexp" id="boostExp" aria-expanded="false"><span>What it does</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="sfold"><div><div class="sfin blist">
-          <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> (only without Anti-Cheat)</span></span>
+          <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> and stays on the <em>fast CPU cores</em> (only without Anti-Cheat)</span></span>
           <span class="bl"><i></i><span>Windows switches to <em>best performance</em> mode while you play</span></span>
           <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
-          <small>Turns on by itself when the game starts. In-game settings are never changed.</small>
+          <span class="bl"><i></i><span><em>Fullscreen optimizations off</em> for Rocket League, for less input lag in fullscreen</span></span>
+          <span class="bl"><i></i><span>Skips the <em>intro videos</em>, so the game starts faster</span></span>
+          <span class="bl"><i></i><span>ZLauncher <em>steps back</em> while you play: lower priority, power saving, background video paused</span></span>
+          <small>Your in-game settings are never changed. Everything is undone when you turn Boost off.</small>
         </div></div></div>
       </div></div>
       <div class="ssec"><h4>Discord</h4><div class="sgrp">
         <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
           <div class="tx"><b>Rich Presence</b><small class="dcst"><span class="dcdot" id="dcDot"></span><span id="dcStat">Checking Discord …</span></small></div><span class="tg" id="tgRpc"></span></div>
+        <div class="srow sub" id="setRpcTray" role="switch" aria-checked="false" tabindex="0">
+          <div class="tx"><b>Hide while in tray</b><small>No status on Discord while ZLauncher sits in the tray. Your match still shows while Rocket League runs.</small></div><span class="tg" id="tgRpcTray"></span></div>
         <button class="sexp" id="rpcExp" aria-expanded="false"><span>Customize</span><span class="sm" id="rpcSum"></span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="sfold"><div><div class="sfin dsub" id="rpcOpts">
           <div class="dcwrap">
@@ -1602,6 +1629,7 @@
 </div>
 <div class="mdl" id="keyDlg">
   <div class="box kbox" role="dialog" aria-labelledby="kTitle">
+    <button class="kx" id="kaLater" title="Close"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     <div class="khero" id="kHero">
       <div class="korbit" id="kOrbit"></div>
       <div class="kbadge"><span class="gi" data-ic="key"></span></div>
@@ -1615,7 +1643,6 @@
       </div>
       <div class="kft">
         <label class="kchk" id="kaNeverL"><input type="checkbox" id="kaNever"><span class="kbx"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>Don't remind me again</label>
-        <button class="klater" id="kaLater">Not now</button>
       </div>
     </div>
   </div>
@@ -1886,8 +1913,8 @@ $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scroll
 
 /* ---------- Einstellungen ---------- */
 const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: '',
-  rpc: true, rpcMatch: true, rpcMaps: true, rpcLauncher: true, rpcTime: true, rpcButton: true};
-const RPC_KEYS = ['rpc', 'rpcMatch', 'rpcMaps', 'rpcLauncher', 'rpcTime', 'rpcButton'];
+  rpc: true, rpcMatch: true, rpcMaps: true, rpcLauncher: true, rpcTime: true, rpcButton: true, rpcHideTray: false};
+const RPC_KEYS = ['rpc', 'rpcMatch', 'rpcMaps', 'rpcLauncher', 'rpcTime', 'rpcButton', 'rpcHideTray'];
 const RPC_CHIPS = [['rcMatch', 'rpcMatch'], ['rcMaps', 'rpcMaps'], ['rcLauncher', 'rpcLauncher'], ['rcTime', 'rpcTime'], ['rcButton', 'rpcButton']];
 // Farb-Presets: Akzent in 8 Abstufungen (RGB), Hintergrund bekommt automatisch einen leichten Ton davon
 const THEMES = [
@@ -1931,6 +1958,8 @@ function paintSettings(){
   RPC_CHIPS.forEach(([id, k]) => { const on = settings[k] !== false; shown += on;
     $(id).classList.toggle('on', on); $(id).setAttribute('aria-checked', on); });
   $('rpcOpts').classList.toggle('off', !rpcOn);
+  $('tgRpcTray').classList.toggle('on', !!settings.rpcHideTray); $('setRpcTray').setAttribute('aria-checked', !!settings.rpcHideTray);
+  $('setRpcTray').classList.toggle('off', !rpcOn);
   $('rpcSum').textContent = rpcOn ? shown + ' of ' + RPC_CHIPS.length + ' shown' : 'Off';
   syncPresenceCfg();
   $('tgMute').classList.toggle('on', !!settings.mute);
@@ -1942,7 +1971,7 @@ function paintSettings(){
 }
 function syncPresenceCfg(){
   if (!has('setPresenceCfg')) return;
-  const m = {}; RPC_KEYS.forEach(k => m[k] = settings[k] !== false);
+  const m = {}; RPC_KEYS.forEach(k => m[k] = k === 'rpcHideTray' ? !!settings[k] : settings[k] !== false);
   try { setPresenceCfg(m); } catch (e) {}
   setTimeout(pollPresence, 600);
 }
@@ -1982,7 +2011,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
+[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setRpc', 'rpc'], ['setRpcTray', 'rpcHideTray'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });
@@ -2719,10 +2748,16 @@ async function heroVideo(id){
   if (tab === 'vHome') next.play().catch(() => {}); else next.addEventListener('loadeddata', show, {once: true});
 }
 // nur abspielen, wenn Home sichtbar ist (spart Leistung)
-function heroPlay(on){ const v = hero.front; if (!v) return; on ? v.play().catch(() => {}) : v.pause(); }
+// Game Boost: waehrend Rocket League laeuft und ZLauncher im Hintergrund ist, Video anhalten (spart GPU)
+function gameQuiet(){ try { return !!(home.st && home.st.running) && !document.hasFocus() && boost.st.enabled !== false; } catch (e) { return false; } }
+function heroPlay(on){ const v = hero.front; if (!v) return; (on && !gameQuiet()) ? v.play().catch(() => {}) : v.pause(); }
+window.addEventListener('blur', () => heroPlay(!document.hidden && !appHidden && tab === 'vHome'));
+window.addEventListener('focus', () => heroPlay(!document.hidden && !appHidden && tab === 'vHome'));
 document.addEventListener('visibilitychange', () => heroPlay(!document.hidden && tab === 'vHome'));
 function paintRL(st){
+  const wasRun = !!(home.st && home.st.running);
   home.st = st;
+  if (wasRun !== !!st.running) heroPlay(!document.hidden && !appHidden && tab === 'vHome');
   try { if (has('setPresenceCtx')) setPresenceCtx(!!home.launching && !st.running, maps.length); } catch (e) {}
   const s = $('hStat'), tx = $('hStatTx');
   s.classList.toggle('run', !!st.running); s.classList.toggle('eac', !!(st.running && st.eac));
@@ -2771,6 +2806,7 @@ function openPlay(){
   $('pNoEacChip').textContent = n ? n + (n > 1 ? ' maps' : ' map') + ' ready' : '';
   $('pEacChip').textContent = n ? 'Maps swapped' : '';
   $('playDlg').classList.add('show'); Sfx.ui('present');
+  setTimeout(() => $('pEac').focus({preventScroll: true}), 60);   // Enter = mit Anti-Cheat
 }
 const closePlay = () => $('playDlg').classList.remove('show');
 $('playBtn').onclick = openPlay;
@@ -2826,13 +2862,47 @@ async function loadFriends(manual){
   const fresh = home.fNew; home.fNew = false;
   renderFriends(fresh);
 }
+function friendRow(f){
+  const d = document.createElement('div');
+  d.__id = f.id;
+  d.innerHTML = `<div class="fav"></div><div class="ft"><b></b><small></small></div>
+    <div class="fa"><span class="fx"><svg viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg></span><div class="fbs"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button></div></div>`;
+  const [bp, bc] = d.querySelectorAll('.fa .fbs button');
+  bp.onclick = e => { e.stopPropagation(); has('openSteamProfile') && openSteamProfile(d.__id); };
+  bc.onclick = e => { e.stopPropagation(); has('openFriendChat') && openFriendChat(d.__id); };
+  d.onclick = () => has('openFriendChat') && openFriendChat(d.__id);
+  return d;
+}
+function friendFill(d, f, ch){
+  const isRL = f.state === 'ingame' && f.game === 'Rocket League';
+  const cls = 'fr ' + f.state + (isRL ? ' rl' : '');
+  const keep = [...d.classList].filter(c => c === 'fin' || c === 'chg' || c.startsWith('c-')).join(' ');
+  d.className = cls + (keep ? ' ' + keep : '');
+  const av = d.querySelector('.fav'), url = f.avatar ? `url("${f.avatar}")` : '';
+  if (av.__url !== url){ av.__url = url; av.style.backgroundImage = url; }
+  const b = d.querySelector('b'); if (b.textContent !== f.name) b.textContent = f.name;
+  const sub = f.state === 'ingame' ? (f.game || 'In-Game') : f.state === 'online' ? 'Online' : f.state === 'away' ? 'Away' : (f.note || 'Offline');
+  const sm = d.querySelector('small');
+  const swapTo = html => { sm.classList.remove('swap'); void sm.offsetWidth; sm.innerHTML = html; sm.classList.add('swap'); };
+  if (ch){
+    // kurz hervorheben und sagen, was passiert ist; danach wieder der normale Text
+    d.classList.remove('chg', 'c-on', 'c-off', 'c-game', 'c-rl', 'c-left'); void d.offsetWidth;
+    d.classList.add('chg', 'c-' + ch.kind);
+    clearTimeout(d.__t); swapTo(ch.text);
+    d.__sub = sub;
+    d.__t = setTimeout(() => { d.classList.remove('chg', 'c-' + ch.kind); if (d.isConnected) swapTo(esc(d.__sub)); }, 4000);
+  } else if (!d.classList.contains('chg') && sm.textContent !== sub) sm.textContent = sub;
+  else d.__sub = sub;
+}
 function renderFriends(animate){
   const L = $('fList'), r = home.friends;
+  home.rows = home.rows || new Map();
   $('fHint').innerHTML = '';
+  const plain = html => { home.rows.clear(); L.innerHTML = html; };
   if (!r){
     $('fOn').textContent = ''; $('fMe').textContent = '';
     const steamOff = /Steam isn't running/.test(home.fErr || '');
-    L.innerHTML = `<div class="fmsg"><b>${steamOff ? "Steam isn't running" : "Couldn't load friends"}</b><span></span>${steamOff ? '<br><button class="sbtn" id="fOpenSteam">Open Steam</button>' : '<br><button class="sbtn" id="fRetry">Try again</button>'}</div>`;
+    plain(`<div class="fmsg"><b>${steamOff ? "Steam isn't running" : "Couldn't load friends"}</b><span></span>${steamOff ? '<br><button class="sbtn" id="fOpenSteam">Open Steam</button>' : '<br><button class="sbtn" id="fRetry">Try again</button>'}</div>`);
     L.querySelector('span').textContent = steamOff ? 'Open Steam to see who is online.' : (home.fErr || '');
     if (steamOff) $('fOpenSteam').onclick = () => { if (has('openSteam')) openSteam(); setTimeout(() => loadFriends(), 9000); };
     else $('fRetry').onclick = () => loadFriends(true);
@@ -2840,81 +2910,73 @@ function renderFriends(animate){
   }
   $('fMe').textContent = r.meName ? 'Signed in as ' + r.meName : '';
   const all = r.friends || [], on = all.filter(f => f.state !== 'offline' && f.state !== 'unknown').length;
-  $('fOn').textContent = on ? on + ' online' : '';
+  const onTx = on ? on + ' online' : '';
+  if ($('fOn').textContent !== onTx){ $('fOn').textContent = onTx; if (animate){ const o = $('fOn'); o.classList.remove('bump'); void o.offsetWidth; o.classList.add('bump'); } }
   if (r.hint) $('fHint').innerHTML = esc(r.hint).replace('Settings', '<a id="fHintSet">Settings</a>');
   const h = $('fHintSet'); if (h) h.onclick = openSettings;
   const q = $('fSearch').value.trim().toLowerCase();
   const list = q ? all.filter(f => f.name.toLowerCase().includes(q)) : all;
-  if (!all.length){ L.innerHTML = '<div class="fmsg"><b>No friends found</b>Add friends on Steam and they show up here.</div>'; return; }
+  if (!all.length) return plain('<div class="fmsg"><b>No friends found</b>Add friends on Steam and they show up here.</div>');
   const groups = [
     ['In Rocket League', 'rl', list.filter(f => f.state === 'ingame' && f.game === 'Rocket League')],
-    ['In-Game', '', list.filter(f => f.state === 'ingame' && f.game !== 'Rocket League')],
-    ['Online', '', list.filter(f => f.state === 'online' || f.state === 'away')],
+    ['In-Game', 'game', list.filter(f => f.state === 'ingame' && f.game !== 'Rocket League')],
+    ['Online', 'on', list.filter(f => f.state === 'online' || f.state === 'away')],
     ['Offline', 'off', list.filter(f => f.state === 'offline' || f.state === 'unknown')]
   ];
-  // vorher: Positionen merken (fuer weiches Umsortieren) und Statuswechsel erkennen
-  const old = {}, ghosts = {};
-  L.querySelectorAll('.fr').forEach(x => { if (x.__id){ old[x.__id] = x.offsetTop; ghosts[x.__id] = x; } });
-  const changes = animate ? friendChanges(all) : {};
-  const keep = L.scrollTop; L.innerHTML = ''; let n = 0;
+  const changes = animate ? friendChanges(all) : (friendChanges(all), {});
+  // vorher: Positionen merken
+  const first = L.children.length && !L.querySelector('.fmsg,.fsk');
+  const before = new Map();
+  if (first) [...L.children].forEach(x => { if (!x.classList.contains('fleave')) before.set(x, x.offsetTop); });
+  L.querySelectorAll('.fmsg,.fsk').forEach(x => x.remove());
+  // Soll-Reihenfolge aus vorhandenen Elementen aufbauen (nichts wird neu gezeichnet, was schon da ist)
+  home.secs = home.secs || {};
+  const want = [], seen = new Set(); let n = 0;
   groups.forEach(([label, kind, fs]) => {
     if (!fs.length) return;
-    const sec = document.createElement('div');
+    let sec = home.secs[kind];
+    if (!sec){
+      sec = home.secs[kind] = document.createElement('div');
+      sec.innerHTML = `<span></span><i></i>` + (kind === 'off' ? '<svg class="chv" width="10" height="10" viewBox="0 0 16 16"><path d="M4 6.2l4 4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' : '');
+      if (kind === 'off') sec.onclick = () => { home.offOpen = !home.offOpen; Sfx.ui('tick'); renderFriends(true); };
+    }
     const closed = kind === 'off' && !home.offOpen && !q && list.length > fs.length;
     sec.className = 'fsec' + (kind === 'rl' ? ' rl' : '') + (kind === 'off' ? ' tog' + (closed ? ' closed' : '') : '');
-    sec.innerHTML = `<span>${label} · ${fs.length}</span><i></i>` + (kind === 'off' ? '<svg class="chv" width="10" height="10" viewBox="0 0 16 16"><path d="M4 6.2l4 4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' : '');
-    if (kind === 'off') sec.onclick = () => { home.offOpen = !home.offOpen; Sfx.ui('tick'); renderFriends(); };
-    L.appendChild(sec);
+    const t = label + ' · ' + fs.length, sp = sec.firstChild;
+    if (sp.textContent !== t){ if (sp.textContent && animate){ sp.classList.remove('bump'); void sp.offsetWidth; sp.classList.add('bump'); } sp.textContent = t; }
+    want.push(sec);
     if (closed) return;
     fs.forEach(f => {
-      const isRL = f.state === 'ingame' && f.game === 'Rocket League';
-      const d = document.createElement('div');
-      d.className = 'fr ' + f.state + (isRL ? ' rl' : '') + (old[f.id] ? ' noin' : '');
-      d.style.animationDelay = Math.min(n++, 14) * 22 + 'ms';
-      d.__id = f.id;
-      const ch = changes[f.id];
-      if (ch){ d.classList.add('chg', 'c-' + ch.kind); setTimeout(() => d.classList.remove('chg', 'c-' + ch.kind), 3200); }
-      d.innerHTML = `<div class="fav"></div><div class="ft"><b></b><small></small></div>
-        <div class="fa"><span class="fx"><svg viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg></span><div class="fbs"><button title="Open Steam profile">${icon('user')}</button><button class="msg" title="Send message">${icon('chat')}</button></div></div>`;
-      if (f.avatar) d.querySelector('.fav').style.backgroundImage = `url("${f.avatar}")`;
-      d.querySelector('b').textContent = f.name;
-      const sub = f.state === 'ingame' ? (f.game || 'In-Game') : f.state === 'online' ? 'Online' : f.state === 'away' ? 'Away' : (f.note || 'Offline');
-      const sm = d.querySelector('small'); sm.textContent = sub;
-      if (ch && ch.text){ sm.innerHTML = ch.text; setTimeout(() => { if (d.isConnected) sm.textContent = sub; }, 4200); }
-      const [bp, bc] = d.querySelectorAll('.fa .fbs button');
-      bp.onclick = e => { e.stopPropagation(); has('openSteamProfile') && openSteamProfile(f.id); };
-      bc.onclick = e => { e.stopPropagation(); has('openFriendChat') && openFriendChat(f.id); };
-      d.onclick = () => has('openFriendChat') && openFriendChat(f.id);
-      L.appendChild(d);
+      let d = home.rows.get(f.id);
+      const fresh = !d || !d.isConnected || d.classList.contains('fleave');
+      if (!d || d.classList.contains('fleave')){ d = friendRow(f); home.rows.set(f.id, d); }
+      friendFill(d, f, changes[f.id]);
+      if (fresh){ d.classList.add('fin'); d.style.animationDelay = (first ? 0 : Math.min(n, 14) * 22) + 'ms'; setTimeout(() => d.classList.remove('fin'), 900); }
+      n++;
+      want.push(d); seen.add(d);
     });
   });
-  if (!L.children.length) L.innerHTML = '<div class="fmsg">No friends match your search.</div>';
+  // was nicht mehr gebraucht wird: an alter Stelle kurz ausblenden
+  [...L.children].forEach(x => {
+    if (want.includes(x) || x.classList.contains('fleave')) return;
+    if (x.__id) home.rows.delete(x.__id);
+    if (!first || !before.has(x)){ x.remove(); return; }
+    x.classList.add('fleave'); x.style.top = before.get(x) + 'px';
+    setTimeout(() => x.remove(), 340);
+  });
+  if (!want.length) return plain('<div class="fmsg">No friends match your search.</div>');
+  // in die richtige Reihenfolge bringen (vorhandene Knoten werden nur verschoben)
+  const keep = L.scrollTop;
+  want.forEach((x, i) => { const cur = L.children[i]; if (cur !== x) L.insertBefore(x, cur || null); });
+  L.querySelectorAll('.fleave').forEach(x => L.appendChild(x));
   L.scrollTop = keep;
-  if (!animate || !Object.keys(old).length) return;
-  // FLIP: verschobene Zeilen gleiten an ihren neuen Platz
-  const now = new Set();
-  L.querySelectorAll('.fr').forEach(x => {
-    now.add(x.__id);
-    if (!(x.__id in old)) return;
-    const dy = old[x.__id] - x.offsetTop;
-    if (Math.abs(dy) > 1) x.animate([{transform: `translateY(${dy}px)`}, {transform: 'none'}], {duration: 650, easing: 'cubic-bezier(.22,1.2,.36,1)'});
+  // FLIP: verschobene Zeilen gleiten ruhig an ihren neuen Platz
+  if (!first) return;
+  want.forEach(x => {
+    if (!before.has(x)) return;
+    const dy = before.get(x) - x.offsetTop;
+    if (Math.abs(dy) > 1) x.animate([{transform: `translateY(${dy}px)`}, {transform: 'none'}], {duration: 450, easing: 'cubic-bezier(.2,.8,.2,1)'});
   });
-  // Zeilen, die verschwinden (z. B. offline in eingeklapptem Bereich): ausblenden
-  Object.keys(old).forEach(id => {
-    if (now.has(id)) return;
-    const g = ghosts[id]; g.classList.add('fghost', 'noin'); g.style.top = old[id] + 'px';
-    if (changes[id]) g.classList.add('chg', 'c-' + changes[id].kind);
-    L.appendChild(g);
-    g.animate([{opacity: 1, transform: 'none', filter: 'none'}, {opacity: .9, offset: .3, transform: 'scale(.98)', filter: 'grayscale(1) brightness(.8)'},
-      {opacity: 0, transform: 'translateX(46px) scale(.96)', filter: 'grayscale(1) brightness(.6)'}],
-      {duration: 850, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards'}).onfinish = () => g.remove();
-  });
-  // Zaehler kurz anstupsen
-  if (Object.keys(changes).length){
-    const on = $('fOn'); on.classList.remove('bump'); void on.offsetWidth; on.classList.add('bump');
-    L.querySelectorAll('.fsec span').forEach(sp => { if (home.secN?.[sp.textContent.split(' · ')[0]] !== undefined && !sp.textContent.endsWith('· ' + home.secN[sp.textContent.split(' · ')[0]])){ sp.classList.add('bump'); } });
-  }
-  home.secN = {}; L.querySelectorAll('.fsec span').forEach(sp => { const [k, v] = sp.textContent.split(' · '); home.secN[k] = v; });
 }
 // Was hat sich seit dem letzten Laden geaendert?
 const fKey = f => f.state === 'ingame' ? 'g:' + (f.game || '') : (f.state === 'offline' || f.state === 'unknown') ? 'off' : 'on';

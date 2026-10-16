@@ -225,6 +225,7 @@ type PresenceCfg struct {
 	Launcher bool // auch ohne Spiel
 	Button   bool
 	Time     bool
+	HideTray bool // im Tray nichts anzeigen (laufendes Spiel wird weiter angezeigt)
 }
 
 type PresenceInput struct {
@@ -362,6 +363,8 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 		a.Details = "Rocket League · Menu"
 	case in.Starting:
 		a.Details, a.State = "Starting Rocket League", "Almost ready …"
+	case in.Hidden && cfg.HideTray:
+		return nil
 	case cfg.Launcher && in.Hidden:
 		// im Tray: nur noch "Idle"
 		start = in.LaunchOpen

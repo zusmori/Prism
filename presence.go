@@ -257,7 +257,8 @@ func presenceInit() {
 		return def
 	}
 	presence.cfg = PresenceCfg{On: b("rpc", true), Match: b("rpcMatch", true), Maps: b("rpcMaps", true),
-		Launcher: b("rpcLauncher", true), Button: b("rpcButton", true), Time: b("rpcTime", true)}
+		Launcher: b("rpcLauncher", true), Button: b("rpcButton", true), Time: b("rpcTime", true),
+		HideTray: b("rpcHideTray", false)}
 	port, ini := ensureStatsAPI()
 	presence.stats = &statsClient{port: port, iniStatus: ini}
 	go presence.stats.loop()
@@ -384,6 +385,8 @@ func setPresenceCfg(m map[string]bool) {
 			c.Button = v
 		case "rpcTime":
 			c.Time = v
+		case "rpcHideTray":
+			c.HideTray = v
 		}
 	}
 	presence.lastSend = time.Time{} // sofort aktualisieren

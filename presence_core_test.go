@@ -71,6 +71,14 @@ func TestStatsAndActivity(t *testing.T) {
 	if a = BuildActivity(cfg, PresenceInput{Tab: "vBrowse", Hidden: true}); a == nil || a.Details != "Idle" || a.State != "" {
 		t.Fatal("tray should show Idle")
 	}
+	ht := cfg
+	ht.HideTray = true
+	if BuildActivity(ht, PresenceInput{Tab: "vHome", Hidden: true}) != nil {
+		t.Fatal("hide in tray")
+	}
+	if a = BuildActivity(ht, PresenceInput{Hidden: true, RLRunning: true}); a == nil || a.Details != "Rocket League · Menu" {
+		t.Fatal("game must still show while in tray")
+	}
 	if a = BuildActivity(cfg, PresenceInput{Hidden: true, Starting: true}); a.Details != "Starting Rocket League" {
 		t.Fatal(a.Details)
 	}

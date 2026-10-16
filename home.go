@@ -72,6 +72,7 @@ func (a *App) LaunchRL(eac bool) error {
 		exe = filepath.Join(bin, "RocketLeague_EAC.exe")
 		args = nil
 	}
+	args = append(args, boostLaunchArgs()...) // z. B. Intro-Videos ueberspringen
 	if _, err := os.Stat(exe); bin == "" || err != nil {
 		// Fallback: Steam starten lassen (fragt dann selbst nach Anti-Cheat)
 		open("steam://rungameid/" + appID)
