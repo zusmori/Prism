@@ -148,6 +148,16 @@ bool Init() {
 
 bool Ready() { return GNames && GObjects; }
 
+bool IsValid(const void* obj) {
+	if (!obj) return false;
+	try {
+		int idx = Read<int32_t>(obj, off::Index);
+		return ObjectAt(idx) == obj;
+	} catch (...) {
+		return false;
+	}
+}
+
 bool CheckObjects(void* obj) {
 	if (!obj || !GNames) return false;
 	try {

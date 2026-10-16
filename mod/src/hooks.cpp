@@ -64,10 +64,104 @@ static void CreateRTV(IDXGISwapChain* sc) {
 	}
 }
 
+// ---------- Maus ----------
+// Rocket League sperrt im Spiel die Maus (ClipCursor/SetCursorPos) und liest sie nur ueber Raw Input
+// (keine normalen Maus-Nachrichten). Solange das Menue offen ist, geben wir die Maus frei und
+// berechnen die Position selbst.
+using SetCursorPosFn = BOOL(WINAPI*)(int, int);
+using ClipCursorFn = BOOL(WINAPI*)(const RECT*);
+static SetCursorPosFn setCursorPosOrig = nullptr;
+static ClipCursorFn clipCursorOrig = nullptr;
+static std::atomic<long> rawDX{0}, rawDY{0}, rawWheel{0};
+static bool legacyWheel = false;
+static POINT lastSys{-100000, -100000};
+static float vmX = 0, vmY = 0;
+
+static BOOL WINAPI SetCursorPosHook(int x, int y) {
+	if (menuOpen) return TRUE; // Spiel darf die Maus nicht zuruecksetzen
+	return setCursorPosOrig(x, y);
+}
+static BOOL WINAPI ClipCursorHook(const RECT* r) {
+	if (menuOpen) return clipCursorOrig(nullptr);
+	return clipCursorOrig(r);
+}
+
+static void HookCursor() {
+	HMODULE u = GetModuleHandleW(L"user32.dll");
+	void* scp = u ? reinterpret_cast<void*>(GetProcAddress(u, "SetCursorPos")) : nullptr;
+	void* cc = u ? reinterpret_cast<void*>(GetProcAddress(u, "ClipCursor")) : nullptr;
+	bool ok = scp && cc &&
+		MH_CreateHook(scp, reinterpret_cast<void*>(&SetCursorPosHook), reinterpret_cast<void**>(&setCursorPosOrig)) == MH_OK &&
+		MH_CreateHook(cc, reinterpret_cast<void*>(&ClipCursorHook), reinterpret_cast<void**>(&clipCursorOrig)) == MH_OK &&
+		MH_EnableHook(scp) == MH_OK && MH_EnableHook(cc) == MH_OK;
+	zl::Log(ok ? "cursor hooks ready" : "WARNING: cursor hooks failed");
+}
+
+static void OnMenuToggled() {
+	if (!imguiReady) return;
+	ImGuiIO& io = ImGui::GetIO();
+	io.MouseDrawCursor = menuOpen;
+	if (menuOpen) {
+		if (clipCursorOrig) clipCursorOrig(nullptr); else ClipCursor(nullptr);
+		RECT rc{};
+		GetClientRect(gameWnd, &rc);
+		vmX = float(rc.right) / 2;
+		vmY = float(rc.bottom) / 2;
+		lastSys = {-100000, -100000};
+		rawDX = 0; rawDY = 0; rawWheel = 0;
+		io.AddMousePosEvent(vmX, vmY);
+		items::OnMenuOpened();
+	} else {
+		for (int b = 0; b < 3; b++) io.AddMouseButtonEvent(b, false);
+	}
+}
+
+// Jede Frame: Mausposition und Tasten selbst abfragen
+static void PollMouse() {
+	ImGuiIO& io = ImGui::GetIO();
+	if (clipCursorOrig) clipCursorOrig(nullptr);
+	RECT rc{};
+	GetClientRect(gameWnd, &rc);
+	POINT p{};
+	long dx = rawDX.exchange(0), dy = rawDY.exchange(0);
+	if (GetCursorPos(&p) && ScreenToClient(gameWnd, &p) && (p.x != lastSys.x || p.y != lastSys.y) && lastSys.x != -100000) {
+		vmX = float(p.x); // echte Maus bewegt sich: die nehmen
+		vmY = float(p.y);
+	} else {
+		vmX += float(dx); // sonst aus den Raw-Input-Bewegungen rechnen
+		vmY += float(dy);
+	}
+	lastSys = p;
+	if (vmX < 0) vmX = 0;
+	if (vmY < 0) vmY = 0;
+	if (vmX > rc.right - 1) vmX = float(rc.right - 1);
+	if (vmY > rc.bottom - 1) vmY = float(rc.bottom - 1);
+	io.AddMousePosEvent(vmX, vmY);
+	bool fg = GetForegroundWindow() == gameWnd;
+	io.AddMouseButtonEvent(0, fg && (GetAsyncKeyState(VK_LBUTTON) & 0x8000));
+	io.AddMouseButtonEvent(1, fg && (GetAsyncKeyState(VK_RBUTTON) & 0x8000));
+	io.AddMouseButtonEvent(2, fg && (GetAsyncKeyState(VK_MBUTTON) & 0x8000));
+	long w = rawWheel.exchange(0);
+	if (w && !legacyWheel) io.AddMouseWheelEvent(0, float(w) / WHEEL_DELTA);
+}
+
+static void ReadRawMouse(LPARAM lp) {
+	RAWINPUT ri{};
+	UINT size = sizeof ri;
+	if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lp), RID_INPUT, &ri, &size, sizeof(RAWINPUTHEADER)) == UINT(-1)) return;
+	if (ri.header.dwType != RIM_TYPEMOUSE) return;
+	const RAWMOUSE& m = ri.data.mouse;
+	if (!(m.usFlags & MOUSE_MOVE_ABSOLUTE)) {
+		rawDX += m.lLastX;
+		rawDY += m.lLastY;
+	}
+	if (m.usButtonFlags & RI_MOUSE_WHEEL) rawWheel += short(m.usButtonData);
+}
+
 static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 	if (msg == WM_KEYDOWN && wp == VK_F8 && !(lp & (1 << 30))) {
 		menuOpen = !menuOpen;
-		if (imguiReady) ImGui::GetIO().MouseDrawCursor = menuOpen;
+		OnMenuToggled();
 		return 0;
 	}
 	if (menuOpen && imguiReady) {
@@ -82,13 +176,17 @@ static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 				lastSynth = buf[0];
 			}
 		}
-		ImGui_ImplWin32_WndProcHandler(h, msg, wp, lp);
+		if (msg == WM_INPUT) ReadRawMouse(lp);
+		if (msg == WM_MOUSEWHEEL) legacyWheel = true;
+		// Maustasten und -position kommen aus PollMouse, nur Tastatur/Rad hier
+		bool mouseMsg = (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) || msg == WM_SETCURSOR;
+		if (!mouseMsg) ImGui_ImplWin32_WndProcHandler(h, msg, wp, lp);
 		// Eingaben nicht ans Spiel weitergeben, solange das Menue offen ist
 		switch (msg) {
 		case WM_MOUSEMOVE: case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_RBUTTONDOWN: case WM_RBUTTONUP:
-		case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MOUSEWHEEL: case WM_LBUTTONDBLCLK:
+		case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MOUSEWHEEL: case WM_LBUTTONDBLCLK: case WM_RBUTTONDBLCLK:
 		case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR: case WM_SYSKEYDOWN: case WM_SYSKEYUP: case WM_INPUT:
-			if (msg == WM_KEYDOWN && wp == VK_ESCAPE) { menuOpen = false; ImGui::GetIO().MouseDrawCursor = false; }
+			if (msg == WM_KEYDOWN && wp == VK_ESCAPE) { menuOpen = false; OnMenuToggled(); }
 			return msg == WM_INPUT ? DefWindowProcW(h, msg, wp, lp) : 0;
 		}
 	}
@@ -112,16 +210,19 @@ static HRESULT __stdcall PresentHook(IDXGISwapChain* sc, UINT sync, UINT flags) 
 				gui::Style();
 				wndOrig = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(gameWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProcHook)));
 				imguiReady = true;
+				ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+				HookCursor();
 				zl::Log("overlay ready (window %p)", gameWnd);
 			}
 		}
 		if (imguiReady && menuOpen) {
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
+			PollMouse();
 			ImGui::NewFrame();
 			bool open = true;
 			gui::Render(&open);
-			if (!open) { menuOpen = false; ImGui::GetIO().MouseDrawCursor = false; }
+			if (!open) { menuOpen = false; OnMenuToggled(); }
 			ImGui::Render();
 			if (!rtv) CreateRTV(sc);
 			context->OMSetRenderTargets(1, &rtv, nullptr);

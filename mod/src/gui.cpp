@@ -182,8 +182,12 @@ void Render(bool* open) {
 	dl->AddText(ImVec2(o.x + 23, o.y + 32), U(Rgb(255, 255, 255)), "Items");
 	ImGui::PopFont();
 	ImGui::PushFont(fSmall);
-	const char* hint = "Only you can see these  ·  F8 to close";
-	dl->AddText(ImVec2(o.x + 102, o.y + 42), U(Rgb(120, 120, 135)), hint);
+	if (items::inGame) {
+		dl->AddText(ImVec2(o.x + 102, o.y + 42), U(Rgb(120, 120, 135)), "Only you can see these  ·  F8 to close");
+	} else {
+		dl->AddCircleFilled(ImVec2(o.x + 107, o.y + 49), 3.5f, U(Rgb(240, 180, 60)));
+		dl->AddText(ImVec2(o.x + 117, o.y + 42), U(Rgb(240, 190, 90)), "Join Freeplay or a match to see your items");
+	}
 	ImGui::PopFont();
 	// Schliessen
 	ImGui::SetCursorPos(ImVec2(W.x - 52, 18));

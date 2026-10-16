@@ -22,6 +22,7 @@ std::vector<Item> list;
 std::map<int, int> overrides;
 bool loaded = false;
 std::string status = "Starting …";
+std::atomic<bool> inGame{false};
 
 // ---------- Spiel-Thread-Warteschlange ----------
 static std::mutex qmu;
@@ -153,7 +154,10 @@ void LoadProducts() {
 // ---------- Loadout ----------
 // Lokaler PlayerController: per PlayerTick erkannt, sonst ueber LocalPlayer.Actor bzw. Player != null
 static void* LocalPC() {
-	if (void* pc = localPC.load()) return pc;
+	if (void* pc = localPC.load()) {
+		if (ue::IsValid(pc)) return pc;
+		localPC = nullptr; // Spieler gibt es nicht mehr (z. B. zurueck im Menue)
+	}
 	try {
 		if (clsLocalPlayer && offLPActor >= 0)
 			for (void* lp : ue::Instances(clsLocalPlayer))
@@ -165,13 +169,16 @@ static void* LocalPC() {
 }
 static void* LocalPRI() {
 	void* pc = LocalPC();
-	try { return pc ? ue::Read<void*>(pc, offPRI) : nullptr; } catch (...) { return nullptr; }
+	try {
+		void* pri = pc ? ue::Read<void*>(pc, offPRI) : nullptr;
+		return ue::IsValid(pri) ? pri : nullptr;
+	} catch (...) { return nullptr; }
 }
 static void* LocalCar() {
 	void* pc = LocalPC();
 	try {
 		void* pawn = (pc && offPawn >= 0) ? ue::Read<void*>(pc, offPawn) : nullptr;
-		return (pawn && ue::IsA(pawn, clsCar)) ? pawn : nullptr;
+		return (ue::IsValid(pawn) && ue::IsA(pawn, clsCar)) ? pawn : nullptr;
 	} catch (...) { return nullptr; }
 }
 
@@ -215,9 +222,11 @@ void ApplyNow() {
 	if (!Setup()) return;
 	void* pc = LocalPC();
 	void* pri = LocalPRI();
+	static int n = 0;
+	inGame = pri != nullptr;
+	if (pri) n = 0;
 	if (!pri) {
-		static int n = 0;
-		if (n++ < 3) {
+		if (n++ < 2) {
 			int pcs = (int)ue::Instances(clsPC).size(), lps = clsLocalPlayer ? (int)ue::Instances(clsLocalPlayer).size() : -1;
 			zl::Log("apply: no local player yet (pc=%p, controllers=%d, localPlayers=%d, objects=%d, ticks seen=%s) - items work in Freeplay and matches, not in menus",
 				pc, pcs, lps, ue::ObjectCount(), localPC.load() ? "yes" : "no");
@@ -272,6 +281,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			zl::Log("local player controller: %p (%s) pri=%p pawn=%p (%s)", caller, ue::Name(caller).c_str(), pri, pawn, pawn ? ue::Name(pawn).c_str() : "-");
 			ue::CheckObjects(caller);
 		}
+		inGame = true;
 		return;
 	}
 	if (applying) return;
@@ -287,6 +297,15 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		if (overrides.empty() && restore.empty()) return;
 	}
 	if (caller == LocalPRI()) WriteOverrides(caller); // Spiel laedt das Loadout neu: unsere Items wieder eintragen
+}
+
+void OnMenuOpened() {
+	Queue([] {
+		if (!Setup()) return;
+		bool now = LocalPRI() != nullptr;
+		if (now != inGame.load()) zl::Log("menu opened: %s", now ? "in game" : "not in a game (menu/garage)");
+		inGame = now;
+	});
 }
 
 void Set(int slot, int id) {

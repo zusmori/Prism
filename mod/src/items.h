@@ -1,5 +1,6 @@
 #pragma once
 // Item-Tausch: eigene Items im Loadout des lokalen Spielers (nur fuer dich sichtbar)
+#include <atomic>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -39,6 +40,8 @@ extern std::vector<Item> list;        // alle Items, nach Namen sortiert
 extern std::map<int, int> overrides;  // Slot -> Produkt-ID
 extern bool loaded;
 extern std::string status;
+extern std::atomic<bool> inGame;      // lokaler Spieler mit Auto vorhanden (Freeplay/Match)
+void OnMenuOpened();         // F8: Zustand neu pruefen
 void Set(int slot, int id);  // id 0 = eigenes Item
 void Save();
 void LoadSaved();

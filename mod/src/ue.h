@@ -38,6 +38,8 @@ bool Init();  // GNames/GObjects suchen und pruefen
 bool Ready();
 // Prueft, ob ein Objekt im Objekt-Array an seinem Index steht; wenn nicht, wird das richtige Array gesucht
 bool CheckObjects(void* knownObject);
+// Lebt das Objekt noch (steht es noch an seinem Platz im Objekt-Array)?
+bool IsValid(const void* obj);
 
 int ObjectCount();
 void* ObjectAt(int i);
