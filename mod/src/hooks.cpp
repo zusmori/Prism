@@ -24,6 +24,7 @@ std::atomic<bool> menuOpen{false};
 static void __fastcall ProcessEventHook(void* obj, void* fn, void* params, void* result) {
 	items::RunQueue();
 	try {
+		items::TickPreview();
 		items::OnProcessEvent(obj, fn, params);
 	} catch (...) {}
 	ue::ProcessEventOrig(obj, fn, params, result);
@@ -73,7 +74,6 @@ using ClipCursorFn = BOOL(WINAPI*)(const RECT*);
 static SetCursorPosFn setCursorPosOrig = nullptr;
 static ClipCursorFn clipCursorOrig = nullptr;
 static std::atomic<long> rawDX{0}, rawDY{0}, rawWheel{0};
-static bool legacyWheel = false;
 static POINT lastSys{-100000, -100000};
 static float vmX = 0, vmY = 0;
 
@@ -95,6 +95,30 @@ static void HookCursor() {
 		MH_CreateHook(cc, reinterpret_cast<void*>(&ClipCursorHook), reinterpret_cast<void**>(&clipCursorOrig)) == MH_OK &&
 		MH_EnableHook(scp) == MH_OK && MH_EnableHook(cc) == MH_OK;
 	zl::Log(ok ? "cursor hooks ready" : "WARNING: cursor hooks failed");
+}
+
+// Mausrad: kommt im Spiel weder als normale Nachricht noch zuverlaessig als Raw Input an.
+// Ein Low-Level-Maus-Hook (eigener Thread) sieht es immer.
+static HHOOK llHook = nullptr;
+static LRESULT CALLBACK LowLevelMouse(int code, WPARAM wp, LPARAM lp) {
+	if (code == HC_ACTION && wp == WM_MOUSEWHEEL && menuOpen && GetForegroundWindow() == gameWnd) {
+		auto* m = reinterpret_cast<MSLLHOOKSTRUCT*>(lp);
+		rawWheel += short(HIWORD(m->mouseData));
+		return 1; // Spiel bekommt das Rad nicht, solange das Menue offen ist
+	}
+	return CallNextHookEx(llHook, code, wp, lp);
+}
+static void StartWheelHook() {
+	CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
+		HMODULE self = nullptr;
+		GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			reinterpret_cast<LPCWSTR>(&LowLevelMouse), &self);
+		llHook = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouse, self, 0);
+		zl::Log(llHook ? "wheel hook ready" : "WARNING: wheel hook failed (%lu)", GetLastError());
+		MSG msg;
+		while (GetMessageW(&msg, nullptr, 0, 0) > 0) {}
+		return 0;
+	}, nullptr, 0, nullptr);
 }
 
 static void ResetKeys();
@@ -144,7 +168,7 @@ static void PollMouse() {
 	io.AddMouseButtonEvent(1, fg && (GetAsyncKeyState(VK_RBUTTON) & 0x8000));
 	io.AddMouseButtonEvent(2, fg && (GetAsyncKeyState(VK_MBUTTON) & 0x8000));
 	long w = rawWheel.exchange(0);
-	if (w && !legacyWheel) io.AddMouseWheelEvent(0, float(w) / WHEEL_DELTA);
+	if (w) io.AddMouseWheelEvent(0, float(w) / WHEEL_DELTA);
 }
 
 // Tastatur: im Spiel kommen nicht zuverlaessig Tasten-/Zeichen-Nachrichten an, daher selbst abfragen
@@ -219,7 +243,6 @@ static void ReadRawMouse(LPARAM lp) {
 		rawDX += m.lLastX;
 		rawDY += m.lLastY;
 	}
-	if (m.usButtonFlags & RI_MOUSE_WHEEL) rawWheel += short(m.usButtonData);
 }
 
 static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
@@ -230,9 +253,8 @@ static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 	}
 	if (menuOpen && imguiReady) {
 		if (msg == WM_INPUT) ReadRawMouse(lp);
-		if (msg == WM_MOUSEWHEEL) legacyWheel = true;
 		// Maustasten und -position kommen aus PollMouse, nur Tastatur/Rad hier
-		bool mouseMsg = (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) || msg == WM_SETCURSOR;
+		bool mouseMsg = (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) || msg == WM_SETCURSOR; // alles aus PollMouse
 		bool keyMsg = (msg >= WM_KEYFIRST && msg <= WM_KEYLAST);
 		if (!mouseMsg && !keyMsg) ImGui_ImplWin32_WndProcHandler(h, msg, wp, lp);
 		// Eingaben nicht ans Spiel weitergeben, solange das Menue offen ist
@@ -265,6 +287,7 @@ static HRESULT __stdcall PresentHook(IDXGISwapChain* sc, UINT sync, UINT flags) 
 				imguiReady = true;
 				ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 				HookCursor();
+				StartWheelHook();
 				zl::Log("overlay ready (window %p)", gameWnd);
 			}
 		}

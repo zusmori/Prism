@@ -26,6 +26,7 @@ extern const int kSlotCount;
 // Spiel-Thread: Aufgaben, die im ProcessEvent-Hook ausgefuehrt werden
 void Queue(std::function<void()> fn);
 void RunQueue();
+void TickPreview(); // Auto im Hauptmenue/Garage nachziehen (Spiel-Thread)
 
 // im Spiel-Thread
 bool Setup();          // Klassen/Eigenschaften suchen

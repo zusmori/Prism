@@ -75,7 +75,7 @@ void Style() {
 	ImGuiStyle& s = ImGui::GetStyle();
 	s.WindowRounding = 18; s.ChildRounding = 14; s.FrameRounding = 10; s.GrabRounding = 8; s.ScrollbarRounding = 8; s.PopupRounding = 10;
 	s.WindowPadding = ImVec2(0, 0); s.FramePadding = ImVec2(12, 9); s.ItemSpacing = ImVec2(8, 4);
-	s.WindowBorderSize = 1; s.ChildBorderSize = 0; s.FrameBorderSize = 1; s.ScrollbarSize = 8;
+	s.WindowBorderSize = 1; s.ChildBorderSize = 0; s.FrameBorderSize = 1; s.ScrollbarSize = 12;
 	ImVec4* c = s.Colors;
 	c[ImGuiCol_WindowBg] = Rgb(12, 12, 16, 0.97f);
 	c[ImGuiCol_ChildBg] = Rgb(0, 0, 0, 0);
@@ -87,8 +87,8 @@ void Style() {
 	c[ImGuiCol_TextDisabled] = Rgb(120, 120, 135);
 	c[ImGuiCol_TextSelectedBg] = Acc(0.4f);
 	c[ImGuiCol_ScrollbarBg] = Rgb(0, 0, 0, 0);
-	c[ImGuiCol_ScrollbarGrab] = Rgb(55, 55, 66);
-	c[ImGuiCol_ScrollbarGrabHovered] = Rgb(75, 75, 88);
+	c[ImGuiCol_ScrollbarGrab] = Rgb(70, 70, 84);
+	c[ImGuiCol_ScrollbarGrabHovered] = Rgb(95, 95, 110);
 }
 
 static std::string Lower(std::string s) {
@@ -182,12 +182,7 @@ void Render(bool* open) {
 	dl->AddText(ImVec2(o.x + 23, o.y + 32), U(Rgb(255, 255, 255)), "Items");
 	ImGui::PopFont();
 	ImGui::PushFont(fSmall);
-	if (items::inGame) {
-		dl->AddText(ImVec2(o.x + 102, o.y + 42), U(Rgb(120, 120, 135)), "Only you can see these  ·  F8 to close");
-	} else {
-		dl->AddCircleFilled(ImVec2(o.x + 107, o.y + 49), 3.5f, U(Rgb(240, 180, 60)));
-		dl->AddText(ImVec2(o.x + 117, o.y + 42), U(Rgb(240, 190, 90)), "Join Freeplay or a match to see your items");
-	}
+	dl->AddText(ImVec2(o.x + 102, o.y + 42), U(Rgb(120, 120, 135)), "Only you can see these  ·  F8 to close");
 	ImGui::PopFont();
 	// Schliessen
 	ImGui::SetCursorPos(ImVec2(W.x - 52, 18));

@@ -56,6 +56,8 @@ static void *clsCar = nullptr, *clsLocalPlayer = nullptr, *fnCarSetLoadout = nul
 static int offLPActor = -1, offTeamRet = -1;
 static void *clsGameEvent = nullptr, *clsFreeplay = nullptr, *clsFreeplayCar = nullptr, *fnDestroyCars = nullptr, *fnRestartPlayers = nullptr;
 static int offPRIGameEvent = -1;
+static void *clsPreview = nullptr, *fnChangePart = nullptr;
+static int offPrevLoadout = -1, offCPSlot = -1, offCPProduct = -1, offCPOnline = -1, offCPPaint = -1;
 static std::atomic<unsigned long long> applyAt{0}; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
 static std::atomic<void*> localPC{nullptr};
@@ -114,6 +116,19 @@ bool Setup() {
 			if (o && ue::Name(o) == "PlayerTick" && ue::Name(ue::ClassOf(o)) == "Function") tickFns.insert(o);
 		} catch (...) {}
 	}
+	clsPreview = ue::FindClass("Class TAGame.CarPreviewActor_TA");
+	if (clsPreview) {
+		offPrevLoadout = ue::PropOffset(clsPreview, "Loadout");
+		fnChangePart = ue::FindFunction(clsPreview, "ChangeCarPart");
+		if (fnChangePart) {
+			offCPSlot = ue::PropOffset(fnChangePart, "SlotIndex");
+			offCPProduct = ue::PropOffset(fnChangePart, "ProductID");
+			offCPOnline = ue::PropOffset(fnChangePart, "OnlineID");
+			offCPPaint = ue::PropOffset(fnChangePart, "TeamPaintIndex");
+		}
+	}
+	zl::Log("menu car: preview=%p loadout=%x ChangeCarPart=%p (slot=%x product=%x online=%x paint=%x)",
+		clsPreview, offPrevLoadout, fnChangePart, offCPSlot, offCPProduct, offCPOnline, offCPPaint);
 	zl::Log("car=%p localPlayer=%p pawn=%x pawnPRI=%x lpActor=%x Car.SetLoadout=%p GetLoadoutTeamIndex=%p ret=%x tickFns=%d",
 		clsCar, clsLocalPlayer, offPawn, offPawnPRI, offLPActor, fnCarSetLoadout, fnTeamIndex, offTeamRet, (int)tickFns.size());
 	ready = offProducts >= 0 && offSlot >= 0 && offSlotIndex >= 0 && offPlayer >= 0 && offPRI >= 0 && offClient >= 0 && fnSet;
@@ -324,6 +339,84 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (caller == LocalPRI()) WriteOverrides(caller); // Spiel laedt das Loadout neu: unsere Items wieder eintragen
 }
 
+// ---------- Auto im Hauptmenue / in der Garage (CarPreviewActor_TA) ----------
+// Das Spiel setzt das Vorschau-Auto immer wieder aus deinem Profil. Wir schauen regelmaessig nach
+// und tauschen nur die Teile, die nicht passen, ueber die Garage-Funktion ChangeCarPart aus.
+struct PreviewState {
+	std::map<int, int> orig;     // Slot -> eigenes Item
+	std::map<int, int> lastSeen; // Slot -> zuletzt gesehener Wert
+	std::map<int, int> target;   // Slot -> zuletzt gesetztes Item
+};
+static std::map<void*, PreviewState> previews;
+static std::vector<void*> previewActors;
+static unsigned long long nextPreviewScan = 0;
+static std::atomic<unsigned long long> nextPreviewCheck{0};
+
+static bool ChangePart(void* actor, int slot, int id) {
+	if (!fnChangePart || offCPSlot < 0 || offCPProduct < 0) return false;
+	std::vector<uint8_t> p(size_t(ue::StructSize(fnChangePart)) + 16, 0);
+	*reinterpret_cast<int32_t*>(p.data() + offCPSlot) = slot;
+	*reinterpret_cast<int32_t*>(p.data() + offCPProduct) = id;
+	if (offCPPaint >= 0) *reinterpret_cast<int32_t*>(p.data() + offCPPaint) = 0;
+	ue::Call(actor, fnChangePart, p.data());
+	return true;
+}
+
+static void SyncPreview(void* actor) {
+	auto* prods = ue::Ptr<ue::TArray<int32_t>>(actor, offPrevLoadout);
+	if (!prods->data || prods->count <= 0 || prods->count > 64) return;
+	std::map<int, int> ov;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		ov = overrides;
+	}
+	PreviewState& st = previews[actor];
+	for (auto& [slot, id] : ov) {
+		if (slot >= prods->count) continue;
+		int now = prods->data[slot];
+		if (now == id) { st.lastSeen[slot] = now; st.target[slot] = id; continue; }
+		auto ls = st.lastSeen.find(slot);
+		auto tg = st.target.find(slot);
+		if (ls != st.lastSeen.end() && ls->second == now && tg != st.target.end() && tg->second == id) continue; // schon gesetzt
+		if (!st.orig.count(slot) || ls == st.lastSeen.end() || ls->second != now) st.orig[slot] = now; // dein eigenes Item
+		ChangePart(actor, slot, id);
+		st.lastSeen[slot] = prods->data[slot];
+		st.target[slot] = id;
+		zl::Log("menu car %s: slot %d %d -> %d (now %d)", ue::Name(actor).c_str(), slot, now, id, prods->data[slot]);
+	}
+	// Slots zurueck auf das eigene Item
+	for (auto it = st.orig.begin(); it != st.orig.end();) {
+		int slot = it->first;
+		if (ov.count(slot) || slot >= prods->count) { ++it; continue; }
+		ChangePart(actor, slot, it->second);
+		zl::Log("menu car %s: slot %d back to %d", ue::Name(actor).c_str(), slot, it->second);
+		st.lastSeen.erase(slot);
+		st.target.erase(slot);
+		it = st.orig.erase(it);
+	}
+}
+
+void TickPreview() {
+	if (!ready || !clsPreview || offPrevLoadout < 0 || !fnChangePart) return;
+	unsigned long long t = GetTickCount64();
+	if (t < nextPreviewCheck) return;
+	nextPreviewCheck = t + 500;
+	// Im Spiel (Freeplay/Match) gibt es kein Vorschau-Auto: nicht suchen, damit nichts ruckelt
+	if (void* pc = localPC.load(); pc && ue::IsValid(pc)) return;
+	if (t >= nextPreviewScan) {
+		nextPreviewScan = t + 3000;
+		previewActors = ue::Instances(clsPreview);
+		static int logged = 0;
+		if (logged++ < 3) zl::Log("menu cars: %d (scan %llu ms)", (int)previewActors.size(), GetTickCount64() - t);
+	}
+	for (auto it = previews.begin(); it != previews.end();) // alte Autos vergessen
+		it = ue::IsValid(it->first) ? std::next(it) : previews.erase(it);
+	for (void* a : previewActors) {
+		if (!ue::IsValid(a)) continue;
+		try { SyncPreview(a); } catch (...) {}
+	}
+}
+
 void OnMenuOpened() {
 	Queue([] {
 		if (!Setup()) return;
@@ -342,6 +435,7 @@ void Set(int slot, int id) {
 	Queue([slot, id] {
 		if (id <= 0) restore.insert(slot);
 	});
+	nextPreviewCheck = 0; // Menue-Auto sofort aktualisieren
 	applyAt = GetTickCount64() + 400; // mehrere Klicks kurz hintereinander = einmal neu spawnen
 	Save();
 }
