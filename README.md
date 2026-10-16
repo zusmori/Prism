@@ -19,6 +19,7 @@
 - **Friends** – see which Steam friends are online or in a game, live.
 - **Swap Maps** – play any workshop map in Freeplay. **Restore** puts the original arena back.
 - **Browse Maps** – find and download workshop maps right in the app.
+- **Items** – use any car, decal, wheels, boost and more in Freeplay and offline matches. Pick them in ZLauncher or press **F8** in game. Only you can see them. Needs [BakkesMod](https://bakkesmod.com) (free), ZLauncher sets up the rest.
 - **Game Boost** – more performance while you play, reset when the game closes.
 - **Discord** – shows your mode and score on your profile, e.g. *2s Ranked · 2 : 1*.
 - 4 colors with video backgrounds, close to tray, automatic updates.
@@ -35,7 +36,7 @@
 
 ## Good to know
 
-- Workshop maps only work offline and **without Anti-Cheat**.
+- Workshop maps and items only work offline and **without Anti-Cheat**.
 - Needs Windows 10/11 and Rocket League on Steam.
 - Unofficial fan project, not affiliated with Psyonix, Epic Games, Valve or Discord. Use at your own risk.
 
