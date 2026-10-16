@@ -35,6 +35,7 @@ struct ZLSlot {
 
 class ZLauncherItems : public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginWindow {
 public:
+	void DumpDatabaseUnsafe(); // nur ueber den geschuetzten Aufruf in DumpDatabase()
 	void onLoad() override;
 	void onUnload() override;
 
@@ -64,10 +65,13 @@ private:
 	std::string lastCode_;
 	bool open_ = false;
 	bool dbDone_ = false;
+	bool ready_ = false;
+	int dbFailed_ = 0;
 	float accent_[3] = {0.545f, 0.361f, 0.965f};
 	std::vector<std::pair<std::string, std::map<int, zl::LoadoutItem>>> presets_; // aus ZLauncher (settings.json)
 
 	void DumpDatabase();
+	void MarkReady();
 	void ReadLoadout(bool force);
 	void SaveLoadout();
 	void Apply();

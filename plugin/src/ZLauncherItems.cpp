@@ -56,19 +56,46 @@ void ZLauncherItems::onLoad() {
 	dbFile_ = dir_ / "items_db.json";
 
 	ReadTheme();
-	ReadLoadout(true);
+	ReadLoadout(true); // nur lesen; angewendet wird erst, wenn das Spiel bereit ist
 
 	// F8 oeffnet das Fenster
 	cvarManager->setBind("F8", "togglemenu " + GetMenuName());
 	cvarManager->registerNotifier("zl_items_reload", [this](std::vector<std::string>) { ReadLoadout(true); }, "Reload ZLauncher items", PERMISSION_ALL);
 
-	// Item-Liste exportieren, sobald das Spiel bereit ist; danach regelmaessig nach Aenderungen schauen
-	gameWrapper->SetTimeout([this](GameWrapper*) { DumpDatabase(); Apply(); }, 2.0f);
+	// Erst wenn das Hauptmenue da ist, Spieldaten anfassen (BakkesMod wird sehr frueh geladen)
+	gameWrapper->HookEvent("Function TAGame.GFxData_MainMenu_TA.MainMenuAdded", [this](std::string) { MarkReady(); });
+	if (gameWrapper->IsInGame() || gameWrapper->IsInOnlineGame() || gameWrapper->IsInReplay()) MarkReady();
+	gameWrapper->SetTimeout([this](GameWrapper*) { MarkReady(); }, 90.0f); // Plugin spaeter nachgeladen: dann ist das Spiel laengst bereit
 	gameWrapper->SetTimeout([this](GameWrapper*) { Poll(); }, 1.0f);
 	cvarManager->log("ZLauncher Items loaded. Press F8.");
 }
 
 void ZLauncherItems::onUnload() {}
+
+// Fehler beim Auslesen sollen nie das Spiel mitreissen
+static void DumpThunk(ZLauncherItems* p) { p->DumpDatabaseUnsafe(); }
+static bool SehCall(void (*f)(ZLauncherItems*), ZLauncherItems* p) {
+	__try { f(p); return true; }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+void ZLauncherItems::MarkReady() {
+	if (ready_) return;
+	gameWrapper->SetTimeout([this](GameWrapper*) {
+		if (ready_) return;
+		ready_ = true;
+		DumpDatabase();
+		Apply();
+	}, 3.0f);
+}
+
+void ZLauncherItems::DumpDatabase() {
+	if (!ready_ || dbDone_ || dbFailed_ > 3) return;
+	if (!SehCall(DumpThunk, this)) {
+		dbFailed_++;
+		cvarManager->log("ZLauncher Items: couldn't read the item list (try " + std::to_string(dbFailed_) + ")");
+	}
+}
 
 void ZLauncherItems::Poll() {
 	ReadLoadout(false);
@@ -77,7 +104,7 @@ void ZLauncherItems::Poll() {
 		auto t = fs::last_write_time(dir_ / "settings.json", ec);
 		if (!ec && t != settingsTime_) { settingsTime_ = t; ReadTheme(); }
 	}
-	if (!dbDone_) DumpDatabase();
+	if (ready_ && !dbDone_) DumpDatabase();
 	gameWrapper->SetTimeout([this](GameWrapper*) { Poll(); }, 1.0f);
 }
 
@@ -111,7 +138,7 @@ void ZLauncherItems::ReadTheme() {
 }
 
 // Alle Items aus dem Spiel auslesen und fuer ZLauncher speichern
-void ZLauncherItems::DumpDatabase() {
+void ZLauncherItems::DumpDatabaseUnsafe() {
 	ItemsWrapper iw = gameWrapper->GetItemsWrapper();
 	if (!iw) return;
 	auto all = iw.GetAllProducts();
@@ -247,6 +274,7 @@ void ZLauncherItems::SaveLoadout() {
 
 // Code an den Item Mod von BakkesMod geben (laeuft im Spiel-Thread)
 void ZLauncherItems::Apply() {
+	if (!ready_) return;
 	std::string code;
 	bool on;
 	{

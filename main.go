@@ -734,7 +734,14 @@ func main() {
 		}
 		return nil
 	})
-	w.Bind("getBakkesMod", func() { open("https://bakkesmod.com/download.php") })
+	// Items-Tab geoeffnet: Item Swapper aktivieren und BakkesMod im Hintergrund einrichten
+	w.Bind("itemsSetup", func(force bool) {
+		if _, err := os.Stat(itemsFile); err != nil {
+			_ = writeItems(itemsState{Enabled: true, Items: map[string]map[string]int{}})
+		}
+		go bmSetup(force)
+	})
+	w.Bind("getVCRedist", func() { open("https://aka.ms/vs/17/release/vc_redist.x64.exe") })
 	w.Bind("friendsAsync", func(cb int, key string) {
 		go func() {
 			res, err := steamFriends(key)
