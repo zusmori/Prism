@@ -61,6 +61,7 @@ static int offPrevLoadout = -1, offCPSlot = -1, offCPProduct = -1, offCPOnline =
 static std::atomic<unsigned long long> applyAt{0}; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
 static std::atomic<void*> localPC{nullptr};
+static std::atomic<unsigned long long> lastPlayerTick{0}; // letzter PlayerTick = gerade im Spiel
 static bool ready = false;
 
 bool IsReady() { return ready; }
@@ -311,6 +312,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			applyAt = 0; // neues Spiel: das Auto spawnt sowieso schon mit unseren Items
 		}
 		inGame = true;
+		lastPlayerTick = GetTickCount64();
 		// Gebuendeltes Anwenden hier im PlayerTick: sicherer Moment, um das Auto neu zu spawnen
 		if (unsigned long long t = applyAt.load(); t && GetTickCount64() >= t) {
 			applyAt = 0;
@@ -402,7 +404,7 @@ void TickPreview() {
 	if (t < nextPreviewCheck) return;
 	nextPreviewCheck = t + 500;
 	// Im Spiel (Freeplay/Match) gibt es kein Vorschau-Auto: nicht suchen, damit nichts ruckelt
-	if (void* pc = localPC.load(); pc && ue::IsValid(pc)) return;
+	if (t - lastPlayerTick.load() < 1500) return;
 	if (t >= nextPreviewScan) {
 		nextPreviewScan = t + 3000;
 		previewActors = ue::Instances(clsPreview);
