@@ -85,9 +85,6 @@ func (a *App) LaunchRL(eac bool) error {
 		return errors.New("Couldn't start Rocket League.")
 	}
 	go cmd.Wait() // Prozess laeuft unabhaengig von ZLauncher weiter
-	if !eac {
-		itemsOnLaunch() // Item Swapper (BakkesMod), nur ohne Anti-Cheat
-	}
 	return nil
 }
 

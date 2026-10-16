@@ -3,7 +3,3 @@
 *.syso
 # Valve Steamworks redistributable - nicht im Repo, siehe README
 steam_api64.dll
-
-# Plugin-Build
-plugin/external/
-build/

@@ -718,30 +718,6 @@ func main() {
 	w.Bind("setPresenceCtx", func(starting bool, maps int) { setPresenceCtx(starting, maps) })
 	w.Bind("setBoost", func(on bool) BoostStatus { return setBoost(on) })
 	w.Bind("launchRL", func(eac bool) error { return app.LaunchRL(eac) })
-	// Item Swapper
-	w.Bind("itemsStatus", func() ItemsStatus { return itemsStatus() })
-	w.Bind("getItemsDB", func() string { b, _ := os.ReadFile(itemsDBFile); return string(b) })
-	w.Bind("getItems", func() itemsState { return readItems() })
-	w.Bind("setItems", func(st itemsState) error {
-		if st.Items == nil {
-			st.Items = map[string]map[string]int{}
-		}
-		if err := writeItems(st); err != nil {
-			return errors.New("Couldn't save your items.")
-		}
-		if st.Enabled && rlRunning() && !eacRunning() {
-			itemsOnLaunch() // Spiel laeuft schon ohne Anti-Cheat: gleich dazuholen
-		}
-		return nil
-	})
-	// Items-Tab geoeffnet: Item Swapper aktivieren und BakkesMod im Hintergrund einrichten
-	w.Bind("itemsSetup", func(force bool) {
-		if _, err := os.Stat(itemsFile); err != nil {
-			_ = writeItems(itemsState{Enabled: true, Items: map[string]map[string]int{}})
-		}
-		go bmSetup(force)
-	})
-	w.Bind("getVCRedist", func() { open("https://aka.ms/vs/17/release/vc_redist.x64.exe") })
 	w.Bind("friendsAsync", func(cb int, key string) {
 		go func() {
 			res, err := steamFriends(key)
