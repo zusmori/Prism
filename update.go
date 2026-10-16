@@ -6,10 +6,10 @@ package main
 // laufende exe (ZLauncher.exe, frueher ZL.exe / ZMS.exe) auf Wunsch gegen die neue Version aus.
 //
 // Ablauf beim Installieren:
-//   1. neue exe neben die alte herunterladen (<name>.exe.update)
-//   2. laufende exe in <name>.exe.old umbenennen (geht unter Windows auch im Betrieb)
-//   3. neue Datei an ihren Platz schieben und starten ("--after-update <pid>")
-//   4. die neue Version wartet, bis die alte zu ist, und loescht <name>.exe.old
+//   1. neue exe in den App-Ordner herunterladen (%APPDATA%\RLMapSwap\update)
+//   2. per ReplaceFile an Ort und Stelle ersetzen (Name und Platz auf dem Desktop bleiben)
+//   3. neue Version starten ("--after-update <pid>")
+//   4. die neue Version wartet, bis die alte zu ist, und raeumt auf
 
 import (
 	"encoding/json"
@@ -19,10 +19,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -137,7 +139,10 @@ func installUpdate(progress func(pct float64)) error {
 	if err != nil {
 		return errors.New("Couldn't find the ZLauncher program file.")
 	}
-	tmp, old := exe+".update", exe+".old"
+	// Download nicht neben die exe (sonst springen Desktop-Symbole), sondern in den App-Ordner
+	upDir := filepath.Join(dataDir, "update")
+	_ = os.MkdirAll(upDir, 0755)
+	tmp := filepath.Join(upDir, "ZLauncher.part")
 	_ = os.Remove(tmp)
 
 	req, _ := http.NewRequest("GET", info.URL, nil)
@@ -157,7 +162,7 @@ func installUpdate(progress func(pct float64)) error {
 	}
 	f, err := os.Create(tmp)
 	if err != nil {
-		return errors.New("ZLauncher can't write to its own folder. Move ZLauncher.exe somewhere like Downloads or Desktop and try again.")
+		return errors.New("Couldn't save the update.")
 	}
 	var done int64
 	buf := make([]byte, 64<<10)
@@ -198,16 +203,11 @@ func installUpdate(progress func(pct float64)) error {
 		return errors.New("The update file is damaged. Try again.")
 	}
 
-	// Dateien tauschen
-	_ = os.Remove(old)
-	if err := os.Rename(exe, old); err != nil {
+	// Dateien tauschen - die exe bleibt mit gleichem Namen an derselben Stelle
+	old, err := swapExe(exe, tmp, upDir)
+	if err != nil {
 		os.Remove(tmp)
-		return errors.New("Couldn't replace ZLauncher.exe. Close other copies of ZLauncher and try again.")
-	}
-	if err := os.Rename(tmp, exe); err != nil {
-		_ = os.Rename(old, exe) // zurueckrollen
-		os.Remove(tmp)
-		return errors.New("Couldn't replace ZLauncher.exe.")
+		return err
 	}
 	cmd := exec.Command(exe, "--after-update", strconv.Itoa(os.Getpid()))
 	if err := cmd.Start(); err != nil {
@@ -217,6 +217,65 @@ func installUpdate(progress func(pct float64)) error {
 	}
 	stopHelper()
 	return nil
+}
+
+var pReplaceFile = windows.NewLazySystemDLL("kernel32.dll").NewProc("ReplaceFileW")
+
+func hide(p string) {
+	if u, err := windows.UTF16PtrFromString(p); err == nil {
+		_ = windows.SetFileAttributes(u, windows.FILE_ATTRIBUTE_HIDDEN)
+	}
+}
+
+// Tauscht die laufende exe gegen die neue. Gibt zurueck, wo die alte jetzt liegt.
+//  1. ReplaceFile: Windows ersetzt die Datei an Ort und Stelle (Symbol bleibt, wo es ist)
+//  2. sonst zwei schnelle Umbenennungen; die alte Datei kommt in den App-Ordner oder versteckt daneben
+func swapExe(exe, newFile, upDir string) (string, error) {
+	backup := filepath.Join(upDir, "ZLauncher.old")
+	_ = os.Remove(backup)
+	// neue Datei muss auf demselben Laufwerk liegen wie die exe
+	src := newFile
+	if filepath.VolumeName(exe) != filepath.VolumeName(newFile) {
+		src = exe + ".update"
+		_ = os.Remove(src)
+		if err := copyFile(newFile, src); err != nil {
+			return "", errors.New("Couldn't save the update next to ZLauncher.exe.")
+		}
+		hide(src)
+		backup = exe + ".old"
+		_ = os.Remove(backup)
+	}
+	if pReplaceFile.Find() == nil {
+		a, _ := windows.UTF16PtrFromString(exe)
+		b, _ := windows.UTF16PtrFromString(src)
+		c, _ := windows.UTF16PtrFromString(backup)
+		r, _, _ := pReplaceFile.Call(uintptr(unsafe.Pointer(a)), uintptr(unsafe.Pointer(b)), uintptr(unsafe.Pointer(c)), 0x2 /* IGNORE_MERGE_ERRORS */, 0, 0)
+		if r != 0 {
+			_ = os.Remove(exe + ":Zone.Identifier") // "aus dem Internet"-Markierung nicht von der alten Datei erben
+			if backup == exe+".old" {
+				hide(backup)
+			}
+			return backup, nil
+		}
+		// halb fertig? alte Datei zurueckholen
+		if _, err := os.Stat(exe); err != nil {
+			_ = os.Rename(backup, exe)
+		}
+	}
+	// Fallback: umbenennen
+	if err := os.Rename(exe, backup); err != nil {
+		backup = exe + ".old"
+		_ = os.Remove(backup)
+		if err := os.Rename(exe, backup); err != nil {
+			return "", errors.New("Couldn't replace ZLauncher.exe. Close other copies of ZLauncher and try again.")
+		}
+		hide(backup)
+	}
+	if err := os.Rename(src, exe); err != nil {
+		_ = os.Rename(backup, exe) // zurueckrollen
+		return "", errors.New("Couldn't replace ZLauncher.exe.")
+	}
+	return backup, nil
 }
 
 func readHead(p string, n int) ([]byte, error) {
@@ -248,5 +307,12 @@ func afterUpdate(args []string) {
 			time.Sleep(300 * time.Millisecond)
 		}
 		_ = os.Remove(exe + ".update")
+	}
+	upDir := filepath.Join(dataDir, "update")
+	for i := 0; i < 10; i++ {
+		if err := os.RemoveAll(upDir); err == nil {
+			break
+		}
+		time.Sleep(300 * time.Millisecond)
 	}
 }

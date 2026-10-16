@@ -372,6 +372,7 @@ func bindWindow(w webview2.WebView, hwnd uintptr) {
 	// X / Alt+F4: in den Tray statt beenden
 	w.Bind("hideToTray", func() { hideToTray(hwnd) })
 	w.Bind("showWindow", func() { showFromTray(hwnd) })
+	w.Bind("autoTray", func() { autoTrayWatch(hwnd) })
 	trayAdd(hwnd)
 	// Oberflaeche hat das Schliessen uebernommen (z. B. Nachfrage-Dialog offen)
 	w.Bind("closeAck", func() { closeAck = true; allowClose = true })

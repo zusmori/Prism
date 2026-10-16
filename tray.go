@@ -8,6 +8,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -218,4 +220,50 @@ func trayMessage(hwnd, msg, lp uintptr) bool {
 		trayMenu(hwnd)
 	}
 	return true
+}
+
+// "Hide while playing": nach dem Start ueber ZLauncher in den Tray, nach dem Spiel wieder zeigen
+var autoTrayBusy int32
+
+func autoTrayWatch(hwnd uintptr) {
+	if !atomic.CompareAndSwapInt32(&autoTrayBusy, 0, 1) {
+		return
+	}
+	go func() {
+		defer atomic.StoreInt32(&autoTrayBusy, 0)
+		run := func(f func()) {
+			if w := gw; w != nil {
+				w.Dispatch(f)
+			}
+		}
+		// warten, bis das Spiel laeuft (hoechstens 3 Minuten)
+		start := time.Now()
+		for rlPID() == 0 {
+			if time.Since(start) > 3*time.Minute {
+				return
+			}
+			time.Sleep(time.Second)
+		}
+		time.Sleep(1500 * time.Millisecond) // Spielfenster kurz aufgehen lassen
+		hidden := false
+		if v, _, _ := pIsVisible.Call(hwnd); v != 0 {
+			run(func() { hideToTray(hwnd) })
+			hidden = true
+		}
+		// warten, bis das Spiel wieder zu ist
+		gone := 0
+		for gone < 2 { // zweimal hintereinander nicht gefunden (Neustart des Spiels nicht verwechseln)
+			time.Sleep(2 * time.Second)
+			if rlPID() == 0 {
+				gone++
+			} else {
+				gone = 0
+			}
+		}
+		if hidden {
+			if v, _, _ := pIsVisible.Call(hwnd); v == 0 {
+				run(func() { showFromTray(hwnd) })
+			}
+		}
+	}()
 }
