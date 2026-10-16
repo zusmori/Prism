@@ -1,0 +1,17 @@
+name: Build in-game plugin
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "plugin/**"
+      - ".github/workflows/plugin.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe
+        shell: bash
+        run: echo "ok" && ls
