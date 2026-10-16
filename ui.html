@@ -1239,28 +1239,50 @@
   @media (max-width:600px){ .dcwrap{grid-template-columns:1fr} }
 
   /* ---------- Hinweis: Steam API key ---------- */
-  .kalert{position:fixed;right:22px;bottom:22px;z-index:150;width:350px;max-width:calc(100vw - 44px);padding:15px 16px 13px;border-radius:16px;
-    background:rgb(16 15 22 / .86);border:1px solid rgb(var(--ac-rgb) / .3);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
-    box-shadow:0 22px 60px -18px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.03) inset,0 0 40px -18px rgb(var(--ac-rgb) / .6);
-    opacity:0;transform:translateY(18px) scale(.96);pointer-events:none;transition:opacity .3s var(--ease),transform .55s var(--spring)}
-  .kalert.show{opacity:1;transform:none;pointer-events:auto}
-  .kalert::before{content:"";position:absolute;inset:0;border-radius:16px;pointer-events:none;background:radial-gradient(90% 70% at 0% 0%,rgb(var(--ac-rgb) / .16),transparent 70%)}
-  .kalert .kx{position:absolute;top:10px;right:10px;width:26px;height:26px;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center}
-  .kalert .kx:hover{background:rgba(255,255,255,.08);color:#fff}
-  .kh{position:relative;display:flex;gap:12px;padding-right:22px}
-  .kh .kic{flex:none;width:34px;height:34px;border-radius:10px;background:rgb(var(--ac-rgb) / .12);border:1px solid rgb(var(--ac-rgb) / .3)}
-  .kh b{display:block;font-size:13.5px;color:#fff;margin-bottom:3px}
-  .kh small{display:block;font-size:12px;line-height:1.45;color:#a9a9b6}
-  .kin{position:relative;display:flex;gap:8px;margin-top:12px}
-  .kin input{flex:1;min-width:0;height:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none;transition:border-color .2s,box-shadow .2s}
+  .kbox{width:440px!important;padding:0!important;overflow:hidden;text-align:left!important}
+  .khero{position:relative;height:150px;display:grid;place-items:center;overflow:hidden;
+    background:radial-gradient(60% 90% at 50% 100%,rgb(var(--ac-rgb) / .38),transparent 70%),linear-gradient(180deg,rgb(var(--acdd-rgb) / .35),transparent)}
+  .khero::after{content:"";position:absolute;inset:auto 0 0 0;height:40px;background:linear-gradient(transparent,#111115)}
+  .korbit{position:absolute;inset:0}
+  .kav{position:absolute;left:50%;top:50%;width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);border-radius:50%;
+    background:#2a2834 center/cover;border:2px solid #17161d;box-shadow:0 6px 18px -6px rgba(0,0,0,.7);
+    transform:translate(var(--x),var(--y)) scale(.4);opacity:0;transition:transform .7s var(--spring),opacity .4s var(--ease)}
+  .kav::after{content:"";position:absolute;right:-1px;bottom:-1px;width:28%;height:28%;border-radius:50%;background:var(--c);border:2px solid #17161d}
+  #keyDlg.show .kav{transform:translate(var(--x),var(--y));opacity:1;transition-delay:calc(.12s + var(--i) * .06s);animation:kfloat 4s ease-in-out calc(var(--i) * -.7s) infinite}
+  @keyframes kfloat{50%{translate:0 -4px}}
+  .kbadge{position:relative;z-index:1;width:64px;height:64px;border-radius:20px;display:grid;place-items:center;
+    background:linear-gradient(145deg,rgb(var(--ac-rgb)),rgb(var(--acd-rgb)));box-shadow:0 0 0 6px rgb(var(--ac-rgb) / .14),0 14px 34px -8px rgb(var(--ac-rgb) / .8)}
+  .kbadge .gi{color:#fff}
+  .kbadge .gi svg{width:28px;height:28px;filter:drop-shadow(0 0 6px rgba(255,255,255,.5))}
+  #keyDlg.show .kbadge{animation:icopop .6s .05s var(--spring) backwards}
+  .kbody{padding:4px 24px 20px}
+  .kbody h3{font-size:18px;margin-bottom:6px;color:#fff}
+  .kbody p{font-size:13px}
+  .kbody p b{color:var(--text);font-weight:600}
+  .ksteps{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+  .kstep{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 10px;border-radius:13px;background:var(--panel);border:1px solid var(--line)}
+  .kn{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;
+    background:rgb(var(--ac-rgb) / .22);border:1px solid rgb(var(--ac-rgb) / .5)}
+  .kt{flex:1;font-size:13px;font-weight:600;color:var(--text)}
+  .kstep .sbtn{height:32px;padding:0 12px;font-size:12.5px;gap:6px}
+  .kstep .sbtn .gi svg{width:11px;height:11px}
+  .kin{flex:1;display:flex;gap:8px;min-width:0}
+  .kin input{flex:1;min-width:0;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none;transition:border-color .2s,box-shadow .2s}
   .kin input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
-  .kin .sbtn{height:34px;padding:0 14px;font-size:12.5px}
-  .kft{position:relative;display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px}
-  .kft a{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--muted);transition:color .2s}
-  .kft a:first-child{color:rgb(var(--ac2-rgb));font-weight:600}
-  .kft a:hover{color:#fff}
-  .kft .gi svg{width:11px;height:11px}
-  .kalert.shake{animation:shake .45s var(--ease)}
+  .kin input.bad{border-color:var(--err)}
+  .kft{display:flex;align-items:center;justify-content:space-between;margin-top:18px}
+  .kchk{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:var(--muted);user-select:none;transition:color .2s}
+  .kchk:hover{color:var(--text)}
+  .kchk input{position:absolute;opacity:0;pointer-events:none}
+  .kbx{width:18px;height:18px;border-radius:6px;border:1.5px solid #44434f;display:grid;place-items:center;transition:background .2s,border-color .2s,box-shadow .25s,transform .3s var(--spring)}
+  .kbx svg path{fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:12;stroke-dashoffset:12;transition:stroke-dashoffset .3s var(--ease)}
+  .kchk input:checked + .kbx{background:var(--accent);border-color:transparent;box-shadow:0 0 10px -2px rgb(var(--ac-rgb) / .8)}
+  .kchk input:checked + .kbx svg path{stroke-dashoffset:0}
+  .kchk:active .kbx{transform:scale(.9)}
+  .kchk input:focus-visible + .kbx{box-shadow:0 0 0 3px rgb(var(--ac-rgb) / .4)}
+  .kchk:has(input:checked){color:var(--text)}
+  .klater{height:34px;padding:0 16px;border-radius:10px;border:1px solid var(--line2);background:none;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,border-color .2s}
+  .klater:hover{background:var(--hover);border-color:#3a3a46}
 </style>
 
 </head>
@@ -1578,12 +1600,25 @@
     </div>
   </div>
 </div>
-<div class="kalert" id="keyAlert" role="dialog" aria-label="Steam API key">
-  <button class="kx" id="kaLater" title="Later"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
-  <div class="kh"><span class="kic gi" data-ic="key"></span><div><b>See more of your Steam friends</b>
-    <small>Add your free Steam API key to see who's online and what they're playing, even if your friends list is private.</small></div></div>
-  <div class="kin"><input id="kaKey" type="password" placeholder="Paste your key …" maxlength="64" spellcheck="false" autocomplete="off"><button class="sbtn go" id="kaSave">Save</button></div>
-  <div class="kft"><a id="kaGet">Get your key<span class="gi" data-ic="ext"></span></a><a id="kaNever">Don't remind me again</a></div>
+<div class="mdl" id="keyDlg">
+  <div class="box kbox" role="dialog" aria-labelledby="kTitle">
+    <div class="khero" id="kHero">
+      <div class="korbit" id="kOrbit"></div>
+      <div class="kbadge"><span class="gi" data-ic="key"></span></div>
+    </div>
+    <div class="kbody">
+      <h3 id="kTitle">See what your friends are up to</h3>
+      <p>Add a free <b>Steam API key</b> and ZLauncher shows who's online and what they're playing, even if your friends list is private.</p>
+      <div class="ksteps">
+        <div class="kstep"><span class="kn">1</span><span class="kt">Get your free key</span><button class="sbtn" id="kaGet">Open Steam<span class="gi" data-ic="ext"></span></button></div>
+        <div class="kstep"><span class="kn">2</span><div class="kin"><input id="kaKey" type="password" placeholder="Paste your key here" maxlength="64" spellcheck="false" autocomplete="off"><button class="sbtn go" id="kaSave">Save</button></div></div>
+      </div>
+      <div class="kft">
+        <label class="kchk" id="kaNeverL"><input type="checkbox" id="kaNever"><span class="kbx"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>Don't remind me again</label>
+        <button class="klater" id="kaLater">Not now</button>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast"><i></i><span></span></div>
 
@@ -1990,30 +2025,51 @@ function saveKey(){
 $('steamKey').addEventListener('change', saveKey);
 $('steamKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('steamKey').blur(); } });
 /* ---------- Hinweis: Steam API key fuer mehr Freunde-Infos ---------- */
-const keyNag = {sound: false, later: false};
-function keyAlert(on){
-  const a = $('keyAlert'); if (a.classList.contains('show') === on) return;
-  a.classList.toggle('show', on);
-  if (on && !keyNag.sound){ keyNag.sound = true; Sfx.ui('present'); }
+const keyNag = {done: false, timer: null};
+const KAV = [[-150, -14, 46], [-92, 26, 38], [92, 26, 38], [150, -14, 46], [-196, 34, 30], [196, 34, 30]];
+function keyOrbit(){
+  const fr = (home.friends && home.friends.friends || []).filter(f => f.avatar);
+  const col = {ingame: '#8ee07a', online: '#5ab8f5', away: '#e8c15a'};
+  $('kOrbit').innerHTML = KAV.map(([x, y, sz], i) => {
+    const f = fr[i], c = f ? (col[f.state] || '#6b6b78') : ['#8ee07a', '#5ab8f5', '#8ee07a', '#e8c15a', '#5ab8f5', '#6b6b78'][i];
+    const bg = f ? `background-image:url('${f.avatar.replace(/'/g, '')}');` : `background:linear-gradient(135deg,rgb(var(--ac-rgb) / ${.5 - i * .05}),rgb(var(--acdd-rgb)));`;
+    return `<i class="kav" style="--x:${x}px;--y:${y}px;--s:${sz}px;--c:${c};--i:${i};${bg}"></i>`;
+  }).join('');
+}
+function openKeyDlg(){
+  keyNag.done = true; keyOrbit();
+  $('kaNever').checked = false; $('kaKey').value = ''; $('kaKey').classList.remove('bad');
+  $('keyDlg').classList.add('show'); Sfx.ui('present');
+}
+function closeKeyDlg(){
+  if (!$('keyDlg').classList.contains('show')) return;
+  $('keyDlg').classList.remove('show');
+  if ($('kaNever').checked){ settings.keyNagOff = true; saveSetting('keyNagOff', true); }
 }
 function keyNagCheck(){
-  const done = keyNag.later || settings.steamKey || settings.keyNagOff;
-  const here = tab === 'vHome' && !appHidden && !document.hidden && !$('setDlg').classList.contains('show');
-  const ready = (home.friends || home.fErr) && !/Steam isn't running/.test(home.fErr || '');   // erst wenn die Freundesliste geladen hat
-  keyAlert(!done && here && !!ready);
+  if (keyNag.done || settings.steamKey || settings.keyNagOff) return;
+  const here = tab === 'vHome' && !appHidden && !document.hidden && !document.querySelector('.mdl.show');
+  const ready = home.friends && !home.fErr;                      // erst wenn die Freundesliste geladen hat
+  if (!here || !ready){ clearTimeout(keyNag.timer); keyNag.timer = null; return; }
+  if (!keyNag.timer) keyNag.timer = setTimeout(() => { keyNag.timer = null; if (!keyNag.done && tab === 'vHome' && !document.querySelector('.mdl.show')) openKeyDlg(); }, 2500);
 }
-setTimeout(() => setInterval(keyNagCheck, 1500), 4000);
-$('kaLater').onclick = () => { keyNag.later = true; keyAlert(false); Sfx.ui('dismiss'); };
-$('kaNever').onclick = () => { settings.keyNagOff = true; saveSetting('keyNagOff', true); keyAlert(false); Sfx.ui('dismiss'); };
+setTimeout(() => setInterval(keyNagCheck, 1000), 3000);
+$('kaLater').onclick = () => { closeKeyDlg(); Sfx.ui('dismiss'); };
+$('keyDlg').addEventListener('mousedown', e => { if (e.target === $('keyDlg')){ closeKeyDlg(); Sfx.ui('dismiss'); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('keyDlg').classList.contains('show')){ closeKeyDlg(); Sfx.ui('dismiss'); } });
+$('kaNever').addEventListener('change', () => Sfx.ui('tab'));
 $('kaGet').onclick = () => has('openURL') && openURL('https://steamcommunity.com/dev/apikey');
 $('kaSave').onclick = () => {
   const v = $('kaKey').value.trim();
   if (!/^[0-9A-Fa-f]{32}$/.test(v)){
-    const a = $('keyAlert'); a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake'); Sfx.ui('error');
-    toast('That doesn\'t look like a Steam API key (32 characters).', false); return;
+    const b = $('keyDlg').querySelector('.box'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+    $('kaKey').classList.add('bad'); Sfx.ui('error');
+    toast(v ? 'That doesn\'t look like a Steam API key (32 characters).' : 'Paste your key first.', false); return;
   }
-  $('steamKey').value = v; saveKey(); keyAlert(false);
+  $('kaNever').checked = false; $('keyDlg').classList.remove('show');
+  $('steamKey').value = v; saveKey(); Sfx.ui('done');
 };
+$('kaKey').addEventListener('input', () => $('kaKey').classList.remove('bad'));
 $('kaKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('kaSave').click(); } });
 $('lnkGit').onclick = () => has('openURL') && openURL('https://github.com/zusmori/zusmoris-map-swapper');
 $('lnkRel').onclick = () => has('openURL') && openURL('https://github.com/zusmori/zusmoris-map-swapper/releases');
@@ -2113,7 +2169,6 @@ function setTab(t){
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
   if (t === 'vDl') guideFirst(); else guideOpen(false, false, true);
-  if (t !== 'vHome') keyAlert(false);
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 /* ---------- Swap Maps: Anleitung ---------- */
