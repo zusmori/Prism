@@ -161,7 +161,7 @@ void Render(bool* open) {
 	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
 	ImGui::PushFont(fRegular);
 	if (!ImGui::Begin("##zlitems", open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove)) {
 		ImGui::End();
 		ImGui::PopFont();
 		return;
@@ -252,11 +252,19 @@ void Render(bool* open) {
 	ImGui::PopFont();
 
 	ImGui::SetCursorPos(ImVec2(px + 14, top + 46));
-	ImGui::PushStyleColor(ImGuiCol_Border, focusSearch ? Acc(0.5f) : Rgb(255, 255, 255, 0.08f));
+	static bool searchActive = false;
+	ImGui::PushStyleColor(ImGuiCol_Border, (searchActive || focusSearch) ? Acc(0.6f) : Rgb(255, 255, 255, 0.08f));
 	ImGui::SetNextItemWidth(pw - 28);
 	if (focusSearch) { ImGui::SetKeyboardFocusHere(); focusSearch = false; }
 	ImGui::InputTextWithHint("##q", "Search …", search, sizeof search);
 	ImGui::PopStyleColor();
+	searchActive = ImGui::IsItemActive();
+	// Klick irgendwo auf/um das Suchfeld aktiviert es sicher (auch knapp daneben)
+	{
+		ImVec2 mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
+		if (!searchActive && ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(ImVec2(mn.x - 6, mn.y - 8), ImVec2(mx.x + 6, mx.y + 8), false))
+			focusSearch = true;
+	}
 
 	int cur = items::overrides.count(curSlot) ? items::overrides[curSlot] : 0;
 	int pick = -1;
