@@ -97,6 +97,7 @@ static void HookCursor() {
 	zl::Log(ok ? "cursor hooks ready" : "WARNING: cursor hooks failed");
 }
 
+static void ResetKeys();
 static void OnMenuToggled() {
 	if (!imguiReady) return;
 	ImGuiIO& io = ImGui::GetIO();
