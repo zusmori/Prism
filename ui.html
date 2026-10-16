@@ -1185,6 +1185,82 @@
   .gft b{color:#fff;font-weight:650}
   .gft .btn{width:auto;height:32px;padding:0 16px;border-radius:9px;font-size:12.5px;white-space:nowrap;min-width:80px}
   #vEmpty,#vSetup{z-index:5}
+
+  /* ---------- Einstellungen: aufklappbare Bereiche, Boost, Discord ---------- */
+  .spill{display:inline-flex;vertical-align:1px;margin-left:6px;font-size:10.5px;font-weight:700;letter-spacing:.3px;padding:1px 7px;border-radius:999px;
+    color:var(--ok);background:rgba(126,226,168,.1);border:1px solid rgba(126,226,168,.25)}
+  .spill:empty{display:none}
+  .spill.live{animation:bump .5s var(--spring)}
+  .sexp{display:flex;align-items:center;gap:8px;width:100%;padding:0 14px 0 59px;height:36px;border:0;border-top:1px solid var(--line);background:none;
+    color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;text-align:left;transition:background .15s,color .15s}
+  .sexp:hover{background:var(--hover);color:var(--text)}
+  .sexp:focus-visible{outline:none;box-shadow:inset 0 0 0 2px rgb(var(--ac-rgb) / .45)}
+  .sexp .sm{margin-left:auto;font-weight:500;color:var(--faint)}
+  .sexp .chev{margin-left:auto;flex:none;transition:transform .4s var(--spring)}
+  .sexp .sm + .chev{margin-left:0}
+  .sexp.open .chev{transform:rotate(180deg)}
+  .sexp.open{color:var(--text)}
+  .sfold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+  .sfold > div{overflow:hidden;min-height:0}
+  .sexp.open + .sfold{grid-template-rows:1fr}
+  .sfin{padding:4px 14px 14px;opacity:0;transform:translateY(-6px);transition:opacity .25s var(--ease),transform .4s var(--ease)}
+  .sexp.open + .sfold .sfin{opacity:1;transform:none;transition-delay:.08s}
+  .sfin.off{opacity:.4!important;pointer-events:none}
+  .blist{display:flex;flex-direction:column;gap:7px;padding-left:59px}
+  .blist .bl{display:flex;gap:9px;font-size:12.5px;color:#b9b9c6}
+  .blist .bl i{flex:none;width:6px;height:6px;margin-top:6px;border-radius:50%;background:rgb(var(--ac2-rgb));box-shadow:0 0 8px rgb(var(--ac-rgb))}
+  .blist em{font-style:normal;color:#fff;font-weight:600}
+  .blist small{font-size:11.5px;color:var(--faint);line-height:1.45;margin-top:2px}
+  .dcst{display:flex!important;align-items:center;gap:7px}
+  .dcwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch}
+  #setDlg .dccard{margin:0;display:flex;flex-direction:column}
+  #setDlg .dccard .dcrow{margin-bottom:12px}
+  #setDlg .dccard .dcbtn{margin-top:auto}
+  #setDlg .dctx span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  #setDlg .dctx span:empty{display:none}
+  .dccard .dcrow{gap:10px}
+  .dccard .dcimg{width:52px;height:52px}
+  .dccard .dcimg svg{width:36px;height:36px}
+  .rchips{display:flex;flex-direction:column;gap:6px}
+  .rchip{display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px;border-radius:10px;border:1px solid var(--line2);background:rgba(255,255,255,.02);
+    cursor:pointer;text-align:left;font:inherit;color:var(--muted);transition:background .2s,border-color .2s,color .2s,transform .3s var(--spring)}
+  .rchip:hover{border-color:#3a3a46;background:rgba(255,255,255,.04)}
+  .rchip:active{transform:scale(.98)}
+  .rchip:focus-visible{outline:none;box-shadow:0 0 0 2px rgb(var(--ac-rgb) / .45)}
+  .rchip .ck{flex:none;width:18px;height:18px;border-radius:6px;border:1.5px solid #3c3c48;display:grid;place-items:center;transition:background .2s,border-color .2s,box-shadow .25s}
+  .rchip .ck svg path{fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:12;stroke-dashoffset:12;transition:stroke-dashoffset .3s var(--ease)}
+  .rchip .rt{display:flex;flex-direction:column;min-width:0}
+  .rchip b{font-size:12.5px;font-weight:600;color:inherit}
+  .rchip small{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rchip.on{border-color:rgb(var(--ac-rgb) / .4);background:rgb(var(--ac-rgb) / .09);color:#fff}
+  .rchip.on .ck{background:var(--accent);border-color:transparent;box-shadow:0 0 10px -2px rgb(var(--ac-rgb) / .8)}
+  .rchip.on .ck svg path{stroke-dashoffset:0}
+  #rpcOpts .dcfoot:empty{display:none}
+  @media (max-width:600px){ .dcwrap{grid-template-columns:1fr} }
+
+  /* ---------- Hinweis: Steam API key ---------- */
+  .kalert{position:fixed;right:22px;bottom:22px;z-index:150;width:350px;max-width:calc(100vw - 44px);padding:15px 16px 13px;border-radius:16px;
+    background:rgb(16 15 22 / .86);border:1px solid rgb(var(--ac-rgb) / .3);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    box-shadow:0 22px 60px -18px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.03) inset,0 0 40px -18px rgb(var(--ac-rgb) / .6);
+    opacity:0;transform:translateY(18px) scale(.96);pointer-events:none;transition:opacity .3s var(--ease),transform .55s var(--spring)}
+  .kalert.show{opacity:1;transform:none;pointer-events:auto}
+  .kalert::before{content:"";position:absolute;inset:0;border-radius:16px;pointer-events:none;background:radial-gradient(90% 70% at 0% 0%,rgb(var(--ac-rgb) / .16),transparent 70%)}
+  .kalert .kx{position:absolute;top:10px;right:10px;width:26px;height:26px;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center}
+  .kalert .kx:hover{background:rgba(255,255,255,.08);color:#fff}
+  .kh{position:relative;display:flex;gap:12px;padding-right:22px}
+  .kh .kic{flex:none;width:34px;height:34px;border-radius:10px;background:rgb(var(--ac-rgb) / .12);border:1px solid rgb(var(--ac-rgb) / .3)}
+  .kh b{display:block;font-size:13.5px;color:#fff;margin-bottom:3px}
+  .kh small{display:block;font-size:12px;line-height:1.45;color:#a9a9b6}
+  .kin{position:relative;display:flex;gap:8px;margin-top:12px}
+  .kin input{flex:1;min-width:0;height:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none;transition:border-color .2s,box-shadow .2s}
+  .kin input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
+  .kin .sbtn{height:34px;padding:0 14px;font-size:12.5px}
+  .kft{position:relative;display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px}
+  .kft a{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--muted);transition:color .2s}
+  .kft a:first-child{color:rgb(var(--ac2-rgb));font-weight:600}
+  .kft a:hover{color:#fff}
+  .kft .gi svg{width:11px;height:11px}
+  .kalert.shake{animation:shake .45s var(--ease)}
 </style>
 
 </head>
@@ -1233,16 +1309,6 @@
           <div class="hrow">
             <button class="lbtn pri play" id="playBtn"><span class="li"><span class="gi" data-ic="play"></span></span><span><b>Play</b><small id="playSub">With or without Anti-Cheat</small></span></button>
             <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
-            <div class="bwrap2">
-              <button class="bchip" id="boostChip" role="switch" aria-checked="true"><span class="gi" data-ic="bolt"></span><span class="bt">Boost</span><span class="bs"><span id="boostChipTx">On</span></span></button>
-              <span class="btip">
-                  <b><span class="gi" data-ic="bolt"></span>Game Boost</b>
-                  <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> while it runs (only without Anti-Cheat)</span></span>
-                  <span class="bl"><i></i><span>Windows switches to <em>best performance</em> mode while you play</span></span>
-                  <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
-                  <small>Turns on by itself when the game starts and goes back to normal when it closes. In-game settings are never changed. <em>Click to turn it on or off.</em></small>
-                </span>
-            </div>
           </div>
         </div>
       </div>
@@ -1455,31 +1521,42 @@
           <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in ZLauncher.</small></div><span class="tg" id="tgMute"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
           <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit ZLauncher. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
-        <div class="srow" id="setTray" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="tray"></span>
-          <div class="tx"><b>Close to tray</b><small>The X keeps ZLauncher running in the taskbar tray. Right-click the tray icon to quit.</small></div><span class="tg" id="tgTray"></span></div>
+      </div></div>
+      <div class="ssec"><h4>Performance</h4><div class="sgrp">
+        <div class="srow" id="setBoost" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="bolt"></span>
+          <div class="tx"><b>Game Boost <span class="spill" id="boostPill"></span></b><small>More performance while you play. Everything goes back to normal when the game closes.</small></div><span class="tg" id="tgBoost"></span></div>
+        <button class="sexp" id="boostExp" aria-expanded="false"><span>What it does</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="sfold"><div><div class="sfin blist">
+          <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> (only without Anti-Cheat)</span></span>
+          <span class="bl"><i></i><span>Windows switches to <em>best performance</em> mode while you play</span></span>
+          <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
+          <small>Turns on by itself when the game starts. In-game settings are never changed.</small>
+        </div></div></div>
       </div></div>
       <div class="ssec"><h4>Discord</h4><div class="sgrp">
-        <div class="dcprev" id="dcPrev">
-          <div class="dch"><span class="dcdot" id="dcDot"></span><span id="dcStat">Checking Discord …</span></div>
-          <div class="dccard">
-            <small class="dclbl">Playing</small>
+        <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
+          <div class="tx"><b>Rich Presence</b><small class="dcst"><span class="dcdot" id="dcDot"></span><span id="dcStat">Checking Discord …</span></small></div><span class="tg" id="tgRpc"></span></div>
+        <button class="sexp" id="rpcExp" aria-expanded="false"><span>Customize</span><span class="sm" id="rpcSum"></span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="sfold"><div><div class="sfin dsub" id="rpcOpts">
+          <div class="dcwrap">
+          <div class="dccard" id="dcCard">
+            <small class="dclbl">Preview</small>
             <div class="dcrow">
               <div class="dcimg"><svg id="dcLogo" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg></div>
               <div class="dctx"><b>ZLauncher</b><span id="dcDet">–</span><span id="dcState"></span><span id="dcTime" class="dctime"></span></div>
             </div>
             <div class="dcbtn" id="dcBtn">Get ZLauncher</div>
           </div>
+          <div class="rchips">
+            <button class="rchip" id="rcMatch" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Match score</b><small>2s Ranked · 2 : 1</small></span></button>
+            <button class="rchip" id="rcMaps" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Workshop maps</b><small>Map name in Freeplay</small></span></button>
+            <button class="rchip" id="rcLauncher" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Launcher status</b><small>Idle, Browsing maps …</small></span></button>
+            <button class="rchip" id="rcTime" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Elapsed time</b><small>12:34 elapsed</small></span></button>
+            <button class="rchip" id="rcButton" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Download button</b><small>“Get ZLauncher”</small></span></button>
+          </div>
+          </div>
           <div class="dcfoot" id="dcStats"></div>
-        </div>
-        <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
-          <div class="tx"><b>Discord Rich Presence</b><small>Show what you're doing in Rocket League on your Discord profile.</small></div><span class="tg" id="tgRpc"></span></div>
-        <div class="dsub" id="rpcOpts">
-          <div class="srow" id="setRpcMatch" role="switch" tabindex="0"><div class="tx"><b>Match status</b><small>Mode and goals, e.g. "Rocket League · 2s Ranked" and "2 : 1".</small></div><span class="tg" id="tgRpcMatch"></span></div>
-          <div class="srow" id="setRpcMaps" role="switch" tabindex="0"><div class="tx"><b>Workshop map names</b><small>Shows which workshop map you're playing in Freeplay.</small></div><span class="tg" id="tgRpcMaps"></span></div>
-          <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps", or "Idle" while ZLauncher sits in the tray.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
-          <div class="srow" id="setRpcTime" role="switch" tabindex="0"><div class="tx"><b>Elapsed time</b><small>How long you've been playing.</small></div><span class="tg" id="tgRpcTime"></span></div>
-          <div class="srow" id="setRpcButton" role="switch" tabindex="0"><div class="tx"><b>"Get ZLauncher" button</b><small>A button others can click to download the launcher.</small></div><span class="tg" id="tgRpcButton"></span></div>
-        </div>
+        </div></div></div>
       </div></div>
       <div class="ssec"><h4>Steam</h4><div class="sgrp">
         <div class="srow"><span class="sic gi" data-ic="key"></span>
@@ -1500,6 +1577,13 @@
       </div></div>
     </div>
   </div>
+</div>
+<div class="kalert" id="keyAlert" role="dialog" aria-label="Steam API key">
+  <button class="kx" id="kaLater" title="Later"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <div class="kh"><span class="kic gi" data-ic="key"></span><div><b>See more of your Steam friends</b>
+    <small>Add your free Steam API key to see who's online and what they're playing, even if your friends list is private.</small></div></div>
+  <div class="kin"><input id="kaKey" type="password" placeholder="Paste your key …" maxlength="64" spellcheck="false" autocomplete="off"><button class="sbtn go" id="kaSave">Save</button></div>
+  <div class="kft"><a id="kaGet">Get your key<span class="gi" data-ic="ext"></span></a><a id="kaNever">Don't remind me again</a></div>
 </div>
 <div class="toast" id="toast"><i></i><span></span></div>
 
@@ -1766,9 +1850,10 @@ async function refresh(force){
 $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scrollWidth > el.clientWidth){ e.preventDefault(); el.scrollBy({left: e.deltaY + e.deltaX, behavior: 'smooth'}); } }, {passive: false});
 
 /* ---------- Einstellungen ---------- */
-const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: '', closeToTray: true,
+const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: '',
   rpc: true, rpcMatch: true, rpcMaps: true, rpcLauncher: true, rpcTime: true, rpcButton: true};
 const RPC_KEYS = ['rpc', 'rpcMatch', 'rpcMaps', 'rpcLauncher', 'rpcTime', 'rpcButton'];
+const RPC_CHIPS = [['rcMatch', 'rpcMatch'], ['rcMaps', 'rpcMaps'], ['rcLauncher', 'rpcLauncher'], ['rcTime', 'rpcTime'], ['rcButton', 'rpcButton']];
 // Farb-Presets: Akzent in 8 Abstufungen (RGB), Hintergrund bekommt automatisch einen leichten Ton davon
 const THEMES = [
   {id: 'purple', name: 'Purple', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247', '124 58 237', '133 77 241']},
@@ -1805,11 +1890,13 @@ function paintSettings(){
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
   $('keepNote').innerHTML = settings.keepSwaps ? '<svg width="11" height="11" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3.5 7h9v7h-9z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>Swaps stay after closing' : '';
-  $('tgTray').classList.toggle('on', settings.closeToTray !== false);
-  $('setTray').setAttribute('aria-checked', settings.closeToTray !== false);
-  RPC_KEYS.forEach(k => { const id = 'tg' + k[0].toUpperCase() + k.slice(1), on = settings[k] !== false;
-    $(id).classList.toggle('on', on); $(id).parentNode.setAttribute('aria-checked', on); });
-  $('rpcOpts').classList.toggle('off', settings.rpc === false);
+  const rpcOn = settings.rpc !== false;
+  $('tgRpc').classList.toggle('on', rpcOn); $('setRpc').setAttribute('aria-checked', rpcOn);
+  let shown = 0;
+  RPC_CHIPS.forEach(([id, k]) => { const on = settings[k] !== false; shown += on;
+    $(id).classList.toggle('on', on); $(id).setAttribute('aria-checked', on); });
+  $('rpcOpts').classList.toggle('off', !rpcOn);
+  $('rpcSum').textContent = rpcOn ? shown + ' of ' + RPC_CHIPS.length + ' shown' : 'Off';
   syncPresenceCfg();
   $('tgMute').classList.toggle('on', !!settings.mute);
   $('setMute').setAttribute('aria-checked', !!settings.mute);
@@ -1854,23 +1941,30 @@ setInterval(() => {
   if (!$('setDlg').classList.contains('show')) return;
   if (pres.act && pres.act.timestamps) $('dcTime').textContent = fmtElapsed(pres.act.timestamps.start);
 }, 1000);
-setInterval(() => { if ($('setDlg').classList.contains('show')) pollPresence(); }, 2000);
+setInterval(() => { if ($('setDlg').classList.contains('show')){ pollPresence(); pollBoost(); } }, 2000);
 function toggleSetting(k){
   if (k === 'mute' && settings.mute){ settings.mute = false; paintSettings(); Sfx.ui('tab'); }   // erst an, dann Klick hoeren
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setTray', 'closeToTray'], ['setRpc', 'rpc'], ['setRpcMatch', 'rpcMatch'], ['setRpcMaps', 'rpcMaps'],
- ['setRpcLauncher', 'rpcLauncher'], ['setRpcTime', 'rpcTime'], ['setRpcButton', 'rpcButton']].forEach(([id, k]) => {
+[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
+});
+// Aufklappbare Bereiche (Game Boost, Discord)
+document.querySelectorAll('.sexp').forEach(b => b.onclick = () => {
+  const open = !b.classList.contains('open');
+  b.classList.toggle('open', open); b.setAttribute('aria-expanded', open); Sfx.ui('tick');
+  if (open) setTimeout(() => { const f = b.nextElementSibling, sb = $('setDlg').querySelector('.sbody');
+    const r = f.getBoundingClientRect(), br = sb.getBoundingClientRect();
+    if (r.bottom > br.bottom) sb.scrollBy({top: r.bottom - br.bottom + 12, behavior: 'smooth'}); }, 380);
 });
 // Fenster auf/zu
 function openSettings(){
   if ($('setDlg').classList.contains('show')) return closeSettings();
   resetVerBtn();
   $('setDlg').classList.add('show'); $('setBtn').classList.add('on'); Sfx.ui('present');
-  pollPresence();
+  pollPresence(); pollBoost();
   $('setDlg').querySelector('.sbody').scrollTop = 0;
 }
 function closeSettings(){
@@ -1895,6 +1989,32 @@ function saveKey(){
 }
 $('steamKey').addEventListener('change', saveKey);
 $('steamKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('steamKey').blur(); } });
+/* ---------- Hinweis: Steam API key fuer mehr Freunde-Infos ---------- */
+const keyNag = {sound: false, later: false};
+function keyAlert(on){
+  const a = $('keyAlert'); if (a.classList.contains('show') === on) return;
+  a.classList.toggle('show', on);
+  if (on && !keyNag.sound){ keyNag.sound = true; Sfx.ui('present'); }
+}
+function keyNagCheck(){
+  const done = keyNag.later || settings.steamKey || settings.keyNagOff;
+  const here = tab === 'vHome' && !appHidden && !document.hidden && !$('setDlg').classList.contains('show');
+  const ready = (home.friends || home.fErr) && !/Steam isn't running/.test(home.fErr || '');   // erst wenn die Freundesliste geladen hat
+  keyAlert(!done && here && !!ready);
+}
+setTimeout(() => setInterval(keyNagCheck, 1500), 4000);
+$('kaLater').onclick = () => { keyNag.later = true; keyAlert(false); Sfx.ui('dismiss'); };
+$('kaNever').onclick = () => { settings.keyNagOff = true; saveSetting('keyNagOff', true); keyAlert(false); Sfx.ui('dismiss'); };
+$('kaGet').onclick = () => has('openURL') && openURL('https://steamcommunity.com/dev/apikey');
+$('kaSave').onclick = () => {
+  const v = $('kaKey').value.trim();
+  if (!/^[0-9A-Fa-f]{32}$/.test(v)){
+    const a = $('keyAlert'); a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake'); Sfx.ui('error');
+    toast('That doesn\'t look like a Steam API key (32 characters).', false); return;
+  }
+  $('steamKey').value = v; saveKey(); keyAlert(false);
+};
+$('kaKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('kaSave').click(); } });
 $('lnkGit').onclick = () => has('openURL') && openURL('https://github.com/zusmori/zusmoris-map-swapper');
 $('lnkRel').onclick = () => has('openURL') && openURL('https://github.com/zusmori/zusmoris-map-swapper/releases');
 
@@ -1993,6 +2113,7 @@ function setTab(t){
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
   if (t === 'vDl') guideFirst(); else guideOpen(false, false, true);
+  if (t !== 'vHome') keyAlert(false);
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 /* ---------- Swap Maps: Anleitung ---------- */
@@ -2773,26 +2894,23 @@ window.addEventListener('focus', () => { if (tab === 'vHome' && !appHidden && !h
 
 /* ---------- Game Boost ---------- */
 const boost = {st: {enabled: true, active: false, priority: 'waiting', power: 'waiting', gpu: 'off'}};
-function paintBoost(anim){
-  const st = boost.st, on = !!st.enabled, c = $('boostChip');
-  c.classList.toggle('on', on); c.classList.toggle('live', on && st.active);
-  c.setAttribute('aria-checked', on);
-  const txt = !on ? 'Off' : st.active ? 'Active' : 'On', el = $('boostChipTx');
-  if (el.textContent !== txt){ el.textContent = txt; if (anim !== false){ el.classList.remove('swapin'); void el.offsetWidth; el.classList.add('swapin'); } }
+function paintBoost(){
+  const st = boost.st, on = !!st.enabled;
+  $('tgBoost').classList.toggle('on', on); $('setBoost').setAttribute('aria-checked', on);
+  const pill = $('boostPill'), txt = on && st.active ? 'Active' : '';
+  pill.textContent = txt; pill.classList.toggle('live', !!txt);
 }
 async function pollBoost(){ try { if (has('getBoost')){ boost.st = await getBoost(); paintBoost(); } } catch (e) {} }
-async function toggleBoost(e){
-  const c = $('boostChip'), on = !boost.st.enabled;
-  if (e){ const r = c.getBoundingClientRect(); c.style.setProperty('--rx', (e.clientX - r.left) + 'px'); }
-  c.classList.remove('zap', 'zapoff'); void c.offsetWidth; c.classList.add(on ? 'zap' : 'zapoff');
-  setTimeout(() => c.classList.remove('zap', 'zapoff'), 750);
-  boost.st.enabled = on; if (!on) boost.st.active = false; paintBoost(); Sfx.ui(on ? 'fav' : 'unfav');
+async function toggleBoost(){
+  const on = !boost.st.enabled;
+  boost.st.enabled = on; if (!on) boost.st.active = false; paintBoost(); Sfx.ui('tab');
   try { if (has('setBoost')) boost.st = await setBoost(on); } catch (er) { toast(er, false); }
   settings.boost = on; saveSetting('boost', on);
   paintBoost();
 }
-$('boostChip').onclick = toggleBoost;
-paintBoost(false);
+$('setBoost').onclick = toggleBoost;
+$('setBoost').onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleBoost(); } };
+paintBoost();
 
 /* ---------- Logo im Video: Hover-Animation ---------- */
 (() => {
@@ -3088,7 +3206,7 @@ window.__requestClose = () => closeOrTray();   // auch bei Alt+F4 / Taskleiste
 // X: in den Tray legen (Einstellung), sonst richtig schliessen
 let quitting = false;
 function closeOrTray(){
-  if (!quitting && settings.closeToTray !== false && has('hideToTray')){
+  if (!quitting && has('hideToTray')){
     document.querySelectorAll('.menu.show,.cpop.show').forEach(m => m.classList.remove('show'));
     Sfx.ui('dismiss'); hideToTray(); return;
   }

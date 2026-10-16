@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"unsafe"
 
 	webview2 "github.com/jchv/go-webview2"
@@ -511,10 +510,17 @@ func (a *App) SetFolder(p string) error {
 	return saveJSON(cfgFile, map[string]string{"Cooked": p})
 }
 
+// Ordner, Links und steam://-Adressen mit dem Standardprogramm oeffnen.
+// (Frueher explorer.exe mit verstecktem Fenster - dadurch blieben Ordnerfenster unsichtbar.)
 func open(target string) {
-	cmd := exec.Command("explorer.exe", target)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	_ = cmd.Start()
+	verb, _ := windows.UTF16PtrFromString("open")
+	file, err := windows.UTF16PtrFromString(target)
+	if err != nil {
+		return
+	}
+	if windows.ShellExecute(0, verb, file, nil, nil, windows.SW_SHOWNORMAL) != nil {
+		_ = exec.Command("explorer.exe", target).Start()
+	}
 }
 
 // ---------- Start ----------

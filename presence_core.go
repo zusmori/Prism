@@ -365,7 +365,7 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 	case cfg.Launcher && in.Hidden:
 		// im Tray: nur noch "Idle"
 		start = in.LaunchOpen
-		a.Details, a.State = "Idle", "Ready to play Rocket League"
+		a.Details = "Idle"
 	case cfg.Launcher:
 		start = in.LaunchOpen
 		switch in.Tab {
@@ -381,8 +381,8 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 			}
 		case "vBrowse":
 			a.Details, a.State = "Browsing workshop maps", "Looking for something new"
-		default:
-			a.Details, a.State = "Getting ready to play", "Rocket League"
+		default: // Home
+			a.Details = "Idle"
 		}
 	default:
 		return nil

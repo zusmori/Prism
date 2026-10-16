@@ -65,10 +65,10 @@ func TestStatsAndActivity(t *testing.T) {
 	if a = BuildActivity(cfg, PresenceInput{Tab: "vDl", MapCount: 12}); a.State != "12 maps ready to play" {
 		t.Fatal(a.State)
 	}
-	if a = BuildActivity(cfg, PresenceInput{Tab: "vHome"}); a.Details != "Getting ready to play" {
-		t.Fatal(a.Details)
+	if a = BuildActivity(cfg, PresenceInput{Tab: "vHome"}); a.Details != "Idle" || a.State != "" {
+		t.Fatal(a.Details, a.State)
 	}
-	if a = BuildActivity(cfg, PresenceInput{Tab: "vHome", Hidden: true}); a == nil || a.Details != "Idle" {
+	if a = BuildActivity(cfg, PresenceInput{Tab: "vBrowse", Hidden: true}); a == nil || a.Details != "Idle" || a.State != "" {
 		t.Fatal("tray should show Idle")
 	}
 	if a = BuildActivity(cfg, PresenceInput{Hidden: true, Starting: true}); a.Details != "Starting Rocket League" {
