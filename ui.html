@@ -1583,8 +1583,6 @@
       <div class="ssec"><h4>Discord</h4><div class="sgrp">
         <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
           <div class="tx"><b>Rich Presence</b><small class="dcst"><span class="dcdot" id="dcDot"></span><span id="dcStat">Checking Discord …</span></small></div><span class="tg" id="tgRpc"></span></div>
-        <div class="srow sub" id="setRpcTray" role="switch" aria-checked="false" tabindex="0">
-          <div class="tx"><b>Hide while in tray</b><small>No status on Discord while ZLauncher sits in the tray. Your match still shows while Rocket League runs.</small></div><span class="tg" id="tgRpcTray"></span></div>
         <button class="sexp" id="rpcExp" aria-expanded="false"><span>Customize</span><span class="sm" id="rpcSum"></span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="sfold"><div><div class="sfin dsub" id="rpcOpts">
           <div class="dcwrap">
@@ -1601,6 +1599,7 @@
             <button class="rchip" id="rcMaps" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Workshop maps</b><small>Map name in Freeplay</small></span></button>
             <button class="rchip" id="rcLauncher" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Launcher status</b><small>Idle, Browsing maps …</small></span></button>
             <button class="rchip" id="rcTime" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Elapsed time</b><small>12:34 elapsed</small></span></button>
+            <button class="rchip" id="rcTray" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>While in tray</b><small>Shows "Idle"</small></span></button>
             <button class="rchip" id="rcButton" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Download button</b><small>“Get ZLauncher”</small></span></button>
           </div>
           </div>
@@ -1915,7 +1914,9 @@ $('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scroll
 const settings = {keepSwaps: false, mute: false, theme: 'purple', steamKey: '',
   rpc: true, rpcMatch: true, rpcMaps: true, rpcLauncher: true, rpcTime: true, rpcButton: true, rpcHideTray: false};
 const RPC_KEYS = ['rpc', 'rpcMatch', 'rpcMaps', 'rpcLauncher', 'rpcTime', 'rpcButton', 'rpcHideTray'];
-const RPC_CHIPS = [['rcMatch', 'rpcMatch'], ['rcMaps', 'rpcMaps'], ['rcLauncher', 'rpcLauncher'], ['rcTime', 'rpcTime'], ['rcButton', 'rpcButton']];
+const RPC_CHIPS = [['rcMatch', 'rpcMatch'], ['rcMaps', 'rpcMaps'], ['rcLauncher', 'rpcLauncher'], ['rcTray', 'rpcHideTray', true], ['rcTime', 'rpcTime'], ['rcButton', 'rpcButton']];
+// Kaestchen an = wird angezeigt (bei rpcHideTray umgekehrt gespeichert)
+const chipOn = ([, k, inv]) => inv ? !settings[k] : settings[k] !== false;
 // Farb-Presets: Akzent in 8 Abstufungen (RGB), Hintergrund bekommt automatisch einen leichten Ton davon
 const THEMES = [
   {id: 'purple', name: 'Purple', c: ['139 92 246', '167 139 250', '196 181 253', '221 214 254', '237 233 254', '124 58 237', '91 33 182', '148 102 247', '124 58 237', '133 77 241']},
@@ -1955,11 +1956,10 @@ function paintSettings(){
   const rpcOn = settings.rpc !== false;
   $('tgRpc').classList.toggle('on', rpcOn); $('setRpc').setAttribute('aria-checked', rpcOn);
   let shown = 0;
-  RPC_CHIPS.forEach(([id, k]) => { const on = settings[k] !== false; shown += on;
+  RPC_CHIPS.forEach(c => { const id = c[0], on = chipOn(c); shown += on;
     $(id).classList.toggle('on', on); $(id).setAttribute('aria-checked', on); });
   $('rpcOpts').classList.toggle('off', !rpcOn);
-  $('tgRpcTray').classList.toggle('on', !!settings.rpcHideTray); $('setRpcTray').setAttribute('aria-checked', !!settings.rpcHideTray);
-  $('setRpcTray').classList.toggle('off', !rpcOn);
+
   $('rpcSum').textContent = rpcOn ? shown + ' of ' + RPC_CHIPS.length + ' shown' : 'Off';
   syncPresenceCfg();
   $('tgMute').classList.toggle('on', !!settings.mute);
@@ -2011,7 +2011,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setRpc', 'rpc'], ['setRpcTray', 'rpcHideTray'], ...RPC_CHIPS].forEach(([id, k]) => {
+[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });
