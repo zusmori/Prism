@@ -61,6 +61,8 @@ static int offPrevLoadout = -1, offCPSlot = -1, offCPProduct = -1, offCPOnline =
 static std::atomic<unsigned long long> applyAt{0}; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
 static std::atomic<void*> localPC{nullptr};
+static std::vector<void*> localPlayers; // LocalPlayer-Objekte (einmal gesucht)
+static std::atomic<void*> writtenPRI{nullptr};  // PRI, in den wir beim Laden schon geschrieben haben
 static std::atomic<unsigned long long> lastPlayerTick{0}; // letzter PlayerTick = gerade im Spiel
 static bool ready = false;
 
@@ -101,6 +103,7 @@ bool Setup() {
 		if (fnTeamIndex) offTeamRet = ue::PropOffset(fnTeamIndex, "ReturnValue");
 	}
 	if (clsLocalPlayer) offLPActor = ue::PropOffset(clsLocalPlayer, "Actor");
+	if (clsLocalPlayer) localPlayers = ue::Instances(clsLocalPlayer);
 	clsGameEvent = ue::FindClass("Class TAGame.GameEvent_TA");
 	clsFreeplay = ue::FindClass("Class TAGame.GameEvent_Tutorial_FreePlay_TA");
 	clsFreeplayCar = ue::FindClass("Class TAGame.Car_Freeplay_TA");
@@ -188,7 +191,7 @@ static void* LocalPC() {
 	}
 	try {
 		if (clsLocalPlayer && offLPActor >= 0)
-			for (void* lp : ue::Instances(clsLocalPlayer))
+			for (void* lp : localPlayers)
 				if (void* a = ue::Read<void*>(lp, offLPActor)) return a;
 		for (void* pc : ue::Instances(clsPC))
 			if (ue::Read<void*>(pc, offPlayer)) return pc;
@@ -301,6 +304,37 @@ static void PatchParams(void* params) {
 		if (slot < a->count) a->data[slot] = id;
 }
 
+// Gehoert der PRI dem lokalen Spieler? (Controller des PRI hat einen LocalPlayer)
+static bool IsLocalPRI(void* pri) {
+	try {
+		for (void* lp : localPlayers) {
+			if (!ue::IsValid(lp)) continue;
+			void* pc = ue::Read<void*>(lp, offLPActor);
+			if (pc && ue::IsValid(pc) && ue::Read<void*>(pc, offPRI) == pri) return true;
+		}
+	} catch (...) {}
+	return false;
+}
+
+// Fehlen unsere Items im Loadout des PRI?
+static bool NeedsApply(void* pri) {
+	std::map<int, int> ov;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		ov = overrides;
+	}
+	if (ov.empty()) return false;
+	try {
+		for (int t = 0; t < 2; t++) {
+			auto* cl = ue::Ptr<ue::TArray<int32_t>>(pri, offClient + t * 0x10);
+			if (!cl->data || cl->count <= 0 || cl->count > 64) continue;
+			for (auto& [slot, id] : ov)
+				if (slot < cl->count && cl->data[slot] != id) return true;
+		}
+	} catch (...) {}
+	return false;
+}
+
 void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
 	if (tickFns.count(fn)) { // lokaler Spieler
@@ -315,7 +349,18 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			try { pri = ue::Read<void*>(caller, offPRI); pawn = offPawn >= 0 ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
 			zl::Log("local player controller: %p (%s) pri=%p pawn=%p (%s)", caller, ue::Name(caller).c_str(), pri, pawn, pawn ? ue::Name(pawn).c_str() : "-");
 			ue::CheckObjects(caller);
-			applyAt = 0; // neues Spiel: das Auto spawnt sowieso schon mit unseren Items
+			// Neues Spiel: pruefen, ob das Auto schon unsere Items hat - sonst einmal neu spawnen
+			applyAt = 0;
+			bool hasOv;
+			{
+				std::lock_guard<std::mutex> lk(mu);
+				hasOv = !overrides.empty();
+			}
+			if (pri && hasOv) {
+				bool missing = NeedsApply(pri), written = writtenPRI.load() == pri;
+				zl::Log("new game: items in loadout=%s, written on load=%s", missing ? "no" : "yes", written ? "yes" : "no");
+				if (missing || !written) applyAt = GetTickCount64() + 300; // sicherheitshalber einmal neu spawnen
+			}
 		}
 		inGame = true;
 		lastPlayerTick = GetTickCount64();
@@ -344,7 +389,17 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		std::lock_guard<std::mutex> lk(mu);
 		if (overrides.empty() && restore.empty()) return;
 	}
-	if (InMatch() && caller == LocalPRI()) WriteOverrides(caller); // Spiel laedt das Loadout neu: unsere Items wieder eintragen
+	// Spiel laedt das Loadout (z. B. beim Betreten von Freeplay/Match): unsere Items eintragen.
+	// Nur bei einem PRI mit echtem Loadout (im Hauptmenue sind die Listen leer).
+	if (ue::IsA(caller, clsPRI)) {
+		auto* cl = ue::Ptr<ue::TArray<int32_t>>(caller, offClient);
+		if (cl->data && cl->count > 0 && cl->count <= 64 && (IsLocalPRI(caller) || caller == LocalPRI())) {
+			WriteOverrides(caller);
+			writtenPRI = caller;
+			static int n = 0;
+			if (n++ < 10) zl::Log("loadout set for %s -> items written", ue::Name(caller).c_str());
+		}
+	}
 }
 
 // ---------- Auto im Hauptmenue / in der Garage (CarPreviewActor_TA) ----------
