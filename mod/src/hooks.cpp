@@ -110,6 +110,7 @@ static void OnMenuToggled() {
 		lastSys = {-100000, -100000};
 		rawDX = 0; rawDY = 0; rawWheel = 0;
 		io.AddMousePosEvent(vmX, vmY);
+		ResetKeys();
 		items::OnMenuOpened();
 	} else {
 		for (int b = 0; b < 3; b++) io.AddMouseButtonEvent(b, false);
@@ -145,6 +146,68 @@ static void PollMouse() {
 	if (w && !legacyWheel) io.AddMouseWheelEvent(0, float(w) / WHEEL_DELTA);
 }
 
+// Tastatur: im Spiel kommen nicht zuverlaessig Tasten-/Zeichen-Nachrichten an, daher selbst abfragen
+static bool keyPrev[256];
+static ImGuiKey MapKey(int vk) {
+	switch (vk) {
+	case VK_BACK: return ImGuiKey_Backspace;
+	case VK_DELETE: return ImGuiKey_Delete;
+	case VK_LEFT: return ImGuiKey_LeftArrow;
+	case VK_RIGHT: return ImGuiKey_RightArrow;
+	case VK_UP: return ImGuiKey_UpArrow;
+	case VK_DOWN: return ImGuiKey_DownArrow;
+	case VK_HOME: return ImGuiKey_Home;
+	case VK_END: return ImGuiKey_End;
+	case VK_PRIOR: return ImGuiKey_PageUp;
+	case VK_NEXT: return ImGuiKey_PageDown;
+	case VK_RETURN: return ImGuiKey_Enter;
+	case VK_TAB: return ImGuiKey_Tab;
+	case VK_ESCAPE: return ImGuiKey_Escape;
+	case 'A': return ImGuiKey_A;
+	case 'C': return ImGuiKey_C;
+	case 'V': return ImGuiKey_V;
+	case 'X': return ImGuiKey_X;
+	case 'Y': return ImGuiKey_Y;
+	case 'Z': return ImGuiKey_Z;
+	default: return ImGuiKey_None;
+	}
+}
+
+static void ResetKeys() {
+	for (int vk = 0; vk < 256; vk++) keyPrev[vk] = (GetAsyncKeyState(vk) & 0x8000) != 0; // schon gedrueckte Tasten (F8) ignorieren
+}
+
+static void PollKeys() {
+	ImGuiIO& io = ImGui::GetIO();
+	if (GetForegroundWindow() != gameWnd) return;
+	BYTE ks[256] = {0};
+	bool down[256];
+	for (int vk = 1; vk < 256; vk++) {
+		down[vk] = (GetAsyncKeyState(vk) & 0x8000) != 0;
+		if (down[vk]) ks[vk] = 0x80;
+	}
+	if (GetKeyState(VK_CAPITAL) & 1) ks[VK_CAPITAL] |= 1;
+	bool ctrl = down[VK_CONTROL], shift = down[VK_SHIFT], alt = down[VK_MENU];
+	io.AddKeyEvent(ImGuiMod_Ctrl, ctrl);
+	io.AddKeyEvent(ImGuiMod_Shift, shift);
+	io.AddKeyEvent(ImGuiMod_Alt, alt);
+	for (int vk = 8; vk < 256; vk++) {
+		if (vk == VK_SHIFT || vk == VK_CONTROL || vk == VK_MENU || (vk >= VK_LBUTTON && vk <= VK_XBUTTON2)) continue;
+		bool d = down[vk];
+		if (d == keyPrev[vk]) continue;
+		keyPrev[vk] = d;
+		ImGuiKey k = MapKey(vk);
+		if (k != ImGuiKey_None) io.AddKeyEvent(k, d);
+		if (d && vk == VK_ESCAPE) { menuOpen = false; return; }
+		// Zeichen (AltGr = Strg+Alt erlaubt, z. B. @)
+		if (d && (!ctrl || alt)) {
+			wchar_t buf[4] = {0};
+			UINT sc = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
+			if (ToUnicode(vk, sc, ks, buf, 4, 0x4) == 1 && buf[0] >= 32) io.AddInputCharacterUTF16(buf[0]);
+		}
+	}
+}
+
 static void ReadRawMouse(LPARAM lp) {
 	RAWINPUT ri{};
 	UINT size = sizeof ri;
@@ -165,28 +228,17 @@ static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 		return 0;
 	}
 	if (menuOpen && imguiReady) {
-		// Rocket League erzeugt selbst keine Zeichen-Nachrichten: Zeichen aus den Tasten ableiten
-		static wchar_t lastSynth = 0;
-		if (msg == WM_CHAR && lastSynth && wchar_t(wp) == lastSynth) { lastSynth = 0; return 0; }
-		if (msg == WM_KEYDOWN && ImGui::GetIO().WantTextInput) {
-			BYTE ks[256];
-			wchar_t buf[4] = {0};
-			if (GetKeyboardState(ks) && ToUnicode(UINT(wp), (lp >> 16) & 0xFF, ks, buf, 4, 0) == 1 && buf[0] >= 32) {
-				ImGui::GetIO().AddInputCharacterUTF16(buf[0]);
-				lastSynth = buf[0];
-			}
-		}
 		if (msg == WM_INPUT) ReadRawMouse(lp);
 		if (msg == WM_MOUSEWHEEL) legacyWheel = true;
 		// Maustasten und -position kommen aus PollMouse, nur Tastatur/Rad hier
 		bool mouseMsg = (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) || msg == WM_SETCURSOR;
-		if (!mouseMsg) ImGui_ImplWin32_WndProcHandler(h, msg, wp, lp);
+		bool keyMsg = (msg >= WM_KEYFIRST && msg <= WM_KEYLAST);
+		if (!mouseMsg && !keyMsg) ImGui_ImplWin32_WndProcHandler(h, msg, wp, lp);
 		// Eingaben nicht ans Spiel weitergeben, solange das Menue offen ist
 		switch (msg) {
 		case WM_MOUSEMOVE: case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_RBUTTONDOWN: case WM_RBUTTONUP:
 		case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MOUSEWHEEL: case WM_LBUTTONDBLCLK: case WM_RBUTTONDBLCLK:
 		case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR: case WM_SYSKEYDOWN: case WM_SYSKEYUP: case WM_INPUT:
-			if (msg == WM_KEYDOWN && wp == VK_ESCAPE) { menuOpen = false; OnMenuToggled(); }
 			return msg == WM_INPUT ? DefWindowProcW(h, msg, wp, lp) : 0;
 		}
 	}
@@ -219,6 +271,8 @@ static HRESULT __stdcall PresentHook(IDXGISwapChain* sc, UINT sync, UINT flags) 
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
 			PollMouse();
+			PollKeys();
+			if (!menuOpen) { OnMenuToggled(); return presentOrig(sc, sync, flags); }
 			ImGui::NewFrame();
 			bool open = true;
 			gui::Render(&open);

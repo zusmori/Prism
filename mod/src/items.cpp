@@ -54,6 +54,9 @@ static int offPlayer = -1, offPRI = -1, offClient = -1, offFull = -1, offPawn = 
 static void *fnSet = nullptr, *fnSetInternal = nullptr;
 static void *clsCar = nullptr, *clsLocalPlayer = nullptr, *fnCarSetLoadout = nullptr, *fnTeamIndex = nullptr;
 static int offLPActor = -1, offTeamRet = -1;
+static void *clsGameEvent = nullptr, *clsFreeplay = nullptr, *fnDestroyCars = nullptr, *fnRestartPlayers = nullptr;
+static int offPRIGameEvent = -1;
+static std::atomic<unsigned long long> applyAt{0}; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
 static std::atomic<void*> localPC{nullptr};
 static bool ready = false;
@@ -95,6 +98,14 @@ bool Setup() {
 		if (fnTeamIndex) offTeamRet = ue::PropOffset(fnTeamIndex, "ReturnValue");
 	}
 	if (clsLocalPlayer) offLPActor = ue::PropOffset(clsLocalPlayer, "Actor");
+	clsGameEvent = ue::FindClass("Class TAGame.GameEvent_TA");
+	clsFreeplay = ue::FindClass("Class TAGame.GameEvent_Tutorial_FreePlay_TA");
+	offPRIGameEvent = ue::PropOffset(clsPRI, "GameEvent");
+	if (clsGameEvent) {
+		fnDestroyCars = ue::FindFunction(clsGameEvent, "DestroyCars");
+		fnRestartPlayers = ue::FindFunction(clsGameEvent, "RestartPlayers");
+	}
+	zl::Log("respawn: freeplay=%p priGameEvent=%x DestroyCars=%p RestartPlayers=%p", clsFreeplay, offPRIGameEvent, fnDestroyCars, fnRestartPlayers);
 	// alle PlayerTick-Funktionen merken: wer sie aufruft, ist der lokale Spieler
 	for (int i = 0; i < ue::ObjectCount(); i++) {
 		void* o = ue::ObjectAt(i);
@@ -234,28 +245,22 @@ void ApplyNow() {
 		return;
 	}
 	WriteOverrides(pri);
-	applying = true;
-	void* car = LocalCar();
-	if (car && fnCarSetLoadout) {
-		int team = 0;
-		if (fnTeamIndex && offTeamRet >= 0) {
-			std::vector<uint8_t> p(size_t(ue::StructSize(fnTeamIndex)) + 16, 0);
-			ue::Call(car, fnTeamIndex, p.data());
-			team = *reinterpret_cast<int32_t*>(p.data() + offTeamRet);
-			if (team < 0 || team > 1) team = 0;
-		}
-		// Kopie des (schon geaenderten) Loadouts ans Auto geben
-		ue::TArray<int32_t> data = *ue::Ptr<ue::TArray<int32_t>>(pri, offClient + team * 0x10);
-		std::vector<uint8_t> p(size_t(ue::StructSize(fnCarSetLoadout)) + 16, 0);
-		memcpy(p.data(), &data, sizeof data);
-		ue::Call(car, fnCarSetLoadout, p.data());
-		zl::Log("apply: Car.SetLoadout on %p (team %d, %d products)", car, team, data.count);
-	} else {
-		zl::Log("apply: no car (pawn) right now");
-	}
-	ue::Call(pri, fnSet);
-	applying = false;
 	restore.clear();
+	// Ein laufendes Auto darf sein Loadout nicht neu bekommen (doppelte Bauteile -> kaputte Steuerung,
+	// Boost-Einstellungen weg). Stattdessen im Freeplay das Auto sauber neu spawnen lassen:
+	// das Spiel baut es dann ganz normal mit unserem Loadout auf.
+	void* ge = nullptr;
+	try { ge = offPRIGameEvent >= 0 ? ue::Read<void*>(pri, offPRIGameEvent) : nullptr; } catch (...) {}
+	bool freeplay = ue::IsValid(ge) && clsFreeplay && ue::IsA(ge, clsFreeplay);
+	if (freeplay && fnDestroyCars && fnRestartPlayers) {
+		ue::Call(ge, fnDestroyCars);
+		ue::Call(pri, fnSet);
+		ue::Call(ge, fnRestartPlayers);
+		zl::Log("apply: car respawned in freeplay (%s)", ue::Name(ge).c_str());
+	} else {
+		ue::Call(pri, fnSet);
+		zl::Log("apply: not in freeplay (%s) - items show on the next spawn", ge ? ue::Name(ge).c_str() : "-");
+	}
 	zl::Log("apply: done for PRI %p", pri);
 }
 
@@ -280,8 +285,14 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			try { pri = ue::Read<void*>(caller, offPRI); pawn = offPawn >= 0 ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
 			zl::Log("local player controller: %p (%s) pri=%p pawn=%p (%s)", caller, ue::Name(caller).c_str(), pri, pawn, pawn ? ue::Name(pawn).c_str() : "-");
 			ue::CheckObjects(caller);
+			applyAt = 0; // neues Spiel: das Auto spawnt sowieso schon mit unseren Items
 		}
 		inGame = true;
+		// Gebuendeltes Anwenden hier im PlayerTick: sicherer Moment, um das Auto neu zu spawnen
+		if (unsigned long long t = applyAt.load(); t && GetTickCount64() >= t) {
+			applyAt = 0;
+			try { ApplyNow(); } catch (...) { zl::Log("ERROR: apply crashed (caught)"); }
+		}
 		return;
 	}
 	if (applying) return;
@@ -316,8 +327,8 @@ void Set(int slot, int id) {
 	}
 	Queue([slot, id] {
 		if (id <= 0) restore.insert(slot);
-		ApplyNow();
 	});
+	applyAt = GetTickCount64() + 400; // mehrere Klicks kurz hintereinander = einmal neu spawnen
 	Save();
 }
 
