@@ -1307,61 +1307,97 @@
 
   /* ================= Items ================= */
   #vItems{display:flex;flex-direction:column;gap:10px;padding:2px 18px 16px}
-  .ibar{display:flex;align-items:center;gap:8px}
-  .isrch{flex:1;display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:11px;background:var(--panel);border:1px solid var(--line);transition:border-color .2s,box-shadow .2s}
-  .isrch:focus-within{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
-  .isrch .gi svg{width:14px;height:14px}
-  .isrch input{flex:1;min-width:0;border:0;background:none;outline:none;color:var(--text);font:inherit;font-size:13px}
-  .isrch input::placeholder{color:var(--faint)}
-  .icount{font-size:11.5px;color:var(--faint);white-space:nowrap}
-  .istat{display:flex;align-items:center;gap:7px;height:36px;padding:0 12px;border-radius:11px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;
+  .ibar{display:flex;align-items:center;gap:8px;min-height:36px}
+  .isp{flex:1}
+  .ipres{display:flex;align-items:center;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .ipres::-webkit-scrollbar{display:none}
+  .ipr{flex:none;display:flex;align-items:center;gap:7px;height:32px;padding:0 6px 0 12px;border-radius:999px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;
+    color:var(--muted);background:var(--panel);border:1px solid var(--line);transition:color .2s,border-color .2s,background .2s}
+  .ipr:hover{color:var(--text);border-color:var(--line2)}
+  .ipr.on{color:#fff;border-color:rgb(var(--ac-rgb) / .55);background:rgb(var(--ac-rgb) / .14)}
+  .ipr .del{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--faint);opacity:0;transition:opacity .2s,background .2s,color .2s}
+  .ipr:hover .del{opacity:1}
+  .ipr .del:hover{background:rgba(255,255,255,.1);color:#fff}
+  .ipr.add{padding:0 12px;border-style:dashed;color:var(--faint)}
+  .ipr.add:hover{color:rgb(var(--ac3-rgb));border-color:rgb(var(--ac-rgb) / .5)}
+  .ipr input{width:110px;border:0;background:none;outline:none;color:#fff;font:inherit}
+  .ibtn{display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:color .2s,border-color .2s}
+  .ibtn:hover{color:var(--text);border-color:var(--line2)}
+  .ibtn .gi svg{width:13px;height:13px}
+  .ibtn.spin .gi svg{animation:sp .5s var(--ease)}
+  .istat{display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;
     background:var(--panel);border:1px solid var(--line);transition:color .3s}
   .istat .dot{width:7px;height:7px;border-radius:50%;background:#52525b;transition:background .3s,box-shadow .3s}
   .istat.ok{color:var(--ok)} .istat.ok .dot{background:var(--ok);box-shadow:0 0 8px rgba(126,226,168,.8)}
   .istat.warn{color:#fbbf24} .istat.warn .dot{background:#fbbf24}
-  .ireset{height:36px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:color .2s,border-color .2s}
-  .ireset:hover{color:var(--text);border-color:var(--line2)}
-  .itog{display:grid;place-items:center;width:52px;height:36px;border-radius:11px;cursor:pointer;background:var(--panel);border:1px solid var(--line)}
+  .itog{display:grid;place-items:center;width:52px;height:32px;border-radius:999px;cursor:pointer;background:var(--panel);border:1px solid var(--line)}
   .itog:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(var(--ac-rgb) / .35)}
-  .islots{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding:3px;border-radius:12px;background:var(--panel);border:1px solid var(--line);flex:none}
-  .islots::-webkit-scrollbar{display:none}
-  .islots.more{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 50px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 50px),transparent)}
-  .islots.more.end{-webkit-mask-image:none;mask-image:none}
-  .isl{position:relative;flex:none;display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:0;border-radius:9px;background:none;cursor:pointer;
-    font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;transition:background .2s,color .2s}
-  .isl:hover{color:var(--text);background:var(--hover)}
-  .isl.on{color:#fff;background:rgb(var(--ac-rgb) / .2);box-shadow:inset 0 0 0 1px rgb(var(--ac-rgb) / .35)}
-  .isl .gi svg{width:13px;height:13px}
-  .isl i{width:5px;height:5px;border-radius:50%;background:rgb(var(--ac2-rgb));box-shadow:0 0 6px rgb(var(--ac-rgb));transform:scale(0);transition:transform .3s var(--spring)}
-  .isl.set i{transform:none}
-  .imain{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;border-radius:14px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
-  .igrid{flex:1;min-height:0;overflow-y:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));grid-auto-rows:52px;gap:6px;align-content:start;
-    scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
-  .icard{position:relative;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:0 30px 0 14px;border-radius:10px;cursor:pointer;text-align:left;
-    font:inherit;color:var(--text);background:var(--panel2);border:1px solid transparent;transition:background .15s,border-color .2s;animation:frin .25s var(--ease) backwards}
-  .icard::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--qc)}
-  .icard b{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .icard small{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .icard:hover{background:var(--hover)}
-  .icard.on{border-color:rgb(var(--ac-rgb) / .6);background:rgb(var(--ac-rgb) / .1)}
-  .icard .ck{position:absolute;right:10px;top:50%;width:16px;height:16px;margin-top:-8px;border-radius:50%;display:grid;place-items:center;background:rgb(var(--btn-rgb));
-    transform:scale(0);transition:transform .3s var(--spring)}
-  .icard.on .ck{transform:none}
-  .icard .ck svg{width:9px;height:9px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  .icard .pd{position:absolute;right:32px;top:50%;width:9px;height:9px;margin-top:-4.5px;border-radius:50%;background:var(--pc);box-shadow:0 0 0 1px rgba(255,255,255,.3)}
-  .icard.def{--qc:transparent}
-  .icard.def b{color:var(--muted);font-weight:500}
-  .imore{grid-column:1/-1;text-align:center;font-size:11.5px;color:var(--faint);padding:6px}
-  .ipaint{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 12px;max-height:0;opacity:0;overflow:hidden;border-top:1px solid transparent;
+  .imain{position:relative;flex:1;min-height:0;border-radius:16px;overflow:hidden}
+  .itiles{position:absolute;inset:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));grid-auto-rows:78px;gap:8px;align-content:start;
+    padding:1px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent;transition:right .45s var(--spring)}
+  .imain.picking .itiles{right:calc(min(420px,100%) + 10px)}
+  .imain.picking .itile:not(.on){opacity:.6}
+  .imain.picking .itile:not(.on):hover{opacity:1}
+  .itile{position:relative;overflow:hidden;display:flex;align-items:center;gap:13px;padding:0 14px;border-radius:14px;cursor:pointer;text-align:left;font:inherit;color:var(--text);
+    background:var(--panel);border:1px solid var(--line);transition:border-color .25s,transform .25s var(--spring),box-shadow .3s,opacity .25s;animation:frin .35s var(--ease) backwards}
+  .itile::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 140% at 0% 50%,color-mix(in srgb, var(--qc) 18%, transparent),transparent 60%);opacity:0;transition:opacity .4s}
+  .itile.set::after{opacity:1}
+  .itile:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:0 12px 26px -16px rgba(0,0,0,.9)}
+  .itile.on{border-color:rgb(var(--ac-rgb) / .7);box-shadow:0 0 0 1px rgb(var(--ac-rgb) / .5),0 14px 30px -16px rgb(var(--ac-rgb) / .8)}
+  .itile .tic{position:relative;z-index:1;flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line2);transition:all .3s}
+  .itile .tic svg{width:19px;height:19px}
+  .itile.set .tic{background:color-mix(in srgb, var(--qc) 18%, transparent);border-color:color-mix(in srgb, var(--qc) 55%, transparent);box-shadow:0 0 18px -6px var(--qc)}
+  .itile.set .tic .gi{color:#fff}
+  .itile .tt{position:relative;z-index:1;flex:1;min-width:0}
+  .itile .tl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--faint)}
+  .itile b{display:block;font-size:14px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .itile:not(.set) b{color:var(--muted);font-weight:500}
+  .itile small{display:block;font-size:11.5px;color:var(--qc);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .itile:not(.set) small{display:none}
+  .itile .pd{position:relative;z-index:1;flex:none;width:12px;height:12px;border-radius:50%;background:var(--pc);box-shadow:0 0 0 2px var(--panel),0 0 0 3px rgba(255,255,255,.25)}
+  .itile .chev{position:relative;z-index:1;flex:none;color:var(--faint);transition:transform .3s var(--spring),color .2s}
+  .itile:hover .chev{color:var(--text);transform:translateX(2px)}
+  .itile.bump{animation:tbump .5s var(--spring)}
+  @keyframes tbump{40%{transform:scale(1.03)}}
+  /* Auswahl-Panel */
+  .ipick{position:absolute;top:0;right:0;bottom:0;width:min(420px,100%);display:flex;flex-direction:column;border-radius:16px;z-index:3;
+    background:rgb(16 15 22 / .92);border:1px solid rgb(var(--ac-rgb) / .3);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    box-shadow:-24px 0 60px -30px rgba(0,0,0,.9),0 0 50px -30px rgb(var(--ac-rgb));
+    transform:translateX(30px);opacity:0;pointer-events:none;transition:transform .45s var(--spring),opacity .25s var(--ease)}
+  .imain.picking .ipick{transform:none;opacity:1;pointer-events:auto}
+  .iph{display:flex;align-items:center;gap:10px;padding:14px 14px 10px 16px}
+  .iph .gi svg{width:17px;height:17px}
+  .iph b{font-size:15px;color:#fff}
+  .ipc{font-size:11.5px;color:var(--faint)}
+  .ipx{margin-left:auto;width:28px;height:28px;border-radius:8px;border:0;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;transition:background .2s,color .2s,transform .3s var(--spring)}
+  .ipx:hover{background:rgba(255,255,255,.08);color:#fff;transform:rotate(90deg)}
+  .ipick .isrch{display:flex;align-items:center;gap:8px;height:36px;margin:0 14px 8px;padding:0 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line2);transition:border-color .2s,box-shadow .2s}
+  .ipick .isrch:focus-within{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
+  .ipick .isrch .gi svg{width:14px;height:14px}
+  .ipick .isrch input{flex:1;min-width:0;border:0;background:none;outline:none;color:var(--text);font:inherit;font-size:13px}
+  .iplist{flex:1;min-height:0;overflow-y:auto;padding:0 8px 8px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .ipr2{position:relative;width:100%;display:flex;align-items:center;gap:11px;padding:7px 10px;border:0;border-radius:10px;background:none;cursor:pointer;text-align:left;font:inherit;color:var(--text);transition:background .15s}
+  .ipr2:hover,.ipr2.kb{background:var(--hover)}
+  .ipr2.on{background:rgb(var(--ac-rgb) / .16)}
+  .ipr2 .q{flex:none;width:4px;height:26px;border-radius:3px;background:var(--qc)}
+  .ipr2 .t{flex:1;min-width:0}
+  .ipr2 b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ipr2 small{display:block;font-size:11px;color:var(--faint)}
+  .ipr2 .ck{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:rgb(var(--btn-rgb));transform:scale(0);transition:transform .3s var(--spring)}
+  .ipr2.on .ck{transform:none}
+  .ipr2 .ck svg{width:10px;height:10px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .iphint{padding:10px 12px 4px;font-size:11.5px;color:var(--faint);text-align:center}
+  .ipaint{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 16px;max-height:0;opacity:0;overflow:hidden;border-top:1px solid transparent;
     transition:max-height .3s var(--ease),opacity .2s,padding .3s var(--ease),border-color .3s}
-  .ipaint.on{max-height:100px;opacity:1;padding:9px 12px;border-color:var(--line)}
-  .ipaint .pl{font-size:11.5px;font-weight:600;color:var(--faint);margin-right:4px}
-  .pch{width:18px;height:18px;border-radius:50%;border:2px solid transparent;background:var(--pc);cursor:pointer;padding:0;
+  .ipaint.on{max-height:110px;opacity:1;padding:11px 16px 13px;border-color:var(--line)}
+  .ipaint .pl{width:100%;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .pch{width:20px;height:20px;border-radius:50%;border:2px solid transparent;background:var(--pc);cursor:pointer;padding:0;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);transition:transform .2s var(--spring),border-color .2s}
   .pch:hover{transform:scale(1.18)}
-  .pch.on{border-color:#fff}
+  .pch.on{border-color:#fff;box-shadow:0 0 10px var(--pc)}
   .pch.none{background:repeating-linear-gradient(135deg,#2a2a33 0 3px,#1b1b22 3px 6px)}
-  .iempty{position:absolute;inset:0;display:none;place-items:center;padding:30px;text-align:center;background:var(--panel);z-index:2}
+  .iempty{position:absolute;inset:0;display:none;place-items:center;padding:30px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;z-index:4}
   .iempty.on{display:grid}
   .iempty h3{font-size:16px;color:#fff;margin-bottom:6px}
   .iempty p{max-width:400px;margin:0 auto;color:var(--muted);line-height:1.55;font-size:13px}
@@ -1505,15 +1541,22 @@
   </main>
   <section id="vItems" class="pane off" style="--dir:24px">
     <div class="ibar">
-      <div class="isrch"><span class="gi" data-ic="search"></span><input id="iSearch" placeholder="Search items …" spellcheck="false"><span class="icount" id="iCount"></span></div>
-      <div class="istat" id="iStat" title=""><span class="dot"></span><span id="iStatTx">Checking …</span></div>
-      <button class="ireset" id="iReset" title="Use your own items again">Reset</button>
+      <div class="ipres" id="iPresets"></div>
+      <span class="isp"></span>
+      <button class="ibtn" id="iRandom" title="Random loadout"><span class="gi" data-ic="dice"></span>Shuffle</button>
+      <button class="ibtn" id="iReset" title="Use your own items again"><span class="gi" data-ic="year"></span>Reset</button>
+      <div class="istat" id="iStat"><span class="dot"></span><span id="iStatTx">Checking …</span></div>
       <div class="itog" id="iToggle" role="switch" aria-checked="true" tabindex="0" title="Item swap on/off"><span class="tg on" id="iTg"></span></div>
     </div>
-    <div class="islots" id="iSlots"></div>
     <div class="imain">
-      <div class="igrid" id="iGrid"></div>
-      <div class="ipaint" id="iPaint"></div>
+      <div class="itiles" id="iTiles"></div>
+      <div class="ipick" id="iPick">
+        <div class="iph"><span class="gi" id="ipIc"></span><b id="ipTitle">Car</b><span class="ipc" id="ipCount"></span>
+          <button class="ipx" id="ipClose" title="Close"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button></div>
+        <div class="isrch"><span class="gi" data-ic="search"></span><input id="iSearch" placeholder="Search …" spellcheck="false"></div>
+        <div class="iplist" id="ipList"></div>
+        <div class="ipaint" id="iPaint"></div>
+      </div>
       <div class="iempty" id="iEmpty"></div>
     </div>
   </section>
@@ -2278,7 +2321,7 @@ function setTab(t){
   heroPlay(t === 'vHome');
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
-  if (t === 'vItems') itemsEnter();
+  if (t === 'vItems') itemsEnter(); else if (typeof itemsClosePick === 'function' && items.pick !== null){ items.pick = null; $('vItems').querySelector('.imain').classList.remove('picking'); }
   if (t === 'vDl') guideFirst(); else guideOpen(false, false, true);
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
@@ -2359,7 +2402,8 @@ const ICONS = {
   flag:   '<path d="M4 14.2V2"/><path d="M4 2.6c2.5-1.2 4.5 1.4 8 0v5.6c-3.5 1.4-5.5-1.2-8 0"/>',
   burst:  '<path d="M8 1.8v3M8 11.2v3M1.8 8h3M11.2 8h3M3.6 3.6l2.1 2.1M10.3 10.3l2.1 2.1M3.6 12.4l2.1-2.1M10.3 5.7l2.1-2.1"/><circle cx="8" cy="8" r="1.4"/>',
   wave:   '<path d="M1.8 6c2-2 4-2 6 0s4 2 6 0M1.8 10.5c2-2 4-2 6 0s4 2 6 0"/>',
-  music:  '<path d="M6 12.3V3.4l7-1.4v8.7"/><circle cx="4.3" cy="12.3" r="1.8"/><circle cx="11.3" cy="10.7" r="1.8"/>'
+  music:  '<path d="M6 12.3V3.4l7-1.4v8.7"/><circle cx="4.3" cy="12.3" r="1.8"/><circle cx="11.3" cy="10.7" r="1.8"/>',
+  dice:   '<rect x="2.2" y="2.2" width="11.6" height="11.6" rx="2.6"/><path d="M5.4 5.4v.1M10.6 5.4v.1M8 8v.1M5.4 10.6v.1M10.6 10.6v.1"/>'
 };
 const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
 document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.closest('.rnav') ? 13 : 16));
@@ -3129,14 +3173,15 @@ paintBoost();
 
 
 /* ---------- Items (Item Swapper ueber BakkesMod) ---------- */
-const ISLOTS = [[0, 'Car', 'car'], [1, 'Decal', 'layers'], [7, 'Paint Finish', 'drop'], [12, 'Accent Finish', 'drop'], [2, 'Wheels', 'wheel'], [3, 'Boost', 'flame'],
+const ISLOTS = [[0, 'Car', 'car'], [1, 'Decal', 'layers'], [2, 'Wheels', 'wheel'], [3, 'Boost', 'flame'], [7, 'Paint Finish', 'drop'], [12, 'Accent Finish', 'drop'],
   [5, 'Topper', 'hat'], [4, 'Antenna', 'flag'], [15, 'Goal Explosion', 'burst'], [14, 'Trail', 'wave'], [13, 'Engine Audio', 'sound'], [18, 'Anthem', 'music']];
 const IQ = [['Common', '#a9a9b4'], ['Uncommon', '#6eb4ff'], ['Rare', '#5a8cff'], ['Very Rare', '#a064ff'], ['Import', '#e64646'], ['Exotic', '#f0c83c'],
   ['Black Market', '#f05ac8'], ['Premium', '#5adc8c'], ['Limited', '#fa9632'], ['Legacy', '#c8c878']];
 const IPAINT_FALLBACK = [[1, 'Crimson', '#c8102e'], [2, 'Lime', '#7fff00'], [3, 'Black', '#1a1a1a'], [4, 'Sky Blue', '#62b6f0'], [5, 'Cobalt', '#3b4fd8'], [6, 'Burnt Sienna', '#8a4b24'],
   [7, 'Forest Green', '#1f7a3a'], [8, 'Purple', '#8a2be2'], [9, 'Pink', '#ff69b4'], [10, 'Orange', '#ff8c1a'], [11, 'Grey', '#8a8a8a'], [12, 'Titanium White', '#f5f5f5'],
   [13, 'Saffron', '#f4d03f'], [14, 'Gold', '#d4af37'], [15, 'Rose Gold', '#e0a899'], [16, 'White Gold', '#efe6c8'], [17, 'Onyx', '#2b2b2f'], [18, 'Platinum', '#d8dde3']];
-const items = {db: null, byId: new Map(), dbTime: -1, st: {enabled: true, items: {}}, stKey: '', slot: 0, limit: 120, saveT: null, pending: false, status: null};
+const CK = '<span class="ck"><svg viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>';
+const items = {db: null, byId: new Map(), dbTime: -1, st: {enabled: true, items: {}}, stKey: '', pick: null, saveT: null, pending: false, status: null, preset: null, kb: -1};
 
 async function itemsEnter(){ await itemsRefresh(true); }
 async function itemsRefresh(first){
@@ -3146,20 +3191,18 @@ async function itemsRefresh(first){
   items.status = st;
   if (st.db && st.dbTime !== items.dbTime){
     try {
-      const raw = has('getItemsDB') ? await getItemsDB() : '';
-      const db = JSON.parse(raw || 'null');
+      const db = JSON.parse((has('getItemsDB') ? await getItemsDB() : '') || 'null');
       if (db && db.items){ items.db = db; items.byId = new Map(db.items.map(i => [i.id, i])); items.dbTime = st.dbTime; first = true; }
     } catch (e) {}
   }
   if (!items.pending){
     try {
-      const cur = has('getItems') ? await getItems() : null;
-      const key = JSON.stringify(cur);
+      const cur = has('getItems') ? await getItems() : null, key = JSON.stringify(cur);
       if (cur && key !== items.stKey){ items.st = {enabled: cur.enabled !== false, items: cur.items || {}}; items.stKey = key; first = true; }
     } catch (e) {}
   }
   itemsPaintStatus();
-  if (first){ itemsRenderSlots(); itemsRenderGrid(); itemsRenderPaint(); }
+  if (first){ itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick(); }
 }
 function itemsPaintStatus(){
   const st = items.status || {}, b = $('iStat'), tx = $('iStatTx');
@@ -3171,134 +3214,200 @@ function itemsPaintStatus(){
   b.title = st.bakkesmod ? 'Works without Anti-Cheat only. Press F8 in Rocket League to change items.' : '';
   const on = items.st.enabled !== false;
   $('iTg').classList.toggle('on', on); $('iToggle').setAttribute('aria-checked', on);
-  // Leer-Zustaende
   const e = $('iEmpty');
   if (!st.bakkesmod){
-    e.innerHTML = `<div><h3>Get BakkesMod first</h3>
-      <p>Items run on BakkesMod, the free Rocket League mod. Install it once, ZLauncher does the rest.</p>
+    e.innerHTML = `<div><h3>Get BakkesMod first</h3><p>Items run on BakkesMod, the free Rocket League mod. Install it once, ZLauncher does the rest.</p>
       <div class="rowb"><button class="sbtn go" id="iGetBM">Get BakkesMod<span class="gi">${icon('ext', 13)}</span></button><button class="sbtn" id="iRecheck">I've installed it</button></div></div>`;
     $('iGetBM').onclick = () => { if (has('getBakkesMod')) getBakkesMod(); };
     $('iRecheck').onclick = () => { Sfx.ui('tick'); itemsRefresh(true); };
     e.classList.add('on');
   } else if (!items.db){
-    e.innerHTML = `<div><h3>Load your item list</h3>
-      <p>Start Rocket League once without Anti-Cheat. ZLauncher reads all items from the game in a few seconds.</p>
+    e.innerHTML = `<div><h3>Load your item list</h3><p>Start Rocket League once without Anti-Cheat. ZLauncher reads all items from the game in a few seconds.</p>
       <div class="rowb"><button class="sbtn go" id="iPlay">Play without Anti-Cheat</button></div></div>`;
     $('iPlay').onclick = () => { setTab('vHome'); setTimeout(() => launch(false), 350); };
     e.classList.add('on');
   } else e.classList.remove('on');
 }
-function itemName(slot){
-  const it = items.st.items[slot];
-  if (!it || !it.id) return '';
-  const d = items.byId.get(it.id);
-  return d ? d.name : '#' + it.id;
-}
-function itemsRenderSlots(){
+const itemsPaints = () => items.db?.paints?.length ? items.db.paints.map(p => [p.id, p.name, p.color]) : IPAINT_FALLBACK;
+const paintOf = id => itemsPaints().find(p => p[0] === id);
+
+// ---- Loadout-Kacheln ----
+function itemsRenderTiles(){
   const have = new Set((items.db?.items || []).map(i => i.slot));
-  $('iSlots').innerHTML = ISLOTS.filter(([i]) => !items.db || have.has(i)).map(([i, label, ic]) => {
-    const n = itemName(i);
-    return `<button class="isl${i === items.slot ? ' on' : ''}${n ? ' set' : ''}" data-s="${i}" title="${n ? esc(n) : 'Your own'}"><span class="gi">${icon(ic, 13)}</span>${label}<i></i></button>`;
-  }).join('');
-  requestAnimationFrame(islotsEdge);
-  $('iSlots').querySelectorAll('.isl').forEach(b => b.onclick = () => {
-    const s = +b.dataset.s; if (s === items.slot) return;
-    items.slot = s; items.limit = 120; $('iSearch').value = ''; Sfx.ui('tab');
-    $('iSlots').querySelectorAll('.isl').forEach(x => x.classList.toggle('on', x === b));
-    itemsRenderGrid(); itemsRenderPaint(); $('iGrid').scrollTop = 0;
-    b.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'smooth'});
-  });
+  $('iTiles').innerHTML = ISLOTS.filter(([i]) => !items.db || have.has(i)).map(([slot, label, ic], n) => tileHTML(slot, label, ic, n)).join('');
+  $('iTiles').querySelectorAll('.itile').forEach(t => t.onclick = () => itemsOpenPick(+t.dataset.s));
 }
-function itemsFiltered(){
-  if (!items.db) return [];
-  const q = $('iSearch').value.trim().toLowerCase(), slot = items.slot;
+function tileHTML(slot, label, ic, n){
+  const cur = items.st.items[slot], d = cur && items.byId.get(cur.id);
+  const q = d ? (IQ[d.q] || IQ[0]) : IQ[0], p = cur && cur.paint ? paintOf(cur.paint) : null;
+  let sub = d ? q[0] : '';
+  if (p) sub += ' · ' + p[1];
+  return `<button class="itile${d ? ' set' : ''}${items.pick === slot ? ' on' : ''}" data-s="${slot}" style="--qc:${q[1]};animation-delay:${(n || 0) * 25}ms">
+    <span class="tic gi">${icon(ic, 19)}</span><span class="tt"><span class="tl">${label}</span><b>${d ? esc(d.name) : 'Your own'}</b><small>${esc(sub)}</small></span>
+    ${p ? `<span class="pd" style="--pc:${p[2]}"></span>` : ''}<svg class="chev" width="14" height="14" viewBox="0 0 16 16"><path d="M6 3.5L10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+}
+function itemsUpdateTile(slot, bump){
+  const t = $('iTiles').querySelector(`.itile[data-s="${slot}"]`); if (!t) return;
+  const [, label, ic] = ISLOTS.find(x => x[0] === slot);
+  const w = document.createElement('div'); w.innerHTML = tileHTML(slot, label, ic, 0);
+  const nt = w.firstElementChild; nt.style.animation = 'none'; if (bump) nt.classList.add('bump');
+  nt.onclick = () => itemsOpenPick(slot);
+  t.replaceWith(nt);
+}
+
+// ---- Auswahl-Panel ----
+function itemsOpenPick(slot){
+  if (items.pick === slot){ itemsClosePick(); return; }
+  items.pick = slot; items.kb = -1; Sfx.ui('present');
+  $('iSearch').value = '';
+  $('vItems').querySelector('.imain').classList.add('picking');
+  $('iTiles').querySelectorAll('.itile').forEach(t => t.classList.toggle('on', +t.dataset.s === slot));
+  itemsRenderPick();
+  setTimeout(() => $('iSearch').focus({preventScroll: true}), 80);
+}
+function itemsClosePick(){
+  if (items.pick === null) return;
+  items.pick = null; Sfx.ui('dismiss');
+  $('vItems').querySelector('.imain').classList.remove('picking');
+  $('iTiles').querySelectorAll('.itile.on').forEach(t => t.classList.remove('on'));
+}
+function itemsCandidates(slot){
   const body = items.st.items[0]?.id || 0;
-  return items.db.items.filter(i => i.slot === slot && (!q || i.name.toLowerCase().includes(q)) &&
-    (slot !== 1 || !body || !i.bodies || !i.bodies.length || i.bodies.includes(body)));
+  return (items.db?.items || []).filter(i => i.slot === slot && (slot !== 1 || !body || !i.bodies || !i.bodies.length || i.bodies.includes(body)));
 }
-function itemsPaints(){
-  const ps = items.db?.paints?.length ? items.db.paints.map(p => [p.id, p.name, p.color]) : IPAINT_FALLBACK;
-  return ps;
-}
-function itemsRenderGrid(){
-  const list = itemsFiltered(), cur = items.st.items[items.slot];
-  $('iCount').textContent = list.length;
-  const paints = new Map(itemsPaints().map(p => [p[0], p[2]]));
-  const CK = '<span class="ck"><svg viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>';
-  let h = `<button class="icard def${!cur ? ' on' : ''}" data-id="0">${CK}<b>Your own</b></button>`;
-  list.slice(0, items.limit).forEach((i, n) => {
-    const q = IQ[i.q] || IQ[0], on = cur && cur.id === i.id;
-    let sub = q[0];
-    if (i.slot === 1 && i.bodies && i.bodies.length === 1){ const b = items.byId.get(i.bodies[0]); if (b) sub = b.name; }
-    const pc = on && cur.paint ? paints.get(cur.paint) : '';
-    h += `<button class="icard${on ? ' on' : ''}" data-id="${i.id}" style="--qc:${q[1]};animation-delay:${Math.min(n, 30) * 8}ms">${CK}${pc ? `<span class="pd" style="--pc:${pc}"></span>` : ''}<b>${esc(i.name)}</b><small>${esc(sub)}</small></button>`;
+function itemsRenderPick(){
+  const slot = items.pick; if (slot === null) return;
+  const [, label, ic] = ISLOTS.find(x => x[0] === slot);
+  $('ipIc').innerHTML = icon(ic, 17); $('ipTitle').textContent = label;
+  const all = itemsCandidates(slot), q = $('iSearch').value.trim().toLowerCase(), cur = items.st.items[slot];
+  $('ipCount').textContent = all.length + ' items';
+  // nicht alles auflisten: ohne Suche das Gewaehlte + eine kleine Auswahl, mit Suche die besten Treffer
+  let list;
+  if (q){
+    const starts = [], has_ = [];
+    all.forEach(i => { const n = i.name.toLowerCase(); if (n.startsWith(q) || n.includes(' ' + q)) starts.push(i); else if (n.includes(q)) has_.push(i); });
+    list = starts.concat(has_).slice(0, 40);
+  } else {
+    const pickd = cur ? all.filter(i => i.id === cur.id) : [];
+    const top = all.filter(i => !cur || i.id !== cur.id).sort((a, b) => b.q - a.q || a.name.localeCompare(b.name)).slice(0, 24);
+    list = pickd.concat(top);
+  }
+  let h = `<button class="ipr2${!cur ? ' on' : ''}" data-id="0"><span class="q" style="--qc:transparent;border:1px dashed var(--line2)"></span><span class="t"><b>Your own</b><small>What you have equipped</small></span>${CK}</button>`;
+  list.forEach(i => {
+    const qq = IQ[i.q] || IQ[0];
+    let sub = qq[0];
+    if (i.slot === 1 && i.bodies && i.bodies.length === 1){ const b = items.byId.get(i.bodies[0]); if (b) sub += ' · ' + b.name; }
+    h += `<button class="ipr2${cur && cur.id === i.id ? ' on' : ''}" data-id="${i.id}"><span class="q" style="--qc:${qq[1]}"></span><span class="t"><b>${esc(i.name)}</b><small>${esc(sub)}</small></span>${CK}</button>`;
   });
-  if (list.length > items.limit) h += `<div class="imore">Scroll for more …</div>`;
-  $('iGrid').innerHTML = h;
+  if (!q && all.length > list.length) h += `<div class="iphint">Type to search all ${all.length} items</div>`;
+  else if (q && !list.length) h += `<div class="iphint">Nothing found</div>`;
+  $('ipList').innerHTML = h;
+  items.kb = -1;
+  itemsRenderPaint();
 }
-$('iGrid').addEventListener('click', e => {
-  const c = e.target.closest('.icard'); if (!c) return;
-  const id = +c.dataset.id, s = String(items.slot), cur = items.st.items[s];
+$('ipList').addEventListener('click', e => { const r = e.target.closest('.ipr2'); if (r) itemsChoose(+r.dataset.id); });
+function itemsChoose(id){
+  const slot = items.pick; if (slot === null) return;
+  const s = String(slot), cur = items.st.items[s];
   if (!id){ if (!cur) return; delete items.st.items[s]; }
   else {
     if (cur && cur.id === id) return;
     const d = items.byId.get(id);
     items.st.items[s] = {id, paint: d && d.paint && cur ? cur.paint || 0 : 0};
-    // anderes Auto: unpassenden Decal entfernen
-    if (items.slot === 0 && items.st.items[1]){ const dec = items.byId.get(items.st.items[1].id); if (dec && dec.bodies && dec.bodies.length && !dec.bodies.includes(id)) delete items.st.items[1]; }
+    if (slot === 0 && items.st.items[1]){ const dec = items.byId.get(items.st.items[1].id); if (dec && dec.bodies && dec.bodies.length && !dec.bodies.includes(id)){ delete items.st.items[1]; itemsUpdateTile(1, true); } }
   }
-  Sfx.ui('fav');
-  $('iGrid').querySelectorAll('.icard.on').forEach(x => x.classList.remove('on'));
-  c.classList.add('on');
-  itemsSave(); itemsSlotLabel(items.slot); if (items.slot === 0) itemsSlotLabel(1); itemsRenderPaint();
-});
-$('iGrid').addEventListener('scroll', () => {
-  const g = $('iGrid');
-  if (g.scrollTop + g.clientHeight > g.scrollHeight - 300 && itemsFiltered().length > items.limit){ items.limit += 120; const t = g.scrollTop; itemsRenderGrid(); g.scrollTop = t; }
-});
-let iSearchT;
-$('iSearch').addEventListener('input', () => { clearTimeout(iSearchT); iSearchT = setTimeout(() => { items.limit = 120; itemsRenderGrid(); $('iGrid').scrollTop = 0; }, 120); });
-function itemsSlotLabel(slot){
-  const b = $('iSlots').querySelector(`.isl[data-s="${slot}"]`); if (!b) return;
-  const n = itemName(slot); b.title = n || 'Your own'; b.classList.toggle('set', !!n);
+  Sfx.ui('fav'); items.preset = null; itemsRenderPresets();
+  $('ipList').querySelectorAll('.ipr2').forEach(r => r.classList.toggle('on', +r.dataset.id === id));
+  itemsSave(); itemsUpdateTile(slot, true); itemsRenderPaint();
 }
+let iSearchT;
+$('iSearch').addEventListener('input', () => { clearTimeout(iSearchT); iSearchT = setTimeout(itemsRenderPick, 90); });
+// Tastatur: Pfeile + Enter, Esc schliesst
+$('iSearch').addEventListener('keydown', e => {
+  const rows = [...$('ipList').querySelectorAll('.ipr2')];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault(); items.kb = Math.max(0, Math.min(rows.length - 1, items.kb + (e.key === 'ArrowDown' ? 1 : -1)));
+    rows.forEach((r, i) => r.classList.toggle('kb', i === items.kb)); rows[items.kb]?.scrollIntoView({block: 'nearest'});
+  } else if (e.key === 'Enter'){ const r = rows[items.kb >= 0 ? items.kb : (rows.length > 1 ? 1 : 0)]; if (r) itemsChoose(+r.dataset.id); }
+  else if (e.key === 'Escape'){ e.stopPropagation(); itemsClosePick(); }
+});
+$('ipClose').onclick = itemsClosePick;
+$('vItems').querySelector('.imain').addEventListener('mousedown', e => { if (items.pick !== null && !e.target.closest('.ipick') && !e.target.closest('.itile')) itemsClosePick(); });
 function itemsRenderPaint(){
-  const cur = items.st.items[items.slot], d = cur && items.byId.get(cur.id), p = $('iPaint');
+  const slot = items.pick, cur = slot !== null && items.st.items[slot], d = cur && items.byId.get(cur.id), p = $('iPaint');
   if (!d || !d.paint){ p.classList.remove('on'); return; }
   p.innerHTML = `<span class="pl">Paint</span><button class="pch none${!cur.paint ? ' on' : ''}" data-p="0" title="Unpainted"></button>` +
     itemsPaints().map(([id, name, c]) => `<button class="pch${cur.paint === id ? ' on' : ''}" data-p="${id}" title="${esc(name)}" style="--pc:${c}"></button>`).join('');
   p.classList.add('on');
   p.querySelectorAll('.pch').forEach(b => b.onclick = () => {
-    const c = items.st.items[items.slot]; if (!c) return;
-    c.paint = +b.dataset.p; Sfx.ui('tick');
+    const c = items.st.items[items.pick]; if (!c) return;
+    c.paint = +b.dataset.p; Sfx.ui('tick'); items.preset = null; itemsRenderPresets();
     p.querySelectorAll('.pch').forEach(x => x.classList.toggle('on', x === b));
-    const card = $('iGrid').querySelector(`.icard[data-id="${c.id}"]`);
-    if (card){ card.querySelector('.pd')?.remove(); if (c.paint){ const s = document.createElement('span'); s.className = 'pd'; s.style.setProperty('--pc', b.style.getPropertyValue('--pc')); card.appendChild(s); } }
-    itemsSave();
+    itemsSave(); itemsUpdateTile(items.pick, false);
   });
 }
+
+// ---- Presets, Shuffle, Reset ----
+function itemsPresets(){ return Array.isArray(settings.itemPresets) ? settings.itemPresets : []; }
+function itemsRenderPresets(){
+  const ps = itemsPresets();
+  $('iPresets').innerHTML = ps.map((p, i) => `<button class="ipr${items.preset === i ? ' on' : ''}" data-i="${i}" title="Load preset">${esc(p.name)}<span class="del" data-del="${i}" title="Delete">
+    <svg width="9" height="9" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></button>`).join('') +
+    (ps.length < 8 ? `<button class="ipr add" id="iAddPreset">+ Save loadout</button>` : '');
+  $('iPresets').querySelectorAll('.ipr[data-i]').forEach(b => b.onclick = e => {
+    const di = e.target.closest('[data-del]');
+    const ps2 = itemsPresets();
+    if (di){ e.stopPropagation(); ps2.splice(+di.dataset.del, 1); settings.itemPresets = ps2; saveSetting('itemPresets', ps2); items.preset = null; Sfx.ui('unfav'); itemsRenderPresets(); return; }
+    const p = ps2[+b.dataset.i]; if (!p) return;
+    items.st.items = JSON.parse(JSON.stringify(p.items || {})); items.preset = +b.dataset.i;
+    Sfx.ui('swap'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick();
+  });
+  const add = $('iAddPreset');
+  if (add) add.onclick = () => {
+    if (!Object.keys(items.st.items).length){ toast('Pick some items first.', false); return; }
+    add.outerHTML = `<span class="ipr on"><input id="iPresetName" maxlength="20" placeholder="Name …" value="Loadout ${itemsPresets().length + 1}"></span>`;
+    const inp = $('iPresetName'); inp.focus(); inp.select();
+    let fin = false;
+    const done = ok => {
+      if (fin) return; fin = true;
+      const name = inp.value.trim();
+      if (ok && name){ const ps2 = itemsPresets(); ps2.push({name, items: JSON.parse(JSON.stringify(items.st.items))}); settings.itemPresets = ps2; saveSetting('itemPresets', ps2); items.preset = ps2.length - 1; Sfx.ui('done'); }
+      setTimeout(itemsRenderPresets, 0);
+    };
+    inp.onkeydown = e => { if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false); };
+    inp.onblur = () => done(true);
+  };
+}
+$('iRandom').onclick = () => {
+  if (!items.db) return;
+  const rnd = a => a[Math.floor(Math.random() * a.length)];
+  const next = {};
+  [0, 1, 2, 3, 5, 15, 14].forEach(slot => {
+    const pool = slot === 1 ? (items.db.items.filter(i => i.slot === 1 && (!i.bodies || !i.bodies.length || i.bodies.includes(next[0]?.id)))) : items.db.items.filter(i => i.slot === slot);
+    if (!pool.length) return;
+    const it = rnd(pool);
+    next[slot] = {id: it.id, paint: it.paint && Math.random() < .5 ? rnd(itemsPaints())[0] : 0};
+  });
+  items.st.items = next; items.preset = null;
+  const b = $('iRandom'); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin');
+  Sfx.ui('swap'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick();
+};
+$('iReset').onclick = () => {
+  if (!Object.keys(items.st.items).length) return;
+  items.st.items = {}; items.preset = null; Sfx.ui('restore'); itemsSave(); itemsRenderTiles(); itemsRenderPresets(); if (items.pick !== null) itemsRenderPick();
+};
 function itemsSave(){
   items.pending = true; clearTimeout(items.saveT);
   items.saveT = setTimeout(async () => {
     const st = {enabled: items.st.enabled !== false, items: items.st.items};
     try { if (has('setItems')) await setItems(st); items.stKey = JSON.stringify(st); } catch (e) { toast(e, false); }
-    items.pending = false;
-    itemsPaintStatus();
+    items.pending = false; itemsPaintStatus();
   }, 250);
 }
 function itemsToggle(){ items.st.enabled = !(items.st.enabled !== false); Sfx.ui('tab'); itemsPaintStatus(); itemsSave(); }
 $('iToggle').onclick = itemsToggle;
 $('iToggle').onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); itemsToggle(); } };
-$('iReset').onclick = () => {
-  if (!Object.keys(items.st.items).length) return;
-  items.st.items = {}; Sfx.ui('restore'); itemsSave(); itemsRenderSlots(); itemsRenderGrid(); itemsRenderPaint();
-};
 setInterval(() => { if (tab === 'vItems' && !appHidden && !document.hidden) itemsRefresh(false); }, 3000);
-// Slot-Leiste: Mausrad scrollt seitlich, Rand blendet aus, solange noch mehr kommt
-function islotsEdge(){ const e = $('iSlots'); e.classList.toggle('more', e.scrollWidth > e.clientWidth + 2); e.classList.toggle('end', e.scrollLeft + e.clientWidth >= e.scrollWidth - 2); }
-$('iSlots').addEventListener('wheel', e => { const el = $('iSlots'); if (el.scrollWidth > el.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)){ e.preventDefault(); el.scrollBy({left: e.deltaY, behavior: 'smooth'}); } }, {passive: false});
-$('iSlots').addEventListener('scroll', islotsEdge);
-window.addEventListener('resize', islotsEdge);
 /* ---------- Logo im Video: Hover-Animation ---------- */
 (() => {
   const box = document.querySelector('.hbrand'); let busy = false;
