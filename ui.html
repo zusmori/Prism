@@ -1249,7 +1249,7 @@
     </div>
     <aside class="card friends in" style="--d:.07s">
       <div class="fh"><span class="gi" data-ic="users"></span><b>Steam friends</b><span class="fon" id="fOn"></span>
-        <button class="ib2" id="fRefresh" title="Refresh"><span class="gi" data-ic="year"></span></button></div>
+</div>
       <div class="fme" id="fMe"></div>
       <div class="fsearch"><span class="gi" data-ic="search"></span><input id="fSearch" placeholder="Search friends …" spellcheck="false"></div>
       <div class="flist" id="fList"></div>
@@ -1476,7 +1476,7 @@
         <div class="dsub" id="rpcOpts">
           <div class="srow" id="setRpcMatch" role="switch" tabindex="0"><div class="tx"><b>Match status</b><small>Mode and goals, e.g. "Rocket League · 2s Ranked" and "2 : 1".</small></div><span class="tg" id="tgRpcMatch"></span></div>
           <div class="srow" id="setRpcMaps" role="switch" tabindex="0"><div class="tx"><b>Workshop map names</b><small>Shows which workshop map you're playing in Freeplay.</small></div><span class="tg" id="tgRpcMaps"></span></div>
-          <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps". Nothing is shown while ZLauncher sits in the tray.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
+          <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps", or "Idle" while ZLauncher sits in the tray.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
           <div class="srow" id="setRpcTime" role="switch" tabindex="0"><div class="tx"><b>Elapsed time</b><small>How long you've been playing.</small></div><span class="tg" id="tgRpcTime"></span></div>
           <div class="srow" id="setRpcButton" role="switch" tabindex="0"><div class="tx"><b>"Get ZLauncher" button</b><small>A button others can click to download the launcher.</small></div><span class="tg" id="tgRpcButton"></span></div>
         </div>
@@ -2572,7 +2572,7 @@ async function pollRL(){ try { paintRL(await rlCall()); } catch (e) {} pollBoost
 function homeEnter(){
   paintHome(); pollRL();
   clearInterval(home.poll); home.poll = setInterval(() => { if (tab === 'vHome' && !document.hidden && !appHidden) pollRL(); }, 2500);
-  if (Date.now() - home.fAt > 30000) loadFriends();
+  if (Date.now() - (home.fAt || 0) > 5000) loadFriends();
 }
 async function launch(eac, force){
   if (home.launching) return;
@@ -2639,14 +2639,14 @@ function friendSkeleton(){
 }
 async function loadFriends(manual){
   if (home.fBusy) return;
-  home.fBusy = true; $('fRefresh').classList.add('spin');
+  home.fBusy = true; home.fTry = Date.now();
   if (!home.friends) friendSkeleton();
   try {
     const r = await friendsCall();
     home.friends = r; home.fAt = Date.now(); home.fErr = null; home.fNew = true;
     if (manual) Sfx.ui('tick');
   } catch (e) { home.fErr = String(e); if (!home.friends || /Steam isn't running/.test(home.fErr)) home.friends = null; }
-  home.fBusy = false; $('fRefresh').classList.remove('spin');
+  home.fBusy = false;
   const fresh = home.fNew; home.fNew = false;
   renderFriends(fresh);
 }
@@ -2758,11 +2758,18 @@ function friendChanges(all){
   });
   return out;
 }
-$('fRefresh').onclick = () => loadFriends(true);
 $('fSearch').addEventListener('input', () => home.friends && renderFriends());
-// regelmaessig aktualisieren (ohne oeffentliche Liste seltener, das sind viele Einzelabfragen)
-setInterval(() => { const every = home.friends && home.friends.source === 'local' ? 90000 : 30000;
-  if (tab === 'vHome' && !document.hidden && !appHidden && Date.now() - home.fAt > every) loadFriends(); }, 5000);
+// immer automatisch aktuell halten (ohne oeffentliche Liste seltener, das sind viele Einzelabfragen)
+function friendsDue(){
+  if (home.fBusy) return false;
+  const now = Date.now();
+  if (home.fErr && now - (home.fTry || 0) > 10000) return true;          // nach Fehler alle 10 s neu versuchen
+  const every = home.friends && home.friends.source === 'local' ? 60000 : 15000;
+  return now - (home.fAt || 0) > every;
+}
+setInterval(() => { if (tab === 'vHome' && !document.hidden && !appHidden && friendsDue()) loadFriends(); }, 3000);
+// beim Zurueckkommen ins Fenster sofort auffrischen
+window.addEventListener('focus', () => { if (tab === 'vHome' && !appHidden && !home.fBusy && Date.now() - (home.fAt || 0) > 5000) loadFriends(); });
 
 /* ---------- Game Boost ---------- */
 const boost = {st: {enabled: true, active: false, priority: 'waiting', power: 'waiting', gpu: 'off'}};
@@ -3021,10 +3028,11 @@ async function intro(){
 let closing = false;
 async function outro(){
   if (closing) return; closing = true;
-  try { if (await Sfx.ready()) Sfx.close(); } catch (e) {}
+  // aus dem Tray beenden: still, ohne Sound und Animation
+  if (!appHidden){ try { if (await Sfx.ready()) Sfx.close(); } catch (e) {} }
   document.querySelectorAll('.menu.show,.cpop.show').forEach(m => m.classList.remove('show'));
   document.body.classList.add('closing');
-  await sleep(250);
+  if (!appHidden) await sleep(250);
   if (has('closeWindow')) closeWindow(); else window.close();
 }
 window.__requestClose = () => requestClose();

@@ -317,7 +317,7 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 	case in.RLRunning:
 		start = in.GameStart
 		m := in.Match
-		fresh := m != nil && m.InMatch && time.Since(m.Seen) < 2*time.Minute
+		fresh := m != nil && m.InMatch && time.Since(m.Seen) < 30*time.Second
 		// Workshop-Map im Freeplay
 		if fresh && cfg.Maps && in.Swaps != nil && m.Arena != "" {
 			if t := swapTitleFor(in.Swaps, m.Arena); t != "" {
@@ -358,15 +358,15 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 			}
 			break
 		}
-		// keine Matchdaten: ohne Anti-Cheat geht nur Offline-Spiel
-		if in.EAC {
-			a.Details, a.State = "Rocket League", "In the menus"
-		} else {
-			a.Details = "Rocket League · Freeplay"
-		}
+		// keine laufende Partie: Hauptmenue (mit und ohne Anti-Cheat)
+		a.Details = "Rocket League · Menu"
 	case in.Starting:
 		a.Details, a.State = "Starting Rocket League", "Almost ready …"
-	case cfg.Launcher && !in.Hidden:
+	case cfg.Launcher && in.Hidden:
+		// im Tray: nur noch "Idle"
+		start = in.LaunchOpen
+		a.Details, a.State = "Idle", "Ready to play Rocket League"
+	case cfg.Launcher:
 		start = in.LaunchOpen
 		switch in.Tab {
 		case "vDl":

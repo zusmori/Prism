@@ -44,12 +44,18 @@ func TestStatsAndActivity(t *testing.T) {
 	if a.Details != "Rocket League · Freeplay" || a.State != "Speed Jump: Rings 3" {
 		t.Fatalf("map got %q / %q", a.Details, a.State)
 	}
-	// keine Matchdaten
-	if a = BuildActivity(cfg, PresenceInput{RLRunning: true}); a.Details != "Rocket League · Freeplay" {
+	// keine Matchdaten = Hauptmenue, mit und ohne Anti-Cheat
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true}); a.Details != "Rocket League · Menu" || a.State != "" {
+		t.Fatal(a.Details, a.State)
+	}
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, EAC: true}); a.Details != "Rocket League · Menu" {
 		t.Fatal(a.Details)
 	}
-	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, EAC: true}); a.State != "In the menus" {
-		t.Fatal(a.Details)
+	// Partie vorbei (MatchDestroyed) -> wieder Menue
+	gone := MatchState{InMatch: true, Playlist: 11, Seen: now}
+	gone.Apply([]byte(`{"Event":"MatchDestroyed","Data":{}}`), now)
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &gone}); a.Details != "Rocket League · Menu" {
+		t.Fatal("destroyed", a.Details)
 	}
 	// Launcher offen, Spiel zu
 	a = BuildActivity(cfg, PresenceInput{Tab: "vBrowse", LaunchOpen: now})
@@ -62,8 +68,8 @@ func TestStatsAndActivity(t *testing.T) {
 	if a = BuildActivity(cfg, PresenceInput{Tab: "vHome"}); a.Details != "Getting ready to play" {
 		t.Fatal(a.Details)
 	}
-	if BuildActivity(cfg, PresenceInput{Tab: "vHome", Hidden: true}) != nil {
-		t.Fatal("tray should hide presence")
+	if a = BuildActivity(cfg, PresenceInput{Tab: "vHome", Hidden: true}); a == nil || a.Details != "Idle" {
+		t.Fatal("tray should show Idle")
 	}
 	if a = BuildActivity(cfg, PresenceInput{Hidden: true, Starting: true}); a.Details != "Starting Rocket League" {
 		t.Fatal(a.Details)
