@@ -67,7 +67,8 @@ static void *fnIsPaintable = nullptr, *clsPainted = nullptr, *cdoPainted = nullp
 static void *fnPathName = nullptr, *cdoObject = nullptr;
 static int offIsPaintableRet = -1, offCreateId = -1, offCreateRet = -1, offPaintID = -1, offPathObj = -1, offPathRet = -1;
 static int offClientOnline = -1, offFullAttr = -1;
-static bool attrArraysOk = false; // Zeitpunkt fuer das (gebuendelte) Anwenden
+static bool attrArraysOk = false;
+static std::map<int, bool> paintableById; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
 static std::atomic<void*> localPC{nullptr};
 static std::vector<void*> localPlayers; // LocalPlayer-Objekte (einmal gesucht)
@@ -311,9 +312,10 @@ static void Patch(ue::TArray<int32_t>* a, int team, const std::map<int, int>& ov
 static std::map<void*, ue::TArray<void*>> attrOrig; // Listen-Adresse -> urspruengliche Liste
 static std::map<void*, void*> attrOurs;             // Listen-Adresse -> unser Speicher
 static std::map<int, void*> attrCache;              // Farb-ID -> Attribut-Objekt
-static std::map<int, bool> paintableById;
+static std::set<std::pair<void*, int>> paintFailed; // hat nicht geklappt: nicht staendig neu versuchen
 
 static void ResetPaintState() {
+	paintFailed.clear();
 	attrOrig.clear();
 	attrOurs.clear();
 	attrCache.clear();
@@ -389,8 +391,12 @@ static void PaintList(ue::TArray<ue::TArray<void*>>* prods, const std::map<int, 
 		int want = WantedPaint(slot, ov, pt);
 		ue::TArray<void*>* elem = &prods->data[slot];
 		if (!want) { SetSlotAttr(elem, nullptr); continue; }
+		if (paintFailed.count({elem, want})) continue;
 		void* a = PaintAttr(want);
-		if (a && !SetSlotAttr(elem, a)) zl::Log("paint: no memory for slot %d", slot);
+		if (!a || !SetSlotAttr(elem, a)) {
+			paintFailed.insert({elem, want});
+			zl::Log("paint: couldn't set color %d on slot %d (%s)", want, slot, a ? "no memory" : "no attribute");
+		}
 	}
 }
 
@@ -426,6 +432,7 @@ static bool PaintsOk(void* pri) {
 		int want = WantedPaint(slot, ov, pt);
 		auto ours = attrOurs.find(elem);
 		bool isOurs = ours != attrOurs.end() && elem->data == ours->second;
+		if (want && paintFailed.count({elem, want})) continue;
 		if (want && !(isOurs && elem->count == 1 && offPaintID >= 0 && elem->data[0] && ue::Read<int32_t>(elem->data[0], offPaintID) == want)) return false;
 		if (!want && attrOrig.count(elem)) return false;
 	}
@@ -817,6 +824,7 @@ void SetPaint(int slot, int paintId) {
 		if (paintId > 0) paints[slot] = paintId;
 		else paints.erase(slot);
 	}
+	Queue([] { paintFailed.clear(); });
 	applyAt = GetTickCount64() + 400;
 	Save();
 }
