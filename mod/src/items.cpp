@@ -219,7 +219,8 @@ void ApplyNow() {
 		static int n = 0;
 		if (n++ < 3) {
 			int pcs = (int)ue::Instances(clsPC).size(), lps = clsLocalPlayer ? (int)ue::Instances(clsLocalPlayer).size() : -1;
-			zl::Log("apply: no local player yet (pc=%p, controllers=%d, localPlayers=%d, ticks seen=%s)", pc, pcs, lps, localPC.load() ? "yes" : "no");
+			zl::Log("apply: no local player yet (pc=%p, controllers=%d, localPlayers=%d, objects=%d, ticks seen=%s) - items work in Freeplay and matches, not in menus",
+				pc, pcs, lps, ue::ObjectCount(), localPC.load() ? "yes" : "no");
 		}
 		return;
 	}
@@ -266,7 +267,10 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (tickFns.count(fn)) { // lokaler Spieler
 		if (localPC.load() != caller && ue::IsA(caller, clsPC)) {
 			localPC = caller;
-			zl::Log("local player controller: %p", caller);
+			void* pri = nullptr; void* pawn = nullptr;
+			try { pri = ue::Read<void*>(caller, offPRI); pawn = offPawn >= 0 ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
+			zl::Log("local player controller: %p (%s) pri=%p pawn=%p (%s)", caller, ue::Name(caller).c_str(), pri, pawn, pawn ? ue::Name(pawn).c_str() : "-");
+			ue::CheckObjects(caller);
 		}
 		return;
 	}

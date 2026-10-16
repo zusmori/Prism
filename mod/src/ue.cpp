@@ -148,6 +148,27 @@ bool Init() {
 
 bool Ready() { return GNames && GObjects; }
 
+bool CheckObjects(void* obj) {
+	if (!obj || !GNames) return false;
+	try {
+		int idx = Read<int32_t>(obj, off::Index);
+		if (GObjects && idx >= 0 && idx < GObjects->count && GObjects->data[idx] == obj) return true;
+		zl::Log("object %p (index %d) not in GObjects %p (count %d) - searching", obj, idx, (void*)GObjects, GObjects ? GObjects->count : 0);
+		for (int d = -0x2000; d <= 0x2000; d += 8) {
+			auto* t = reinterpret_cast<TArray<uint8_t*>*>(reinterpret_cast<uintptr_t>(GNames) + d);
+			try {
+				if (t->data && idx >= 0 && idx < t->count && t->count <= t->max && t->data[idx] == obj) {
+					GObjects = t;
+					zl::Log("GObjects fixed: %p (GNames%+d, %d objects)", (void*)t, d, t->count);
+					return true;
+				}
+			} catch (...) {}
+		}
+	} catch (...) {}
+	zl::Log("GObjects check failed");
+	return false;
+}
+
 int ObjectCount() { return GObjects ? GObjects->count : 0; }
 void* ObjectAt(int i) { return (GObjects && i >= 0 && i < GObjects->count) ? GObjects->data[i] : nullptr; }
 

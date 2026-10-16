@@ -26,7 +26,7 @@ struct FString {
 
 // Aufbau der Engine-Objekte (RLSDK-Generator, Stand 2026)
 namespace off {
-constexpr int Outer = 0x40, Name = 0x48, Class = 0x50;
+constexpr int Index = 0x38, Outer = 0x40, Name = 0x48, Class = 0x50;
 constexpr int FieldNext = 0x60;
 constexpr int StructSuper = 0x80, StructChildren = 0x88, StructSize = 0x90;
 constexpr int PropArrayDim = 0x70, PropElementSize = 0x74, PropOffset = 0x98;
@@ -36,6 +36,8 @@ constexpr int ProcessEventIndex = 67;
 
 bool Init();  // GNames/GObjects suchen und pruefen
 bool Ready();
+// Prueft, ob ein Objekt im Objekt-Array an seinem Index steht; wenn nicht, wird das richtige Array gesucht
+bool CheckObjects(void* knownObject);
 
 int ObjectCount();
 void* ObjectAt(int i);
