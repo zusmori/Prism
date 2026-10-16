@@ -3,7 +3,7 @@
 package main
 
 // Updater: prueft beim Start den neuesten GitHub-Release und tauscht die
-// laufende exe (ZL.exe, frueher ZMS.exe) auf Wunsch gegen die neue Version aus.
+// laufende exe (ZLauncher.exe, frueher ZL.exe / ZMS.exe) auf Wunsch gegen die neue Version aus.
 //
 // Ablauf beim Installieren:
 //   1. neue exe neben die alte herunterladen (<name>.exe.update)
@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -27,12 +28,13 @@ import (
 )
 
 // Bei jedem Release mit hochzaehlen (passend zum Tag, z. B. v1.2.0)
-const appVersion = "1.2.7"
+const appVersion = "1.2.8"
 
 const (
 	releaseAPI = "https://api.github.com/repos/zusmori/zusmoris-map-swapper/releases/latest"
-	assetName  = "ZL.exe"
-	oldAsset   = "ZMS.exe" // Name bis v1.2.2, als Ersatz weiter akzeptiert
+	assetName  = "ZLauncher.exe"
+	zlAsset    = "ZL.exe"  // Name v1.2.3 bis v1.2.7
+	oldAsset   = "ZMS.exe" // Name bis v1.2.2
 )
 
 type UpdateInfo struct {
@@ -51,7 +53,7 @@ func checkUpdate() (UpdateInfo, error) {
 	info := UpdateInfo{Current: appVersion}
 	req, _ := http.NewRequest("GET", releaseAPI, nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "ZL/"+appVersion)
+	req.Header.Set("User-Agent", "ZLauncher/"+appVersion)
 	c := &http.Client{Timeout: 12 * time.Second}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -79,11 +81,14 @@ func checkUpdate() (UpdateInfo, error) {
 	if rel.Draft || rel.Pre {
 		return info, nil
 	}
-	info.Version = strings.TrimPrefix(strings.TrimSpace(rel.Tag), "v")
+	info.Version = tagVersion(rel.Tag)
 	info.Notes = strings.TrimSpace(rel.Body)
 	info.Page = rel.Page
-	// bevorzugt ZL.exe, sonst die alte ZMS.exe, sonst irgendeine .exe im Release
-	for _, want := range []string{assetName, oldAsset, "*.exe"} {
+	if info.Version == "" {
+		return info, nil
+	}
+	// bevorzugt ZLauncher.exe, dann die alten Namen, sonst irgendeine .exe im Release
+	for _, want := range []string{assetName, zlAsset, oldAsset, "*.exe"} {
 		for _, a := range rel.Assets {
 			ok := strings.EqualFold(a.Name, want) || (want == "*.exe" && strings.HasSuffix(strings.ToLower(a.Name), ".exe"))
 			if info.URL == "" && ok && strings.HasPrefix(a.URL, "https://github.com/") {
@@ -94,6 +99,13 @@ func checkUpdate() (UpdateInfo, error) {
 	info.Available = info.URL != "" && newerVersion(info.Version, appVersion)
 	lastUpdate = info
 	return info, nil
+}
+
+// Versionsnummer aus dem Tag holen, egal ob "v1.2.8", "1.2.8" oder "ZLauncher v1.2.8"
+var verRe = regexp.MustCompile(`\d+(?:\.\d+){1,2}`)
+
+func tagVersion(tag string) string {
+	return verRe.FindString(tag)
 }
 
 // "1.10.0" > "1.9.2"
@@ -123,13 +135,13 @@ func installUpdate(progress func(pct float64)) error {
 	}
 	exe, err := os.Executable()
 	if err != nil {
-		return errors.New("Couldn't find the ZL program file.")
+		return errors.New("Couldn't find the ZLauncher program file.")
 	}
 	tmp, old := exe+".update", exe+".old"
 	_ = os.Remove(tmp)
 
 	req, _ := http.NewRequest("GET", info.URL, nil)
-	req.Header.Set("User-Agent", "ZL/"+appVersion)
+	req.Header.Set("User-Agent", "ZLauncher/"+appVersion)
 	c := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -145,7 +157,7 @@ func installUpdate(progress func(pct float64)) error {
 	}
 	f, err := os.Create(tmp)
 	if err != nil {
-		return errors.New("ZL can't write to its own folder. Move ZL.exe somewhere like Downloads or Desktop and try again.")
+		return errors.New("ZLauncher can't write to its own folder. Move ZLauncher.exe somewhere like Downloads or Desktop and try again.")
 	}
 	var done int64
 	buf := make([]byte, 64<<10)
@@ -190,12 +202,12 @@ func installUpdate(progress func(pct float64)) error {
 	_ = os.Remove(old)
 	if err := os.Rename(exe, old); err != nil {
 		os.Remove(tmp)
-		return errors.New("Couldn't replace ZL.exe. Close other copies of ZL and try again.")
+		return errors.New("Couldn't replace ZLauncher.exe. Close other copies of ZLauncher and try again.")
 	}
 	if err := os.Rename(tmp, exe); err != nil {
 		_ = os.Rename(old, exe) // zurueckrollen
 		os.Remove(tmp)
-		return errors.New("Couldn't replace ZL.exe.")
+		return errors.New("Couldn't replace ZLauncher.exe.")
 	}
 	cmd := exec.Command(exe, "--after-update", strconv.Itoa(os.Getpid()))
 	if err := cmd.Start(); err != nil {

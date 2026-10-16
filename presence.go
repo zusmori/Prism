@@ -408,7 +408,7 @@ func setPresenceCtx(starting bool, maps int) {
 	presence.mu.Unlock()
 }
 
-// ZL im Tray versteckt / wieder sichtbar
+// ZLauncher im Tray versteckt / wieder sichtbar
 func setPresenceHidden(h bool) {
 	presence.mu.Lock()
 	if presence.hidden != h {

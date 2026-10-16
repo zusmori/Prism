@@ -238,7 +238,7 @@ type PresenceInput struct {
 	Swaps      map[string]string // Arena-Datei -> Map-Titel
 	Tab        string            // vHome | vDl | vBrowse
 	LaunchOpen time.Time
-	Hidden     bool // ZL liegt im Tray
+	Hidden     bool // ZLauncher liegt im Tray
 	Starting   bool // Play wurde gedrueckt, Spiel startet gerade
 	MapCount   int  // heruntergeladene Workshop-Maps
 }

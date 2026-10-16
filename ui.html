@@ -1131,16 +1131,60 @@
   .fr .fa .fx{width:26px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--line2);
     transition:opacity .2s var(--ease),transform .35s var(--ease),width .35s var(--ease),margin .35s var(--ease),border-color .2s}
   .fr .fa .fx svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:transform .35s var(--ease)}
-  .fr .fa .fbs{display:flex;gap:5px;max-width:0;overflow:hidden;opacity:0;transition:max-width .42s var(--ease),opacity .25s var(--ease)}
+  .fr .fa .fbs{display:flex;gap:5px;max-width:0;overflow:hidden;opacity:0;padding:0;margin:0;
+    transition:max-width .42s var(--ease),opacity .25s var(--ease),padding .42s var(--ease),margin .42s var(--ease)}
+  .fr .fa .fbs button{flex:none}
   .fr .fa .fbs button{transform:translateX(14px) scale(.85);opacity:0;transition:transform .4s var(--spring),opacity .25s var(--ease),background .2s,border-color .2s,color .2s,box-shadow .25s}
-  .fr:hover .fa .fx,.fr:focus-within .fa .fx{opacity:0;width:0;margin:0;border-width:0;transform:translateX(10px)}
+  .fr:hover .fa .fx,.fr:focus-within .fa .fx{opacity:0;width:0;margin:0;border-width:0;transform:translateX(10px);overflow:hidden;pointer-events:none}
   .fr:hover .fa .fx svg{transform:rotate(180deg)}
-  .fr:hover .fa .fbs,.fr:focus-within .fa .fbs{max-width:72px;opacity:1}
+  .fr:hover .fa .fbs,.fr:focus-within .fa .fbs{max-width:96px;opacity:1;padding:10px 8px 10px 12px;margin:-10px -8px -10px -12px}
   .fr:hover .fa .fbs button,.fr:focus-within .fa .fbs button{transform:none;opacity:1}
   .fr:hover .fa .fbs button:nth-child(1){transition-delay:0s,0s,0s,0s,0s,0s}
   .fr:hover .fa .fbs button:nth-child(2){transition-delay:.04s,.04s,0s,0s,0s,0s}
   .fr .fa .fbs button:hover{transform:translateY(-1px) scale(1.06)!important}
   .fr.offline .fa .fx,.fr.unknown .fa .fx{opacity:.7}
+
+  /* ---------- Swap Maps: kurze Anleitung ---------- */
+  .guide{position:absolute;top:14px;right:14px;bottom:14px;left:14px;z-index:4;display:flex;flex-direction:column;align-items:flex-end;pointer-events:none}
+  .guide .gbtn{pointer-events:auto}
+  .gbtn{display:flex;align-items:center;gap:7px;height:32px;padding:0 13px 0 10px;border-radius:999px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;color:#fff;
+    background:rgb(12 12 16 / .5);border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    box-shadow:0 6px 20px -8px rgba(0,0,0,.6);transition:opacity .25s var(--ease),transform .35s var(--spring),border-color .2s,box-shadow .25s,background .2s}
+  .gbtn:hover{border-color:rgb(var(--ac-rgb) / .6);background:rgb(var(--ac-rgb) / .16);box-shadow:0 0 18px -4px rgb(var(--ac-rgb) / .7);transform:translateY(-1px)}
+  .gbtn .gi svg{width:15px;height:15px}
+  .guide.open .gbtn{opacity:0;transform:scale(.8);pointer-events:none}
+  .gpan{position:absolute;top:0;right:0;width:min(318px,100%);max-height:100%;overflow:auto;scrollbar-width:none;padding:16px 16px 14px;border-radius:16px;
+    background:rgb(12 12 16 / .66);border:1px solid rgba(255,255,255,.1);-webkit-backdrop-filter:blur(20px) saturate(1.3);backdrop-filter:blur(20px) saturate(1.3);
+    box-shadow:0 18px 50px -14px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.05);
+    transform-origin:top right;opacity:0;transform:scale(.6) translateY(-6px);pointer-events:none;
+    transition:opacity .22s var(--ease),transform .45s var(--spring)}
+  .guide.open .gpan{opacity:1;transform:none;pointer-events:auto}
+  .gpan::before{content:"";position:absolute;inset:0 0 auto 0;height:70px;border-radius:16px 16px 0 0;pointer-events:none;
+    background:radial-gradient(120% 100% at 85% 0%,rgb(var(--ac-rgb) / .22),transparent 70%)}
+  .gh{position:relative;display:flex;align-items:center;gap:8px}
+  .gh b{flex:1;font-size:14.5px;font-weight:700;color:#fff}
+  .gh .gi svg{width:16px;height:16px}
+  .gx{width:26px;height:26px;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer;display:grid;place-items:center;transition:background .2s,color .2s}
+  .gx:hover{background:rgba(255,255,255,.08);color:#fff}
+  .gin{position:relative;margin:8px 0 12px;font-size:12.5px;line-height:1.5;color:#c9c9d3}
+  .gst{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;position:relative}
+  .gst li:not(:last-child)::after{content:"";position:absolute;left:13px;top:38px;bottom:-8px;width:2px;border-radius:2px;
+    background:linear-gradient(rgb(var(--ac-rgb) / .6),rgb(var(--ac-rgb) / .15))}
+  .gst li{position:relative;display:flex;gap:11px;align-items:flex-start;padding:7px 8px 7px 0;border-radius:10px;
+    opacity:0;transform:translateX(10px);transition:opacity .3s var(--ease),transform .45s var(--spring)}
+  .guide.open .gst li{opacity:1;transform:none;transition-delay:calc(.08s + var(--i) * .07s)}
+  .gn{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12.5px;font-weight:800;color:#fff;
+    background:rgb(var(--acd-rgb));border:1px solid rgb(var(--ac2-rgb) / .7);box-shadow:0 0 14px -3px rgb(var(--ac-rgb) / .9)}
+  .gst li div{display:flex;flex-direction:column;gap:2px;padding-top:1px}
+  .gst li b{font-size:13px;font-weight:650;color:#fff}
+  .gst li small{font-size:11.8px;line-height:1.45;color:#a9a9b6}
+  .gst a{color:rgb(var(--ac3-rgb));cursor:pointer;text-decoration:none;border-bottom:1px solid rgb(var(--ac3-rgb) / .35)}
+  .gst a:hover{color:#fff;border-color:#fff}
+  .gft{position:relative;display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07);font-size:11.8px;color:#a9a9b6}
+  .gft span{flex:1;line-height:1.4}
+  .gft b{color:#fff;font-weight:650}
+  .gft .btn{width:auto;height:32px;padding:0 16px;border-radius:9px;font-size:12.5px;white-space:nowrap;min-width:80px}
+  #vEmpty,#vSetup{z-index:5}
 </style>
 
 </head>
@@ -1159,7 +1203,7 @@
       <button class="tab" data-tab="vDl">Swap Maps</button>
       <button class="tab" data-tab="vBrowse">Browse Maps <span class="badge" id="dlBadge"></span></button>
     </div>
-    <button class="upill" id="updPill" title="A new version of ZL is available"><span class="gi" data-ic="down"></span>Update<i></i></button>
+    <button class="upill" id="updPill" title="A new version of ZLauncher is available"><span class="gi" data-ic="down"></span>Update<i></i></button>
     <button class="wbtn gear" id="setBtn" title="Settings"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
     <button class="wbtn" id="minBtn" title="Minimize"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button class="wbtn" id="maxBtn" title="Maximize"><svg width="12" height="12" viewBox="0 0 12 12"><rect class="sq" x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><g class="rs"><rect x="2" y="4" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 2.5h4a1 1 0 0 1 1 1v4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></g></svg></button>
@@ -1176,7 +1220,7 @@
         <div class="hshade"></div>
         <div class="hbrand">
           <svg id="heroBrand" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
-          <div class="hbt"><b><span>zusmori's</span> Launcher</b><small id="hVer">ZL</small></div>
+          <div class="hbt"><b><span>zusmori's</span> Launcher</b><small id="hVer">ZLauncher</small></div>
         </div>
         <button class="hswap" id="hSwap" title="Show in Swap Maps">
           <div class="hsh"><span class="dot"></span><b>Active swaps</b><span class="hsn" id="hSwapN"></span>
@@ -1243,6 +1287,22 @@
           <div>No preview available</div></div></div>
         <div class="shade"></div>
         <div class="ptitle" id="ptitle"><span class="tag">Workshop</span><h2 id="pname">–</h2><small id="pmeta"></small></div>
+
+        <!-- kurze Anleitung -->
+        <div class="guide" id="guide">
+          <button class="gbtn" id="guideBtn" aria-expanded="false"><span class="gi" data-ic="help"></span>How it works</button>
+          <div class="gpan" id="guidePan" role="dialog" aria-label="How swapping works">
+            <div class="gh"><span class="gi" data-ic="swap"></span><b>How swapping works</b>
+              <button class="gx" id="guideX" title="Close"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button></div>
+            <p class="gin">Rocket League can't load workshop maps on its own. Swapping puts a workshop map in place of a normal arena, so you can play it in Freeplay.</p>
+            <ol class="gst">
+              <li style="--i:0"><span class="gn">1</span><div><b>Pick a map</b><small>From the list on the left. Find more in <a id="guideBrowse">Browse Maps</a>.</small></div></li>
+              <li style="--i:1"><span class="gn">2</span><div><b>Choose an arena and hit Swap</b><small>The map takes that arena's place. Rocket League can stay open in the main menu.</small></div></li>
+              <li style="--i:2"><span class="gn">3</span><div><b>Play without Anti-Cheat</b><small>Start Freeplay on that arena and you're on the workshop map.</small></div></li>
+            </ol>
+            <div class="gft"><span><b>Restore</b> brings the original arena back.</span><button class="btn" id="guideOk"><span class="lbl">Got it</span></button></div>
+          </div>
+        </div>
 
         <!-- Sonderansichten -->
         <div class="center hidden" id="vEmpty" style="background:var(--panel)"><div>
@@ -1341,7 +1401,7 @@
   <div class="box">
     <div class="ico"><svg id="updLogo" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg></div>
     <h3>Update available</h3>
-    <p>A new version of ZL is ready to install.</p>
+    <p>A new version of ZLauncher is ready to install.</p>
     <div class="vpill"><span class="old" id="updOld"></span><span class="gi" data-ic="right"></span><span id="updNew"></span></div>
     <div class="notes" id="updNotes"></div>
     <div class="merr" id="updErr"></div>
@@ -1392,11 +1452,11 @@
     <div class="sbody">
       <div class="ssec"><h4>General</h4><div class="sgrp">
         <div class="srow" id="setMute" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" id="muteIc"></span>
-          <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in ZL.</small></div><span class="tg" id="tgMute"></span></div>
+          <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in ZLauncher.</small></div><span class="tg" id="tgMute"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
-          <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit ZL. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
+          <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit ZLauncher. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
         <div class="srow" id="setTray" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="tray"></span>
-          <div class="tx"><b>Close to tray</b><small>The X keeps ZL running in the taskbar tray. Right-click the tray icon to quit.</small></div><span class="tg" id="tgTray"></span></div>
+          <div class="tx"><b>Close to tray</b><small>The X keeps ZLauncher running in the taskbar tray. Right-click the tray icon to quit.</small></div><span class="tg" id="tgTray"></span></div>
       </div></div>
       <div class="ssec"><h4>Discord</h4><div class="sgrp">
         <div class="dcprev" id="dcPrev">
@@ -1416,7 +1476,7 @@
         <div class="dsub" id="rpcOpts">
           <div class="srow" id="setRpcMatch" role="switch" tabindex="0"><div class="tx"><b>Match status</b><small>Mode and goals, e.g. "Rocket League · 2s Ranked" and "2 : 1".</small></div><span class="tg" id="tgRpcMatch"></span></div>
           <div class="srow" id="setRpcMaps" role="switch" tabindex="0"><div class="tx"><b>Workshop map names</b><small>Shows which workshop map you're playing in Freeplay.</small></div><span class="tg" id="tgRpcMaps"></span></div>
-          <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps". Nothing is shown while ZL sits in the tray.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
+          <div class="srow" id="setRpcLauncher" role="switch" tabindex="0"><div class="tx"><b>Show while only the launcher is open</b><small>e.g. "Browsing workshop maps". Nothing is shown while ZLauncher sits in the tray.</small></div><span class="tg" id="tgRpcLauncher"></span></div>
           <div class="srow" id="setRpcTime" role="switch" tabindex="0"><div class="tx"><b>Elapsed time</b><small>How long you've been playing.</small></div><span class="tg" id="tgRpcTime"></span></div>
           <div class="srow" id="setRpcButton" role="switch" tabindex="0"><div class="tx"><b>"Get ZLauncher" button</b><small>A button others can click to download the launcher.</small></div><span class="tg" id="tgRpcButton"></span></div>
         </div>
@@ -1932,8 +1992,25 @@ function setTab(t){
   heroPlay(t === 'vHome');
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
+  if (t === 'vDl') guideFirst(); else guideOpen(false, false, true);
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+/* ---------- Swap Maps: Anleitung ---------- */
+function guideOpen(on, save, quiet){
+  const g = $('guide'); if (g.classList.contains('open') === on) return;
+  g.classList.toggle('open', on); $('guideBtn').setAttribute('aria-expanded', on);
+  if (!quiet) Sfx.ui(on ? 'present' : 'dismiss');
+  if (!on && save && !settings.guideSeen){ settings.guideSeen = true; saveSetting('guideSeen', true); }
+}
+$('guideBtn').onclick = e => { e.stopPropagation(); guideOpen(true); };
+$('guideX').onclick = () => guideOpen(false, true);
+$('guideOk').onclick = () => guideOpen(false, true);
+$('guideBrowse').onclick = () => { guideOpen(false, true); setTab('vBrowse'); };
+document.addEventListener('pointerdown', e => { if ($('guide').classList.contains('open') && !$('guide').contains(e.target)) guideOpen(false, true); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('guide').classList.contains('open')) guideOpen(false, true); });
+// beim ersten Besuch von Swap Maps einmal von selbst aufklappen
+function guideFirst(){ if (!settings.guideSeen) setTimeout(() => { if (tab === 'vDl') guideOpen(true); }, 650); }
+
 window.addEventListener('resize', () => {
   moveInk($('tabs'), document.querySelector('#tabs .tab.on'));
 });
@@ -1986,7 +2063,8 @@ const ICONS = {
   cpu:    '<rect x="4" y="4" width="8" height="8" rx="1.3"/><rect x="6.3" y="6.3" width="3.4" height="3.4" rx=".5"/><path d="M6 1.8V4M10 1.8V4M6 12v2.2M10 12v2.2M1.8 6H4M1.8 10H4M12 6h2.2M12 10h2.2"/>',
   gpu:    '<rect x="1.8" y="4.2" width="12.4" height="7.4" rx="1.3"/><circle cx="10.4" cy="7.9" r="1.9"/><path d="M4.3 6.6h2.6M4.3 9.2h2.6M3.6 11.6v2"/>',
   discord:'<path d="M5.6 4.1c-1 .2-1.9.5-2.7 1-1.1 1.7-1.6 3.6-1.5 5.6.9.7 2 1.2 3.1 1.5l.7-1.1M10.4 4.1c1 .2 1.9.5 2.7 1 1.1 1.7 1.6 3.6 1.5 5.6-.9.7-2 1.2-3.1 1.5l-.7-1.1M4.6 10.6c2.2 1 4.6 1 6.8 0M5.9 4.1L6.3 5c1.1-.2 2.3-.2 3.4 0l.4-.9"/><circle cx="6" cy="8.4" r=".9"/><circle cx="10" cy="8.4" r=".9"/>',
-  user:   '<circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.6c.5-2.6 2.5-4 5-4s4.5 1.4 5 4"/>'
+  user:   '<circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.6c.5-2.6 2.5-4 5-4s4.5 1.4 5 4"/>',
+  help:   '<circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 0 1 3.7.5c0 1.3-1.9 1.6-1.9 2.8M8 11.6v.1"/>'
 };
 const icon = (k, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 16 16">${ICONS[k] || ''}</svg>`;
 document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.closest('.rnav') ? 13 : 16));
@@ -2408,7 +2486,7 @@ document.addEventListener('keydown', e => {
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
-(async () => { try { if (has('getVersion')){ const v = await getVersion(); $('verLbl').textContent = 'Version ' + v; $('hVer').textContent = 'ZL · v' + v; } } catch (e) {} })();
+(async () => { try { if (has('getVersion')){ const v = await getVersion(); $('verLbl').textContent = 'Version ' + v; $('hVer').textContent = 'ZLauncher · v' + v; } } catch (e) {} })();
 
 /* ---------- Home: Rocket League Logo (aus dem Steam-Cache) ---------- */
 (async () => {

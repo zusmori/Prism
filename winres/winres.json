@@ -1,15 +1,15 @@
 {
   "RT_GROUP_ICON": { "#1": { "0000": ["icon.png"] } },
   "RT_MANIFEST": { "#1": { "0409": {
-      "identity": { "name": "zusmori.Launcher", "version": "1.2.7.0" },
-      "description": "zusmoris Launcher",
+      "identity": { "name": "zusmori.Launcher", "version": "1.2.8.0" },
+      "description": "ZLauncher",
       "minimum-os": "win10",
       "execution-level": "as invoker",
       "dpi-awareness": "per monitor v2",
       "use-common-controls-v6": true
   } } },
   "RT_VERSION": { "#1": { "0000": {
-      "fixed": { "file_version": "1.2.7.0", "product_version": "1.2.7.0" },
-      "info": { "0409": { "FileDescription": "zusmori's Launcher", "ProductName": "zusmori's Launcher", "ProductVersion": "1.2.7" } }
+      "fixed": { "file_version": "1.2.8.0", "product_version": "1.2.8.0" },
+      "info": { "0409": { "FileDescription": "ZLauncher", "ProductName": "zusmori's Launcher", "ProductVersion": "1.2.8" } }
   } } }
 }

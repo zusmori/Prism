@@ -3,11 +3,11 @@
 package main
 
 // Game-Boost: solange Rocket League laeuft
-//   - hohe CPU-Prioritaet fuer RocketLeague.exe (nur ohne Anti-Cheat, ZL greift nie in den EAC-Prozess ein)
+//   - hohe CPU-Prioritaet fuer RocketLeague.exe (nur ohne Anti-Cheat, ZLauncher greift nie in den EAC-Prozess ein)
 //   - Windows-Energiemodus "Hoechstleistung" bzw. "Beste Leistung"
 // dauerhaft (solange Boost an ist):
 //   - Windows-Grafikeinstellung "Hohe Leistung" fuer Rocket League (Laptops mit 2 Grafikchips)
-// Alles wird automatisch zurueckgesetzt, wenn das Spiel endet, Boost ausgeschaltet wird oder ZL beendet wird.
+// Alles wird automatisch zurueckgesetzt, wenn das Spiel endet, Boost ausgeschaltet wird oder ZLauncher beendet wird.
 // Grafik-Einstellungen von Rocket League werden nicht veraendert.
 
 import (
@@ -302,7 +302,7 @@ func boostTick() {
 		boostPID = pid
 		switch {
 		case eacRunning():
-			boostSt.Priority = "eac" // ZL greift nicht in den Anti-Cheat-Prozess ein
+			boostSt.Priority = "eac" // ZLauncher greift nicht in den Anti-Cheat-Prozess ein
 		case raisePriority(pid):
 			boostSt.Priority = "on"
 		default:
@@ -343,7 +343,7 @@ func setBoost(on bool) BoostStatus {
 	return getBoost()
 }
 
-// beim Beenden von ZL: Energiemodus zuruecksetzen (Grafikeinstellung bleibt, solange Boost an ist)
+// beim Beenden von ZLauncher: Energiemodus zuruecksetzen (Grafikeinstellung bleibt, solange Boost an ist)
 func boostShutdown() {
 	boostMu.Lock()
 	defer boostMu.Unlock()
