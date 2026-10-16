@@ -250,6 +250,7 @@ void ApplyNow() {
 	if (!Setup()) return;
 	void* pc = LocalPC();
 	void* pri = LocalPRI();
+	if (!LocalCar()) return; // nicht im Spiel: Items sind gespeichert und kommen beim naechsten Spawn
 	static int n = 0;
 	inGame = pri != nullptr;
 	if (pri) n = 0;
@@ -303,7 +304,12 @@ static void PatchParams(void* params) {
 void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
 	if (tickFns.count(fn)) { // lokaler Spieler
-		if (localPC.load() != caller && ue::IsA(caller, clsPC)) {
+		// Im Hauptmenue tickt auch ein Controller - der zaehlt nur, wenn er wirklich ein Auto faehrt
+		if (!ue::IsA(caller, clsPC)) return;
+		void* pawn = nullptr;
+		try { pawn = offPawn >= 0 ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
+		if (!pawn || !clsCar || !ue::IsA(pawn, clsCar)) return;
+		if (localPC.load() != caller) {
 			localPC = caller;
 			void* pri = nullptr; void* pawn = nullptr;
 			try { pri = ue::Read<void*>(caller, offPRI); pawn = offPawn >= 0 ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
@@ -338,7 +344,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		std::lock_guard<std::mutex> lk(mu);
 		if (overrides.empty() && restore.empty()) return;
 	}
-	if (caller == LocalPRI()) WriteOverrides(caller); // Spiel laedt das Loadout neu: unsere Items wieder eintragen
+	if (InMatch() && caller == LocalPRI()) WriteOverrides(caller); // Spiel laedt das Loadout neu: unsere Items wieder eintragen
 }
 
 // ---------- Auto im Hauptmenue / in der Garage (CarPreviewActor_TA) ----------
@@ -348,6 +354,7 @@ struct PreviewState {
 	std::map<int, int> orig;     // Slot -> eigenes Item
 	std::map<int, int> lastSeen; // Slot -> zuletzt gesehener Wert
 	std::map<int, int> target;   // Slot -> zuletzt gesetztes Item
+	std::map<int, unsigned long long> until; // Slot -> nicht vor diesem Zeitpunkt erneut tauschen
 };
 static std::map<void*, PreviewState> previews;
 static std::vector<void*> previewActors;
@@ -380,7 +387,10 @@ static void SyncPreview(void* actor) {
 		auto ls = st.lastSeen.find(slot);
 		auto tg = st.target.find(slot);
 		if (ls != st.lastSeen.end() && ls->second == now && tg != st.target.end() && tg->second == id) continue; // schon gesetzt
-		if (!st.orig.count(slot) || ls == st.lastSeen.end() || ls->second != now) st.orig[slot] = now; // dein eigenes Item
+		unsigned long long t = GetTickCount64();
+		if (t < st.until[slot]) continue; // nicht staendig neu laden (z. B. beim Durchscrollen in der Garage)
+		st.until[slot] = t + 2500;
+		if (!st.orig.count(slot)) st.orig[slot] = now; // dein eigenes Item
 		ChangePart(actor, slot, id);
 		st.lastSeen[slot] = prods->data[slot];
 		st.target[slot] = id;
@@ -397,6 +407,8 @@ static void SyncPreview(void* actor) {
 		it = st.orig.erase(it);
 	}
 }
+
+bool InMatch() { return GetTickCount64() - lastPlayerTick.load() < 1500; }
 
 void TickPreview() {
 	if (!ready || !clsPreview || offPrevLoadout < 0 || !fnChangePart) return;

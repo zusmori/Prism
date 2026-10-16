@@ -163,6 +163,8 @@ static void PollMouse() {
 	if (vmX > rc.right - 1) vmX = float(rc.right - 1);
 	if (vmY > rc.bottom - 1) vmY = float(rc.bottom - 1);
 	io.AddMousePosEvent(vmX, vmY);
+	// Im Menue zeigt das Spiel seinen eigenen Mauszeiger - dann keinen zweiten zeichnen
+	io.MouseDrawCursor = items::InMatch();
 	bool fg = GetForegroundWindow() == gameWnd;
 	io.AddMouseButtonEvent(0, fg && (GetAsyncKeyState(VK_LBUTTON) & 0x8000));
 	io.AddMouseButtonEvent(1, fg && (GetAsyncKeyState(VK_RBUTTON) & 0x8000));
