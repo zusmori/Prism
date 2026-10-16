@@ -14,6 +14,13 @@ struct Item {
 	std::string name;
 	int slot = -1;
 	int quality = 0;
+	bool paintable = false;
+};
+
+struct PaintInfo {
+	int id;
+	std::string name;
+	float rgb[3]; // sRGB 0..1
 };
 
 struct SlotInfo {
@@ -40,11 +47,27 @@ void OnProcessEvent(void* caller, void* fn, void* params); // vor dem Original a
 extern std::mutex mu;
 extern std::vector<Item> list;        // alle Items, nach Namen sortiert
 extern std::map<int, int> overrides;  // Slot -> Produkt-ID
+extern std::map<int, int> paints;     // Slot -> Farb-ID (nur bei lackierbaren Items)
+extern std::vector<PaintInfo> paintList;
+void SetPaint(int slot, int paintId); // 0 = Standard
 extern bool loaded;
 extern std::string status;
 extern std::atomic<bool> inGame;      // lokaler Spieler mit Auto vorhanden (Freeplay/Match)
 void OnMenuOpened();         // F8: Zustand neu pruefen
 void Set(int slot, int id);  // id 0 = eigenes Item
+
+// Presets: gespeicherte Item-Kombinationen
+struct Preset {
+	std::string name;
+	std::map<int, int> items;  // Slot -> Produkt-ID
+	std::map<int, int> paints; // Slot -> Farb-ID
+};
+extern std::vector<Preset> presets; // mit mu sperren
+void LoadPresets();
+void SavePresets();
+void AddPreset(const std::string& name); // aktuelle Items speichern
+void DeletePreset(int i);
+void ApplyPreset(int i);
 void Save();
 void LoadSaved();
 

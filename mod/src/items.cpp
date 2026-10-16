@@ -1,6 +1,7 @@
 #include "items.h"
 
 #include <algorithm>
+#include <cmath>
 #include <atomic>
 #include <cstring>
 #include <cstdio>
@@ -20,6 +21,8 @@ const int kSlotCount = sizeof(kSlots) / sizeof(kSlots[0]);
 std::mutex mu;
 std::vector<Item> list;
 std::map<int, int> overrides;
+std::map<int, int> paints;
+std::vector<PaintInfo> paintList;
 bool loaded = false;
 std::string status = "Starting …";
 std::atomic<bool> inGame{false};
@@ -58,7 +61,13 @@ static void *clsGameEvent = nullptr, *clsFreeplay = nullptr, *clsFreeplayCar = n
 static int offPRIGameEvent = -1;
 static void *clsPreview = nullptr, *fnChangePart = nullptr;
 static int offPrevLoadout = -1, offCPSlot = -1, offCPProduct = -1, offCPOnline = -1, offCPPaint = -1;
-static std::atomic<unsigned long long> applyAt{0}; // Zeitpunkt fuer das (gebuendelte) Anwenden
+static std::atomic<unsigned long long> applyAt{0};
+// Farben
+static void *fnIsPaintable = nullptr, *clsPainted = nullptr, *cdoPainted = nullptr, *fnCreatePaint = nullptr;
+static void *fnPathName = nullptr, *cdoObject = nullptr;
+static int offIsPaintableRet = -1, offCreateId = -1, offCreateRet = -1, offPaintID = -1, offPathObj = -1, offPathRet = -1;
+static int offClientOnline = -1, offFullAttr = -1;
+static bool attrArraysOk = false; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
 static std::atomic<void*> localPC{nullptr};
 static std::vector<void*> localPlayers; // LocalPlayer-Objekte (einmal gesucht)
@@ -104,6 +113,32 @@ bool Setup() {
 	}
 	if (clsLocalPlayer) offLPActor = ue::PropOffset(clsLocalPlayer, "Actor");
 	if (clsLocalPlayer) localPlayers = ue::Instances(clsLocalPlayer);
+	// Farben: Attribut-Objekte und die Listen im PRI
+	fnIsPaintable = ue::FindFunction(clsProduct, "IsPaintable");
+	if (fnIsPaintable) offIsPaintableRet = ue::PropOffset(fnIsPaintable, "ReturnValue");
+	clsPainted = ue::FindClass("Class TAGame.ProductAttribute_Painted_TA");
+	cdoPainted = ue::FindObject("ProductAttribute_Painted_TA TAGame.Default__ProductAttribute_Painted_TA");
+	if (clsPainted) {
+		fnCreatePaint = ue::FindFunction(clsPainted, "CreateInstance");
+		offPaintID = ue::PropOffset(clsPainted, "PaintID");
+		if (fnCreatePaint) { offCreateId = ue::PropOffset(fnCreatePaint, "InPaintID"); offCreateRet = ue::PropOffset(fnCreatePaint, "ReturnValue"); }
+	}
+	if (void* clsObject = ue::FindClass("Class Core.Object")) {
+		fnPathName = ue::FindFunction(clsObject, "PathName");
+		if (fnPathName) { offPathObj = ue::PropOffset(fnPathName, "CheckObject"); offPathRet = ue::PropOffset(fnPathName, "ReturnValue"); }
+	}
+	cdoObject = ue::FindObject("Object Core.Default__Object");
+	offClientOnline = ue::PropOffset(clsPRI, "ClientLoadoutsOnline");
+	offFullAttr = ue::PropOffset(clsPRI, "FullLoadoutAttributes");
+	{
+		void* s1 = ue::FindObject("ScriptStruct TAGame._Types_TA.ClientLoadoutOnlineProduct");
+		void* s2 = ue::FindObject("ScriptStruct TAGame._Types_TA.ProductAttributesArray");
+		int z1 = s1 ? ue::StructSize(s1) : -1, z2 = s2 ? ue::StructSize(s2) : -1;
+		attrArraysOk = z1 == 0x10;
+		zl::Log("paint: IsPaintable=%p painted=%p cdo=%p create=%p (id=%x ret=%x) pathName=%p objCdo=%p online=%x fullAttr=%x sizes=%x/%x",
+			fnIsPaintable, clsPainted, cdoPainted, fnCreatePaint, offCreateId, offCreateRet, fnPathName, cdoObject, offClientOnline, offFullAttr, z1, z2);
+		if (z2 != 0x10) offFullAttr = -1;
+	}
 	clsGameEvent = ue::FindClass("Class TAGame.GameEvent_TA");
 	clsFreeplay = ue::FindClass("Class TAGame.GameEvent_Tutorial_FreePlay_TA");
 	clsFreeplayCar = ue::FindClass("Class TAGame.Car_Freeplay_TA");
@@ -171,10 +206,49 @@ void LoadProducts() {
 			if (offLongLabel >= 0) it.name = ue::Narrow(ue::Read<ue::FString>(p, offLongLabel));
 			if (it.name.empty() && offLabel >= 0) it.name = ue::Narrow(ue::Read<ue::FString>(p, offLabel));
 			if (it.name.empty()) it.name = ue::Name(p);
+			if (fnIsPaintable && offIsPaintableRet >= 0) {
+				std::vector<uint8_t> prm(size_t(ue::StructSize(fnIsPaintable)) + 16, 0);
+				ue::Call(p, fnIsPaintable, prm.data());
+				it.paintable = (*reinterpret_cast<uint32_t*>(prm.data() + offIsPaintableRet) & 1) != 0;
+			}
 			out.push_back(std::move(it));
 		} catch (...) {}
 	}
 	std::sort(out.begin(), out.end(), [](const Item& a, const Item& b) { return a.name < b.name; });
+	int np = 0;
+	for (auto& it : out) { np += it.paintable; paintableById[it.id] = it.paintable; }
+	zl::Log("items loaded: %d (%d paintable)", (int)out.size(), np);
+	// Farbliste aus der PaintDatabase
+	std::vector<PaintInfo> pl;
+	if (void* clsDBp = ue::FindClass("Class TAGame.PaintDatabase_TA")) {
+		void* clsPaint = ue::FindClass("Class TAGame.ProductPaint_TA");
+		int offPaints = ue::PropOffset(clsDBp, "Paints");
+		int offPLabel = clsPaint ? ue::PropOffset(clsPaint, "Label") : -1, offPColors = clsPaint ? ue::PropOffset(clsPaint, "Colors") : -1;
+		auto dbsP = ue::Instances(clsDBp);
+		if (!dbsP.empty() && offPaints >= 0) {
+			auto* pa = ue::Ptr<ue::TArray<void*>>(dbsP[0], offPaints);
+			for (int i = 1; pa->data && i < pa->count && i < 64; i++) {
+				void* po = pa->data[i];
+				if (!po) continue;
+				try {
+					PaintInfo pi{i, offPLabel >= 0 ? ue::Narrow(ue::Read<ue::FString>(po, offPLabel)) : "", {0.5f, 0.5f, 0.5f}};
+					if (pi.name.empty()) continue;
+					if (offPColors >= 0) {
+						const float* c = reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(po) + offPColors);
+						for (int k = 0; k < 3; k++) pi.rgb[k] = powf(std::clamp(c[k], 0.0f, 1.0f), 1.0f / 2.2f);
+					}
+					pl.push_back(pi);
+				} catch (...) {}
+			}
+		}
+		std::string names;
+		for (auto& p : pl) names += std::to_string(p.id) + "=" + p.name + " ";
+		zl::Log("paints: %d %s", (int)pl.size(), names.c_str());
+	}
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		paintList = std::move(pl);
+	}
 	zl::Log("items loaded: %d", (int)out.size());
 	std::lock_guard<std::mutex> lk(mu);
 	list = std::move(out);
@@ -225,12 +299,147 @@ static void Patch(ue::TArray<int32_t>* a, int team, const std::map<int, int>& ov
 		if (!originals[team].count(slot)) originals[team][slot] = a->data[slot];
 		a->data[slot] = id;
 	}
-	for (int slot : restore) {
-		if (slot < a->count && originals[team].count(slot)) a->data[slot] = originals[team][slot];
+	for (int slot : restore) { // zurueck auf das eigene Item (nur Slots ohne aktuelles Item)
+		if (!ov.count(slot) && slot < a->count && originals[team].count(slot)) a->data[slot] = originals[team][slot];
 	}
 }
 
+// ---------- Farben im PRI ----------
+// Jedes Produkt im Loadout hat eine Attribut-Liste (z. B. "Painted" mit einer Farb-ID). Wir setzen dort ein
+// eigenes Painted-Attribut ein. Den Speicher fuer die Liste holen wir uns von der Engine (Text, den die Engine
+// fuer uns anlegt), damit sie ihn spaeter ganz normal wieder freigeben kann.
+static std::map<void*, ue::TArray<void*>> attrOrig; // Listen-Adresse -> urspruengliche Liste
+static std::map<void*, void*> attrOurs;             // Listen-Adresse -> unser Speicher
+static std::map<int, void*> attrCache;              // Farb-ID -> Attribut-Objekt
+static std::map<int, bool> paintableById;
+
+static void ResetPaintState() {
+	attrOrig.clear();
+	attrOurs.clear();
+	attrCache.clear();
+}
+
+static void* PaintAttr(int paintId) {
+	auto it = attrCache.find(paintId);
+	if (it != attrCache.end() && ue::IsAlive(it->second)) return it->second;
+	if (!fnCreatePaint || !cdoPainted || offCreateId < 0 || offCreateRet < 0) return nullptr;
+	std::vector<uint8_t> prm(size_t(ue::StructSize(fnCreatePaint)) + 16, 0);
+	*reinterpret_cast<int32_t*>(prm.data() + offCreateId) = paintId;
+	ue::Call(cdoPainted, fnCreatePaint, prm.data());
+	void* a = *reinterpret_cast<void**>(prm.data() + offCreateRet);
+	int got = (a && offPaintID >= 0) ? ue::Read<int32_t>(a, offPaintID) : -1;
+	static int n = 0;
+	if (n++ < 10) zl::Log("paint attribute for %d: %p (%s, PaintID %d)", paintId, a, a ? ue::Name(a).c_str() : "-", got);
+	if (a) attrCache[paintId] = a;
+	return a;
+}
+
+// Speicher von der Engine: Object.PathName() liefert einen neuen Text, dessen Puffer wir uebernehmen
+static void* EngineBuffer(int& capPtrs) {
+	capPtrs = 0;
+	if (!fnPathName || !cdoObject || offPathObj < 0 || offPathRet < 0 || !clsPainted) return nullptr;
+	std::vector<uint8_t> prm(size_t(ue::StructSize(fnPathName)) + 16, 0);
+	*reinterpret_cast<void**>(prm.data() + offPathObj) = clsPainted;
+	ue::Call(cdoObject, fnPathName, prm.data());
+	auto* str = reinterpret_cast<ue::FString*>(prm.data() + offPathRet);
+	if (!str->data || str->max * 2 < 8) return nullptr;
+	capPtrs = (str->max * 2) / 8;
+	return str->data;
+}
+
+// Wunsch-Farbe fuer einen Slot (0 = keine)
+static int WantedPaint(int slot, const std::map<int, int>& ov, const std::map<int, int>& pt) {
+	auto p = pt.find(slot);
+	auto o = ov.find(slot);
+	if (p == pt.end() || p->second <= 0 || o == ov.end()) return 0;
+	auto pb = paintableById.find(o->second);
+	return (pb != paintableById.end() && pb->second) ? p->second : 0;
+}
+
+static bool SetSlotAttr(ue::TArray<void*>* elem, void* attr) {
+	if (!attr) {
+		auto o = attrOrig.find(elem);
+		if (o != attrOrig.end()) { *elem = o->second; attrOrig.erase(o); attrOurs.erase(elem); }
+		return true;
+	}
+	if (!attrOrig.count(elem)) attrOrig[elem] = *elem;
+	void*& ours = attrOurs[elem];
+	if (ours && elem->data == ours && elem->count == 1 && elem->data[0] == attr) return true;
+	if (!(ours && elem->data == ours)) {
+		int cap = 0;
+		void* buf = EngineBuffer(cap);
+		if (!buf || cap < 1) return false;
+		ours = buf;
+		elem->data = reinterpret_cast<void**>(buf);
+		elem->max = cap;
+	}
+	elem->data[0] = attr;
+	elem->count = 1;
+	return true;
+}
+
+// Liste mit Produkt-Eintraegen (je 0x10 = eine Attribut-Liste) fuer ein Team
+static void PaintList(ue::TArray<ue::TArray<void*>>* prods, const std::map<int, int>& ov, const std::map<int, int>& pt, const char* what) {
+	static int logged = 0;
+	if (logged < 4) { logged++; zl::Log("paint: %s has %d entries", what, prods->data ? prods->count : -1); }
+	if (!prods->data || prods->count <= 0 || prods->count > 64) return;
+	for (int i = 0; i < kSlotCount; i++) {
+		int slot = kSlots[i].index;
+		if (slot >= prods->count) continue;
+		int want = WantedPaint(slot, ov, pt);
+		ue::TArray<void*>* elem = &prods->data[slot];
+		if (!want) { SetSlotAttr(elem, nullptr); continue; }
+		void* a = PaintAttr(want);
+		if (a && !SetSlotAttr(elem, a)) zl::Log("paint: no memory for slot %d", slot);
+	}
+}
+
+static void WritePaints(void* pri) {
+	if (!attrArraysOk || offClientOnline < 0) return;
+	std::map<int, int> ov, pt;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		ov = overrides;
+		pt = paints;
+	}
+	for (int t = 0; t < 2; t++) {
+		PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline + t * 0x10), ov, pt, "online loadout");
+		if (offFullAttr >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullAttr + t * 0x10), ov, pt, "full attributes");
+	}
+}
+
+// Stimmen die Farben im PRI?
+static bool PaintsOk(void* pri) {
+	if (!attrArraysOk || offClientOnline < 0) return true;
+	std::map<int, int> ov, pt;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		ov = overrides;
+		pt = paints;
+	}
+	auto* prods = ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline);
+	if (!prods->data || prods->count <= 0 || prods->count > 64) return true;
+	for (int i = 0; i < kSlotCount; i++) {
+		int slot = kSlots[i].index;
+		if (slot >= prods->count) continue;
+		ue::TArray<void*>* elem = &prods->data[slot];
+		int want = WantedPaint(slot, ov, pt);
+		auto ours = attrOurs.find(elem);
+		bool isOurs = ours != attrOurs.end() && elem->data == ours->second;
+		if (want && !(isOurs && elem->count == 1 && offPaintID >= 0 && elem->data[0] && ue::Read<int32_t>(elem->data[0], offPaintID) == want)) return false;
+		if (!want && attrOrig.count(elem)) return false;
+	}
+	return true;
+}
+
 static void WriteOverrides(void* pri) {
+	static void* origPRI = nullptr;
+	if (pri != origPRI) { // neuer Spieler/neues Spiel: eigene Items neu merken
+		originals[0].clear();
+		originals[1].clear();
+		ResetPaintState();
+		origPRI = pri;
+	}
 	std::map<int, int> ov;
 	{
 		std::lock_guard<std::mutex> lk(mu);
@@ -247,6 +456,7 @@ static void WriteOverrides(void* pri) {
 		if (offFull >= 0) Patch(ue::Ptr<ue::TArray<int32_t>>(pri, offFull + t * 0x40), t, ov);
 	}
 	loggedOnce = true;
+	try { WritePaints(pri); } catch (...) { zl::Log("ERROR: paint crashed (caught)"); }
 }
 
 void ApplyNow() {
@@ -323,6 +533,7 @@ static bool NeedsApply(void* pri) {
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
 	}
+	try { if (!PaintsOk(pri)) return true; } catch (...) {}
 	if (ov.empty()) return false;
 	try {
 		for (int t = 0; t < 2; t++) {
@@ -388,6 +599,12 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		if (!pawn || !clsCar || !ue::IsA(pawn, clsCar)) {
 			// Hauptmenue/Garage: sicherer Moment (einmal pro Frame), um das Vorschau-Auto anzupassen
 			try { TickPreview(); } catch (...) {}
+			// Item-Liste schon im Hauptmenue laden (wird fuer Farben gebraucht, auch ohne F8)
+			static unsigned long long nextLoad = 0;
+			if (!loaded && GetTickCount64() >= nextLoad) {
+				nextLoad = GetTickCount64() + 5000;
+				try { LoadProducts(); } catch (...) {}
+			}
 			return;
 		}
 		if (ue::killFlagCheck && !ue::IsAlive(caller)) { // ein tickender Controller wird nicht geloescht
@@ -562,6 +779,7 @@ void Set(int slot, int id) {
 	}
 	Queue([slot, id] {
 		if (id <= 0) restore.insert(slot);
+		else restore.erase(slot);
 	});
 	nextPreviewCheck = 0; // Menue-Auto sofort aktualisieren
 	applyAt = GetTickCount64() + 400; // mehrere Klicks kurz hintereinander = einmal neu spawnen
@@ -571,10 +789,11 @@ void Set(int slot, int id) {
 static std::wstring SaveFile() { return zl::DataDir() + L"\\zlmod.json"; }
 
 void Save() {
-	std::map<int, int> ov;
+	std::map<int, int> ov, pt;
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		pt = paints;
 	}
 	FILE* f = _wfopen(SaveFile().c_str(), L"w");
 	if (!f) return;
@@ -584,8 +803,124 @@ void Save() {
 		fprintf(f, "%s\"%d\":%d", first ? "" : ",", s, id);
 		first = false;
 	}
+	for (auto& [s, id] : pt) {
+		fprintf(f, "%s\"p%d\":%d", first ? "" : ",", s, id);
+		first = false;
+	}
 	fputs("}\n", f);
 	fclose(f);
+}
+
+void SetPaint(int slot, int paintId) {
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		if (paintId > 0) paints[slot] = paintId;
+		else paints.erase(slot);
+	}
+	applyAt = GetTickCount64() + 400;
+	Save();
+}
+
+// ---------- Presets ----------
+std::vector<Preset> presets;
+static std::wstring PresetFile() { return zl::DataDir() + L"\\zlpresets.txt"; }
+
+void SavePresets() {
+	FILE* f = _wfopen(PresetFile().c_str(), L"wb");
+	if (!f) return;
+	std::lock_guard<std::mutex> lk(mu);
+	for (auto& p : presets) {
+		fputs(p.name.c_str(), f);
+		fputc('\t', f);
+		bool first = true;
+		for (auto& [s, id] : p.items) {
+			auto pp = p.paints.find(s);
+			if (pp != p.paints.end()) fprintf(f, "%s%d:%d:%d", first ? "" : ",", s, id, pp->second);
+			else fprintf(f, "%s%d:%d", first ? "" : ",", s, id);
+			first = false;
+		}
+		fputc('\n', f);
+	}
+	fclose(f);
+}
+
+void LoadPresets() {
+	FILE* f = _wfopen(PresetFile().c_str(), L"rb");
+	if (!f) return;
+	std::vector<Preset> out;
+	char line[2048];
+	while (fgets(line, sizeof line, f)) {
+		char* tab = strchr(line, '\t');
+		if (!tab) continue;
+		*tab = 0;
+		Preset p;
+		p.name = line;
+		for (char* q = tab + 1; *q;) {
+			int s = 0, id = 0, used = 0;
+			if (sscanf(q, "%d:%d%n", &s, &id, &used) != 2) break;
+			if (id > 0) p.items[s] = id;
+			q += used;
+			int paint = 0, used2 = 0;
+			if (*q == ':' && sscanf(q, ":%d%n", &paint, &used2) == 1) {
+				if (paint > 0) p.paints[s] = paint;
+				q += used2;
+			}
+			if (*q == ',') q++;
+			else break;
+		}
+		if (!p.name.empty()) out.push_back(std::move(p));
+	}
+	fclose(f);
+	std::lock_guard<std::mutex> lk(mu);
+	presets = std::move(out);
+	zl::Log("presets: %d", (int)presets.size());
+}
+
+void AddPreset(const std::string& rawName) {
+	std::string name;
+	for (char c : rawName)
+		if (c != '\t' && c != '\n' && c != '\r') name += c;
+	while (!name.empty() && name.back() == ' ') name.pop_back();
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		if (name.empty()) name = "Preset " + std::to_string(presets.size() + 1);
+		Preset p;
+		p.name = name;
+		p.items = overrides;
+		for (auto& [slot, pid] : paints)
+			if (overrides.count(slot)) p.paints[slot] = pid;
+		presets.insert(presets.begin(), std::move(p)); // neuestes oben
+	}
+	SavePresets();
+}
+
+void DeletePreset(int i) {
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		if (i < 0 || i >= (int)presets.size()) return;
+		presets.erase(presets.begin() + i);
+	}
+	SavePresets();
+}
+
+void ApplyPreset(int i) {
+	std::map<int, int> next, before;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		if (i < 0 || i >= (int)presets.size()) return;
+		next = presets[i].items;
+		before = overrides;
+		overrides = next;
+		paints = presets[i].paints;
+	}
+	Queue([next, before] {
+		for (auto& [slot, id] : before)
+			if (!next.count(slot)) restore.insert(slot); // Slots, die das Preset nicht hat: eigenes Item
+		for (auto& [slot, id] : next) restore.erase(slot);
+	});
+	nextPreviewCheck = 0;
+	applyAt = GetTickCount64() + 400;
+	Save();
 }
 
 void LoadSaved() {
@@ -599,6 +934,7 @@ void LoadSaved() {
 	for (char* p = buf; (p = strchr(p, '"'));) {
 		int s = 0, id = 0;
 		if (sscanf(p, "\"%d\":%d", &s, &id) == 2 && id > 0) overrides[s] = id;
+		else if (sscanf(p, "\"p%d\":%d", &s, &id) == 2 && id > 0) paints[s] = id;
 		p = strchr(p + 1, '"');
 		if (!p) break;
 		p++;

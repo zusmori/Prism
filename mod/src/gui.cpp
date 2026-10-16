@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include "imgui.h"
@@ -50,8 +51,15 @@ static bool focusSearch = false;
 static bool wantOpen = false;
 static float vis = 0.0f;          // 0 = zu, 1 = offen (animiert)
 static float listFade = 1.0f;     // Liste nach Slot-Wechsel einblenden
-static float scrollTarget = 0.0f, scrollLastSet = -1.0f;
+static float scrollTarget = 0.0f, scrollLast = -1.0f;
 static float indicatorY = -1.0f;  // gleitende Markierung links
+static int tab = 0;               // 0 = Items, 1 = Presets
+static float tabX = -1.0f, tabW = 0.0f, tabFade = 1.0f;
+static char presetName[48] = {0};
+static bool focusName = false;
+static int pendingDelete = -1;
+static double pendingDeleteAt = 0, savedAt = -10;
+static float pScrollTarget = 0.0f, pScrollLast = -1.0f;
 
 static const char* kQuality[] = {"Common", "Uncommon", "Rare", "Very Rare", "Import", "Exotic", "Black Market", "Premium", "Limited", "Legacy"};
 static ImVec4 QualityColor(int q) {
@@ -177,7 +185,7 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 		search[0] = 0;
 		listFade = 0.0f;
 		scrollTarget = 0.0f;
-		scrollLastSet = -1.0f;
+		scrollLast = -1.0f;
 	}
 	if (sel) selY = p.y;
 	ImDrawList* d = ImGui::GetWindowDrawList();
@@ -190,10 +198,17 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 	if (it) {
 		ImVec4 qc = QualityColor(it->quality);
 		d->AddCircleFilled(ImVec2(p.x + size.x - 18, p.y + size.y / 2), 3.5f, U(qc), 16);
+		auto pp = items::paints.find(s.index);
+		if (it->paintable && pp != items::paints.end())
+			for (auto& pi : items::paintList)
+				if (pi.id == pp->second) {
+					d->AddCircleFilled(ImVec2(p.x + size.x - 34, p.y + size.y / 2), 6.0f, U(ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f)), 16);
+					d->AddCircle(ImVec2(p.x + size.x - 34, p.y + size.y / 2), 6.0f, U(Rgb(255, 255, 255, 0.15f)), 16, 1.0f);
+				}
 	}
 	float sa = Anim(ImGui::GetID("sa"), sel ? 1.0f : 0.0f);
 	Text(d, fTiny, ImVec2(tx, p.y + 8), Mix(cFaint, Acc(1.0f), sa * 0.9f), s.label);
-	std::string name = Fit(fRegular, fRegular->FontSize, it ? it->name : "Your own", size.x - 46);
+	std::string name = Fit(fRegular, fRegular->FontSize, it ? it->name : "Your own", size.x - 60);
 	Text(d, fRegular, ImVec2(tx, p.y + 22), it ? Mix(Hex(0xc9c9d3), cText, std::max(sa, h)) : Mix(cMuted, Hex(0xa9a9b5), h), name.c_str());
 	ImGui::PopID();
 }
@@ -227,6 +242,245 @@ static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cu
 	}
 	if (s > 0.01f) CheckMark(d, ImVec2(q.x - 22, p.y + rh / 2), s);
 	ImGui::PopID();
+}
+
+// Eingabefeld im ZLauncher-Stil (Hintergrund, Rand, optional Lupe). true = Enter gedrueckt
+static bool Field(ImDrawList* dl, const char* id, const char* hint, char* buf, size_t n, ImVec2 sp, ImVec2 sq, bool& focusFlag, bool icon,
+	bool clearBtn) {
+	const float sh = sq.y - sp.y;
+	ImGuiID aid = ImGui::GetID(id);
+	float* f = ImGui::GetStateStorage()->GetFloatRef(aid + 7, 0.0f);
+	dl->AddRectFilled(sp, sq, U(Mix(cPanel, cPanel2, *f)), 12);
+	dl->AddRect(sp, sq, U(Mix(cLine2, Acc(0.7f), *f)), 12, 0, 1.0f);
+	float tx = sp.x + 14;
+	if (icon) {
+		ImVec2 lc(sp.x + 20, sp.y + sh / 2 - 1);
+		ImU32 c = U(Mix(cFaint, Acc(1.0f), *f));
+		dl->AddCircle(lc, 5.5f, c, 20, 1.6f);
+		dl->AddLine(ImVec2(lc.x + 4, lc.y + 4), ImVec2(lc.x + 8, lc.y + 8), c, 1.6f);
+		tx = sp.x + 38;
+	}
+	bool showClr = clearBtn && buf[0];
+	ImGui::SetCursorScreenPos(ImVec2(tx, sp.y + (sh - fRegular->FontSize) / 2 - 11));
+	ImGui::SetNextItemWidth(sq.x - tx - (showClr ? 40 : 14));
+	if (focusFlag) { ImGui::SetKeyboardFocusHere(); focusFlag = false; }
+	ImGui::PushStyleColor(ImGuiCol_Text, cText);
+	bool enter = ImGui::InputTextWithHint(id, hint, buf, n, ImGuiInputTextFlags_EnterReturnsTrue);
+	ImGui::PopStyleColor();
+	bool active = ImGui::IsItemActive();
+	*f = Approach(*f, active ? 1.0f : 0.0f, 18.0f);
+	// Klick irgendwo ins Feld aktiviert es zuverlaessig
+	if (!active && ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(sp, sq, false) &&
+		!(showClr && ImGui::IsMouseHoveringRect(ImVec2(sq.x - 38, sp.y), sq, false)))
+		focusFlag = true;
+	if (showClr) {
+		ImGui::SetCursorScreenPos(ImVec2(sq.x - 38, sp.y + (sh - 32) / 2));
+		ImGui::PushID(id);
+		if (ImGui::InvisibleButton("##clr", ImVec2(32, 32))) { buf[0] = 0; focusFlag = true; }
+		float h = Anim(ImGui::GetID("clrh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+		ImGui::PopID();
+		ImVec2 c(sq.x - 22, sp.y + sh / 2);
+		dl->AddCircleFilled(c, 9, U(Rgb(255, 255, 255, 0.06f + 0.08f * h)), 20);
+		ImU32 xc = U(Mix(cMuted, cText, h));
+		dl->AddLine(ImVec2(c.x - 3, c.y - 3), ImVec2(c.x + 3, c.y + 3), xc, 1.4f);
+		dl->AddLine(ImVec2(c.x + 3, c.y - 3), ImVec2(c.x - 3, c.y + 3), xc, 1.4f);
+	}
+	return enter;
+}
+
+// weiches Scrollen mit dem Mausrad im aktuellen Child-Fenster
+static void SmoothScroll(float& target, float& last) {
+	ImGuiIO& io = ImGui::GetIO();
+	float sc = ImGui::GetScrollY(), mx = ImGui::GetScrollMaxY();
+	if (last >= 0 && fabsf(sc - last) > 1.0f) target = sc; // Scrollleiste gezogen
+	if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && io.MouseWheel != 0.0f) target -= io.MouseWheel * 140.0f;
+	target = std::clamp(target, 0.0f, mx);
+	float ns = Approach(sc, target, 16.0f);
+	if (fabsf(ns - target) < 0.5f) ns = target;
+	if (ns != sc) ImGui::SetScrollY(ns);
+	last = ns;
+}
+
+// Kurzbeschreibung eines Presets: "Octane · Cristiano · +2"
+static std::string Summary(const std::map<int, int>& m, int maxNames) {
+	std::string out;
+	int shown = 0, rest = 0;
+	for (int i = 0; i < items::kSlotCount; i++) {
+		auto it = m.find(items::kSlots[i].index);
+		if (it == m.end()) continue;
+		const items::Item* item = FindItem(it->second);
+		if (shown < maxNames) {
+			if (!out.empty()) out += "  \xC2\xB7  ";
+			out += item ? item->name : "Item";
+			shown++;
+		} else rest++;
+	}
+	if (rest) out += "  \xC2\xB7  +" + std::to_string(rest);
+	return out;
+}
+
+static void Button(ImDrawList* dl, const char* id, const char* label, ImVec2 p, ImVec2 size, bool enabled, bool& clicked) {
+	ImGui::SetCursorScreenPos(p);
+	clicked = ImGui::InvisibleButton(id, size) && enabled;
+	float h = Anim(ImGui::GetID(id), enabled && ImGui::IsItemHovered() ? 1.0f : 0.0f);
+	float pr = Anim(ImGui::GetID(id) + 1, enabled && ImGui::IsItemActive() ? 1.0f : 0.0f, 30.0f);
+	ImVec2 q(p.x + size.x, p.y + size.y);
+	float in = pr * 1.5f;
+	ImVec2 a(p.x + in, p.y + in), b(q.x - in, q.y - in);
+	if (enabled) {
+		dl->AddRectFilled(a, b, U(Mix(Mix(accent, Rgb(0, 0, 0), 0.08f), Mix(accent, Rgb(255, 255, 255), 0.08f), h)), 12);
+	} else {
+		dl->AddRectFilled(a, b, U(cPanel2), 12);
+		dl->AddRect(a, b, U(cLine2), 12);
+	}
+	float tw = TextW(fBold, label);
+	Text(dl, fBold, ImVec2(p.x + (size.x - tw) / 2, p.y + (size.y - fBold->FontSize) / 2 - 1), enabled ? Rgb(255, 255, 255) : cFaint, label);
+}
+
+// ---------- Presets ----------
+// action: 1 = anwenden, 2 = loeschen, 3 = speichern
+static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, int& action, int& actionIdx) {
+	const float leftW = 250, listTop = top + 14;
+	dl->AddLine(ImVec2(o.x + pad + leftW + 14, o.y + top + 1), ImVec2(o.x + pad + leftW + 14, o.y + W.y - 1), U(cLine));
+
+	// Links: aktuelles Loadout speichern
+	float x = o.x + pad, y = o.y + listTop;
+	Text(dl, fTiny, ImVec2(x + 2, y), cFaint, "SAVE CURRENT ITEMS");
+	y += 22;
+	int changed = (int)items::overrides.size();
+	{
+		int rows = std::min(changed, 5) + (changed > 5 ? 1 : 0);
+		ImVec2 cp(x, y), cq(x + leftW, y + (changed ? 24.0f + rows * 22.0f : 100.0f));
+		dl->AddRectFilled(cp, cq, U(cPanel), 14);
+		dl->AddRect(cp, cq, U(cLine), 14);
+		float ly = cp.y + 12;
+		if (!changed) {
+			Text(dl, fRegular, ImVec2(cp.x + 16, cp.y + 44), cMuted, "Nothing changed yet");
+			Text(dl, fSmall, ImVec2(cp.x + 16, cp.y + 66), cFaint, "Pick some items first");
+		} else {
+			int n = 0;
+			for (int i = 0; i < items::kSlotCount && n < 5; i++) {
+				auto it = items::overrides.find(items::kSlots[i].index);
+				if (it == items::overrides.end()) continue;
+				const items::Item* item = FindItem(it->second);
+				ImVec4 qc = item ? QualityColor(item->quality) : cMuted;
+				dl->AddCircleFilled(ImVec2(cp.x + 18, ly + 10), 3.0f, U(qc), 12);
+				Text(dl, fSmall, ImVec2(cp.x + 30, ly + 2), cFaint, items::kSlots[i].label);
+				std::string nm = Fit(fSmall, fSmall->FontSize, item ? item->name : "Item", leftW - 130);
+				float nw = TextW(fSmall, nm.c_str());
+				Text(dl, fSmall, ImVec2(cq.x - 14 - nw, ly + 2), cText, nm.c_str());
+				ly += 22;
+				n++;
+			}
+			if (changed > 5) {
+				char more[32];
+				snprintf(more, sizeof more, "+%d more", changed - 5);
+				Text(dl, fSmall, ImVec2(cp.x + 30, ly + 2), cFaint, more);
+			}
+		}
+		y = cq.y + 12;
+	}
+	bool enter = Field(dl, "##pname", "Preset name", presetName, sizeof presetName, ImVec2(x, y), ImVec2(x + leftW, y + 42), focusName, false, false);
+	y += 52;
+	bool justSaved = ImGui::GetTime() - savedAt < 1.4;
+	bool click = false;
+	Button(dl, "##save", justSaved ? "Saved" : "Save preset", ImVec2(x, y), ImVec2(leftW, 42), changed > 0, click);
+	if ((click || (enter && changed > 0))) { action = 3; savedAt = ImGui::GetTime(); }
+
+	// Rechts: Liste
+	const float px = pad + leftW + 30, pw = W.x - px - pad;
+	int count = (int)items::presets.size();
+	Text(dl, fTitle, ImVec2(o.x + px, o.y + listTop - 2), cText, "Presets");
+	{
+		char cnt[16];
+		snprintf(cnt, sizeof cnt, "%d", count);
+		float nw = TextW(fTitle, "Presets"), cw = TextW(fTiny, cnt);
+		ImVec2 c0(o.x + px + nw + 10, o.y + listTop + 5);
+		dl->AddRectFilled(c0, ImVec2(c0.x + cw + 14, c0.y + 18), U(Rgb(255, 255, 255, 0.06f)), 9);
+		Text(dl, fTiny, ImVec2(c0.x + 7, c0.y + 2), cMuted, cnt);
+	}
+	const float ly = listTop + 40;
+	if (!count) {
+		ImVec2 c(o.x + px + pw / 2, o.y + ly + 140);
+		dl->AddRectFilled(ImVec2(c.x - 26, c.y - 26), ImVec2(c.x + 26, c.y + 26), U(Acc(0.10f)), 16);
+		// Symbol: gestapelte Karten
+		dl->AddRect(ImVec2(c.x - 11, c.y - 6), ImVec2(c.x + 11, c.y + 12), U(Acc(0.9f)), 4, 0, 1.6f);
+		dl->AddLine(ImVec2(c.x - 7, c.y - 11), ImVec2(c.x + 7, c.y - 11), U(Acc(0.6f)), 1.6f);
+		const char* t1 = "No presets yet";
+		const char* t2 = "Save your current items on the left";
+		Text(dl, fBold, ImVec2(c.x - TextW(fBold, t1) / 2, c.y + 40), cText, t1);
+		Text(dl, fSmall, ImVec2(c.x - TextW(fSmall, t2) / 2, c.y + 62), cMuted, t2);
+		return;
+	}
+	if (pendingDelete >= 0 && ImGui::GetTime() - pendingDeleteAt > 2.5) pendingDelete = -1;
+	ImGui::SetCursorScreenPos(ImVec2(o.x + px - 4, o.y + ly));
+	ImGui::BeginChild("presets", ImVec2(pw + 8, W.y - ly - 14), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
+	SmoothScroll(pScrollTarget, pScrollLast);
+	const float cw = pw - 8, ch = 64;
+	ImDrawList* d = ImGui::GetWindowDrawList();
+	for (int i = 0; i < count; i++) {
+		const items::Preset& pr = items::presets[i];
+		ImGui::PushID(i);
+		ImVec2 p = ImGui::GetCursorScreenPos(), q(p.x + cw, p.y + ch);
+		// Loeschen-Knopf zuerst (hat Vorrang vor der Karte)
+		bool confirm = pendingDelete == i;
+		float delW = confirm ? 74.0f : 32.0f;
+		ImVec2 dp(q.x - 14 - delW, p.y + (ch - 32) / 2);
+		ImGui::SetCursorScreenPos(dp);
+		bool delClick = ImGui::InvisibleButton("##del", ImVec2(delW, 32));
+		bool delHov = ImGui::IsItemHovered();
+		ImGui::SetCursorScreenPos(p);
+		bool click = ImGui::InvisibleButton("##card", ImVec2(cw, ch));
+		bool hov = ImGui::IsItemHovered() || delHov;
+		bool active = pr.items == items::overrides && pr.paints == items::paints && !pr.items.empty();
+		float h = Anim(ImGui::GetID("h"), hov ? 1.0f : 0.0f);
+		float ac = Anim(ImGui::GetID("a"), active ? 1.0f : 0.0f);
+		d->AddRectFilled(p, q, U(Mix(Mix(cPanel, cHover, h), Acc(0.12f), ac * 0.8f)), 14);
+		d->AddRect(p, q, U(Mix(cLine, Acc(0.55f), ac)), 14);
+		std::string nm = Fit(fBold, fBold->FontSize, pr.name, cw - 170);
+		Text(d, fBold, ImVec2(p.x + 18, p.y + 13), cText, nm.c_str());
+		std::string sum = pr.items.empty() ? std::string("Your own items") : Summary(pr.items, 3);
+		Text(d, fSmall, ImVec2(p.x + 18, p.y + 35), cMuted, Fit(fSmall, fSmall->FontSize, sum, cw - 170).c_str());
+		// "Active"-Chip
+		if (ac > 0.01f) {
+			const char* t = "Active";
+			float tw = TextW(fTiny, t);
+			ImVec2 c0(dp.x - 12 - tw - 18, p.y + (ch - 22) / 2);
+			d->AddRectFilled(c0, ImVec2(c0.x + tw + 18, c0.y + 22), U(Acc(0.2f * ac)), 11);
+			Text(d, fTiny, ImVec2(c0.x + 9, c0.y + 4), Alpha(Mix(accent, Rgb(255, 255, 255), 0.5f), ac), t);
+		}
+		// Loeschen
+		float dh = Anim(ImGui::GetID("dh"), delHov ? 1.0f : 0.0f);
+		float vis = std::max(h, confirm ? 1.0f : 0.0f);
+		if (vis > 0.01f) {
+			ImVec2 dq(dp.x + delW, dp.y + 32);
+			if (confirm) {
+				d->AddRectFilled(dp, dq, U(Rgb(235, 85, 85, (0.18f + 0.14f * dh))), 10);
+				float tw = TextW(fBold, "Delete");
+				Text(d, fBold, ImVec2(dp.x + (delW - tw) / 2, dp.y + 7), Rgb(255, 160, 160), "Delete");
+			} else {
+				d->AddRectFilled(dp, dq, U(Rgb(255, 255, 255, (0.04f + 0.06f * dh) * vis)), 10);
+				ImU32 c = U(Alpha(Mix(cMuted, Rgb(255, 130, 130), dh), vis));
+				ImVec2 m(dp.x + 16, dp.y + 16);
+				d->AddLine(ImVec2(m.x - 6, m.y - 5), ImVec2(m.x + 6, m.y - 5), c, 1.5f);
+				d->AddLine(ImVec2(m.x - 2, m.y - 7.5f), ImVec2(m.x + 2, m.y - 7.5f), c, 1.5f);
+				d->AddRect(ImVec2(m.x - 4.5f, m.y - 3), ImVec2(m.x + 4.5f, m.y + 7), c, 2, 0, 1.5f);
+			}
+		}
+		if (delClick) {
+			if (confirm) { action = 2; actionIdx = i; pendingDelete = -1; }
+			else { pendingDelete = i; pendingDeleteAt = ImGui::GetTime(); }
+		} else if (click) {
+			action = 1;
+			actionIdx = i;
+			pendingDelete = -1;
+		}
+		ImGui::SetCursorScreenPos(ImVec2(p.x, q.y + 8));
+		ImGui::Dummy(ImVec2(cw, 0));
+		ImGui::PopID();
+	}
+	ImGui::Dummy(ImVec2(0, 6));
+	ImGui::EndChild();
 }
 
 // ---------- Fenster ----------
@@ -274,9 +528,36 @@ void Render(bool* open) {
 	const float pad = 22;
 	dl->AddCircleFilled(ImVec2(o.x + pad + 6, o.y + 34), 6, A(accent), 20);
 	dl->AddCircleFilled(ImVec2(o.x + pad + 6, o.y + 34), 11, A(Acc(0.18f)), 24);
-	Text(dl, fTitle, ImVec2(o.x + pad + 24, o.y + 21), cText, "Items");
-	float tw = TextW(fTitle, "Items");
-	Text(dl, fSmall, ImVec2(o.x + pad + 34 + tw, o.y + 28), cFaint, "ZLauncher  ·  only you can see these");
+	Text(dl, fTitle, ImVec2(o.x + pad + 24, o.y + 21), cText, "ZLauncher");
+	// Reiter "Items" / "Presets" mit gleitender Markierung
+	{
+		const char* names[2] = {"Items", "Presets"};
+		float x0 = o.x + pad + 24 + TextW(fTitle, "ZLauncher") + 22, y0 = o.y + 15;
+		float w0 = TextW(fBold, names[0]) + 34, w1 = TextW(fBold, names[1]) + 34;
+		ImVec2 bp(x0, y0), bq(x0 + w0 + w1 + 8, y0 + 38);
+		dl->AddRectFilled(bp, bq, A(cPanel), 19);
+		dl->AddRect(bp, bq, A(cLine), 19);
+		float tx[2] = {x0 + 4, x0 + 4 + w0}, tws[2] = {w0, w1};
+		for (int i = 0; i < 2; i++) {
+			ImGui::SetCursorScreenPos(ImVec2(tx[i], y0 + 4));
+			ImGui::PushID(i);
+			if (ImGui::InvisibleButton("##tab", ImVec2(tws[i], 30)) && tab != i) {
+				tab = i;
+				tabFade = 0.0f;
+				pendingDelete = -1;
+			}
+			ImGui::PopID();
+		}
+		float target = tx[tab] - o.x;
+		tabX = tabX < 0 ? target : Approach(tabX, target, 18.0f);
+		tabW = tabW <= 0 ? tws[tab] : Approach(tabW, tws[tab], 18.0f);
+		dl->AddRectFilled(ImVec2(o.x + tabX, y0 + 4), ImVec2(o.x + tabX + tabW, y0 + 34), A(Acc(0.20f)), 15);
+		for (int i = 0; i < 2; i++) {
+			float on = Anim(ImGui::GetID(names[i]), tab == i ? 1.0f : 0.0f);
+			float nw = TextW(fBold, names[i]);
+			Text(dl, fBold, ImVec2(tx[i] + (tws[i] - nw) / 2, y0 + 10), Mix(cMuted, Mix(accent, Rgb(255, 255, 255), 0.65f), on), names[i]);
+		}
+	}
 
 	// Fenster am Kopf verschieben
 	ImGui::SetCursorPos(ImVec2(0, 0));
@@ -320,6 +601,23 @@ void Render(bool* open) {
 		ImGui::End();
 		ImGui::PopFont();
 		ImGui::PopStyleVar();
+		return;
+	}
+
+	tabFade = Approach(tabFade, 1.0f, 12.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e * EaseOut(tabFade));
+	if (tab == 1) {
+		int action = 0, idx = -1;
+		PresetsBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, action, idx);
+		ImGui::PopStyleVar();
+		std::string name = presetName;
+		lk.unlock();
+		ImGui::End();
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+		if (action == 1) items::ApplyPreset(idx);
+		if (action == 2) items::DeletePreset(idx);
+		if (action == 3) { items::AddPreset(name); presetName[0] = 0; pScrollTarget = 0; }
 		return;
 	}
 
@@ -370,61 +668,74 @@ void Render(bool* open) {
 		Text(dl, fTiny, ImVec2(c0.x + 7, c0.y + 2), cMuted, cnt);
 	}
 
-	// Suchfeld
-	const float sy = listTop + 36, sh = 42;
-	ImVec2 sp(o.x + px, o.y + sy), sq(o.x + px + pw, o.y + sy + sh);
-	static float sFocus = 0.0f;
-	// Feld zeichnen (vor dem Text, damit es darunter liegt)
-	{
-		dl->AddRectFilled(sp, sq, A(Mix(cPanel, cPanel2, sFocus)), 12);
-		dl->AddRect(sp, sq, A(Mix(cLine2, Acc(0.7f), sFocus)), 12, 0, 1.0f);
-		ImVec2 lc(sp.x + 20, sp.y + sh / 2 - 1);
-		ImU32 lcCol = A(Mix(cFaint, Acc(1.0f), sFocus));
-		dl->AddCircle(lc, 5.5f, lcCol, 20, 1.6f);
-		dl->AddLine(ImVec2(lc.x + 4, lc.y + 4), ImVec2(lc.x + 8, lc.y + 8), lcCol, 1.6f);
-	}
-	ImGui::SetCursorScreenPos(ImVec2(sp.x + 38, sp.y + (sh - fRegular->FontSize) / 2 - 11));
-	ImGui::SetNextItemWidth(pw - 38 - (search[0] ? 40 : 14));
-	if (focusSearch) { ImGui::SetKeyboardFocusHere(); focusSearch = false; }
-	ImGui::PushStyleColor(ImGuiCol_Text, cText);
-	ImGui::InputTextWithHint("##q", "Search", search, sizeof search);
-	ImGui::PopStyleColor();
-	bool active = ImGui::IsItemActive();
-	sFocus = Approach(sFocus, active ? 1.0f : 0.0f, 18.0f);
-	// Klick irgendwo ins Feld aktiviert es zuverlaessig
-	if (!active && ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(sp, sq, false) &&
-		!(search[0] && ImGui::IsMouseHoveringRect(ImVec2(sq.x - 38, sp.y), sq, false)))
-		focusSearch = true;
-	// Leeren-Knopf
-	if (search[0]) {
-		ImGui::SetCursorScreenPos(ImVec2(sq.x - 38, sp.y + 5));
-		if (ImGui::InvisibleButton("##clr", ImVec2(32, 32))) { search[0] = 0; focusSearch = true; }
-		float h = Anim(ImGui::GetID("clrh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-		ImVec2 c(sq.x - 22, sp.y + sh / 2);
-		dl->AddCircleFilled(c, 9, A(Rgb(255, 255, 255, 0.06f + 0.08f * h)), 20);
-		ImU32 xc = A(Mix(cMuted, cText, h));
-		dl->AddLine(ImVec2(c.x - 3, c.y - 3), ImVec2(c.x + 3, c.y + 3), xc, 1.4f);
-		dl->AddLine(ImVec2(c.x + 3, c.y - 3), ImVec2(c.x - 3, c.y + 3), xc, 1.4f);
+	// Farben (nur bei lackierbaren Items)
+	int cur = items::overrides.count(curSlot) ? items::overrides[curSlot] : 0;
+	const items::Item* curItem = cur > 0 ? FindItem(cur) : nullptr;
+	bool showColors = curItem && curItem->paintable && !items::paintList.empty();
+	static float colorH = 0.0f;
+	colorH = Approach(colorH, showColors ? 46.0f : 0.0f, 16.0f);
+	int pickPaint = -1;
+	if (colorH > 1.0f) {
+		float a = std::clamp(colorH / 46.0f, 0.0f, 1.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * a);
+		int curPaint = items::paints.count(curSlot) ? items::paints[curSlot] : 0;
+		float cy = o.y + listTop + 34 + 18;
+		Text(dl, fTiny, ImVec2(o.x + px, cy - 7), cFaint, "COLOR");
+		float x = o.x + px + 52;
+		const char* hoverName = nullptr;
+		auto swatch = [&](int id, ImVec4 col, const char* name) {
+			ImGui::SetCursorScreenPos(ImVec2(x - 11, cy - 11));
+			ImGui::PushID(id + 1000);
+			if (ImGui::InvisibleButton("##sw", ImVec2(22, 22))) pickPaint = id;
+			bool hov = ImGui::IsItemHovered();
+			float h = Anim(ImGui::GetID("h"), hov ? 1.0f : 0.0f, 22.0f);
+			float sel = Anim(ImGui::GetID("s"), curPaint == id ? 1.0f : 0.0f, 18.0f);
+			ImGui::PopID();
+			if (hov) hoverName = name;
+			float r = 8.0f + 1.5f * h;
+			if (sel > 0.01f) dl->AddCircle(ImVec2(x, cy), r + 3.5f, U(Alpha(Rgb(255, 255, 255), sel)), 24, 1.8f);
+			if (id == 0) {
+				dl->AddCircleFilled(ImVec2(x, cy), r, U(cPanel2), 24);
+				dl->AddCircle(ImVec2(x, cy), r, U(cLine2), 24, 1.2f);
+				dl->AddLine(ImVec2(x - r * 0.6f, cy + r * 0.6f), ImVec2(x + r * 0.6f, cy - r * 0.6f), U(cMuted), 1.4f);
+			} else {
+				dl->AddCircleFilled(ImVec2(x, cy), r, U(col), 24);
+				dl->AddCircle(ImVec2(x, cy), r, U(Rgb(255, 255, 255, 0.12f)), 24, 1.0f);
+			}
+			x += 25;
+		};
+		swatch(0, cMuted, "Default");
+		for (auto& pi : items::paintList) swatch(pi.id, ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f), pi.name.c_str());
+		// Name der Farbe (beim Drueberfahren, sonst die gewaehlte)
+		const char* shownName = hoverName;
+		if (!shownName) {
+			shownName = "Default";
+			for (auto& pi : items::paintList)
+				if (pi.id == curPaint) shownName = pi.name.c_str();
+		}
+		// rechts in der Titelzeile: kleiner Farbpunkt + Name
+		float nw = TextW(fSmall, shownName);
+		float nx = o.x + px + pw - nw, ny = o.y + listTop + 4;
+		ImVec4 sc = cMuted;
+		for (auto& pi : items::paintList)
+			if (strcmp(pi.name.c_str(), shownName) == 0) sc = ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f);
+		dl->AddCircleFilled(ImVec2(nx - 12, ny + 8), 4.5f, U(sc), 16);
+		Text(dl, fSmall, ImVec2(nx, ny), hoverName ? cText : cMuted, shownName);
+		ImGui::PopStyleVar();
 	}
 
+	// Suchfeld
+	const float sy = listTop + 36 + colorH, sh = 42;
+	ImVec2 sp(o.x + px, o.y + sy), sq(o.x + px + pw, o.y + sy + sh);
+	Field(dl, "##q", "Search", search, sizeof search, sp, sq, focusSearch, true, true);
+
 	// Liste
-	int cur = items::overrides.count(curSlot) ? items::overrides[curSlot] : 0;
 	int pick = -1;
 	const float ly = sy + sh + 12;
 	ImGui::SetCursorScreenPos(ImVec2(o.x + px - 4, o.y + ly + (1.0f - EaseOut(listFade)) * 8.0f));
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e * EaseOut(listFade));
 	ImGui::BeginChild("rows", ImVec2(pw + 8, W.y - ly - 14), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
-	{
-		// weiches Scrollen mit dem Mausrad
-		float sc = ImGui::GetScrollY(), mx = ImGui::GetScrollMaxY();
-		if (scrollLastSet >= 0 && fabsf(sc - scrollLastSet) > 1.0f) scrollTarget = sc; // Scrollleiste gezogen
-		if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && io.MouseWheel != 0.0f) scrollTarget -= io.MouseWheel * 140.0f;
-		scrollTarget = std::clamp(scrollTarget, 0.0f, mx);
-		float ns = Approach(sc, scrollTarget, 16.0f);
-		if (fabsf(ns - scrollTarget) < 0.5f) ns = scrollTarget;
-		if (ns != sc) ImGui::SetScrollY(ns);
-		scrollLastSet = ns;
-	}
+	SmoothScroll(scrollTarget, scrollLast);
 	const float rw = pw - 8;
 	ItemRow(0, "Your own", "", Rgb(80, 80, 92), cur, pick, rw);
 	if (q.empty() || shown.size()) ImGui::Dummy(ImVec2(0, 2));
@@ -444,6 +755,7 @@ void Render(bool* open) {
 	ImGui::Dummy(ImVec2(0, 6));
 	ImGui::EndChild();
 	ImGui::PopStyleVar();
+	ImGui::PopStyleVar(); // Reiter-Einblendung
 
 	lk.unlock();
 	ImGui::End();
@@ -451,6 +763,7 @@ void Render(bool* open) {
 	ImGui::PopStyleVar();
 
 	if (pick >= 0 && pick != cur) items::Set(curSlot, pick);
+	if (pickPaint >= 0) items::SetPaint(curSlot, pickPaint);
 }
 
 // ---------- Hinweis beim Spielstart ----------

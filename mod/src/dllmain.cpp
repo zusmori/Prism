@@ -25,6 +25,7 @@ static DWORD WINAPI Start(LPVOID) {
 		return 0;
 	}
 	items::LoadSaved();
+	items::LoadPresets();
 	if (!hooks::HookProcessEvent()) return 0;
 	hooks::HookD3D();
 	// Klassen suchen, sobald das Spiel so weit ist (im Spiel-Thread)

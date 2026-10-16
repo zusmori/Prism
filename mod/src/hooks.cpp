@@ -258,7 +258,9 @@ static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 		// Maustasten und -position kommen aus PollMouse, nur Tastatur/Rad hier
 		bool mouseMsg = (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) || msg == WM_SETCURSOR; // alles aus PollMouse
 		bool keyMsg = (msg >= WM_KEYFIRST && msg <= WM_KEYLAST);
-		if (!mouseMsg && !keyMsg) ImGui_ImplWin32_WndProcHandler(h, msg, wp, lp);
+		// Nichts an ImGui weitergeben: Maus und Tastatur fragen wir selbst ab. Fokus-Nachrichten des Spiels
+		// (z. B. in der Garage) wuerden sonst das Suchfeld sofort wieder deaktivieren.
+		(void)mouseMsg; (void)keyMsg;
 		// Eingaben nicht ans Spiel weitergeben, solange das Menue offen ist
 		switch (msg) {
 		case WM_MOUSEMOVE: case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_RBUTTONDOWN: case WM_RBUTTONUP:
