@@ -186,7 +186,7 @@ void LoadProducts() {
 // Lokaler PlayerController: per PlayerTick erkannt, sonst ueber LocalPlayer.Actor bzw. Player != null
 static void* LocalPC() {
 	if (void* pc = localPC.load()) {
-		if (ue::IsValid(pc)) return pc;
+		if (ue::IsAlive(pc)) return pc;
 		localPC = nullptr; // Spieler gibt es nicht mehr (z. B. zurueck im Menue)
 	}
 	try {
@@ -202,14 +202,14 @@ static void* LocalPRI() {
 	void* pc = LocalPC();
 	try {
 		void* pri = pc ? ue::Read<void*>(pc, offPRI) : nullptr;
-		return ue::IsValid(pri) ? pri : nullptr;
+		return ue::IsAlive(pri) ? pri : nullptr;
 	} catch (...) { return nullptr; }
 }
 static void* LocalCar() {
 	void* pc = LocalPC();
 	try {
 		void* pawn = (pc && offPawn >= 0) ? ue::Read<void*>(pc, offPawn) : nullptr;
-		return (ue::IsValid(pawn) && ue::IsA(pawn, clsCar)) ? pawn : nullptr;
+		return (ue::IsAlive(pawn) && ue::IsA(pawn, clsCar)) ? pawn : nullptr;
 	} catch (...) { return nullptr; }
 }
 
@@ -338,12 +338,19 @@ static bool NeedsApply(void* pri) {
 // Laufend (alle 40 ms) pruefen, ob das Loadout des lokalen Spielers unsere Items hat. So stehen sie schon
 // drin, bevor das Auto beim Laden ins Freeplay/Match gebaut wird (kein kurzes Aufblitzen der eigenen Items).
 static void EnsureLocalLoadout() {
+	static void* lastPRI = nullptr;
+	static int lastCount = -1;
 	for (void* lp : localPlayers) {
 		void* pc = ue::Read<void*>(lp, offLPActor);
-		if (!pc || !ue::IsValid(pc)) continue;
+		if (!pc || !ue::IsAlive(pc)) continue;
 		void* pri = ue::Read<void*>(pc, offPRI);
-		if (!pri || !ue::IsValid(pri) || !ue::IsA(pri, clsPRI)) continue;
+		if (!pri || !ue::IsAlive(pri) || !ue::IsA(pri, clsPRI)) continue;
 		auto* cl = ue::Ptr<ue::TArray<int32_t>>(pri, offClient);
+		if (pri != lastPRI || cl->count != lastCount) {
+			zl::Log("local PRI %p (%s): loadout entries %d", pri, ue::Name(pri).c_str(), cl->count);
+			lastPRI = pri;
+			lastCount = cl->count;
+		}
 		if (!cl->data || cl->count <= 0 || cl->count > 64) continue; // Hauptmenue: kein Loadout
 		if (!NeedsApply(pri)) continue;
 		WriteOverrides(pri);
@@ -356,16 +363,33 @@ static void EnsureLocalLoadout() {
 void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
 	static unsigned long long nextCheck = 0;
-	if (unsigned long long now = GetTickCount64(); now >= nextCheck) {
+	unsigned long long now = GetTickCount64();
+	// Ereignisse eines Autos (z. B. beim Spawnen) -> sofort pruefen, bevor es sein Loadout baut
+	static void* lastCls = nullptr;
+	static bool lastIsCar = false;
+	void* cls = ue::ClassOf(caller);
+	if (cls != lastCls) { lastCls = cls; lastIsCar = clsCar && ue::IsA(caller, clsCar); }
+	if (lastIsCar || now >= nextCheck) {
 		nextCheck = now + 40;
 		try { EnsureLocalLoadout(); } catch (...) {}
 	}
 	if (tickFns.count(fn)) { // lokaler Spieler
+		// LocalPlayer merken (gibt es auch schon im Hauptmenue)
+		try {
+			void* lp = ue::Read<void*>(caller, offPlayer);
+			if (lp && clsLocalPlayer && std::find(localPlayers.begin(), localPlayers.end(), lp) == localPlayers.end() && ue::IsA(lp, clsLocalPlayer)) {
+				localPlayers.push_back(lp);
+				zl::Log("local player: %p (%s)", lp, ue::Name(lp).c_str());
+			}
+		} catch (...) {}
 		// Im Hauptmenue tickt auch ein Controller - der zaehlt nur, wenn er wirklich ein Auto faehrt
-		if (!ue::IsA(caller, clsPC)) return;
 		void* pawn = nullptr;
-		try { pawn = offPawn >= 0 ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
-		if (!pawn || !clsCar || !ue::IsA(pawn, clsCar)) return;
+		try { pawn = (ue::IsA(caller, clsPC) && offPawn >= 0) ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
+		if (!pawn || !clsCar || !ue::IsA(pawn, clsCar)) {
+			// Hauptmenue/Garage: sicherer Moment (einmal pro Frame), um das Vorschau-Auto anzupassen
+			try { TickPreview(); } catch (...) {}
+			return;
+		}
 		if (localPC.load() != caller) {
 			localPC = caller;
 			void* pri = nullptr; void* pawn = nullptr;
@@ -495,6 +519,14 @@ void TickPreview() {
 	nextPreviewCheck = t + 500;
 	// Im Spiel (Freeplay/Match) gibt es kein Vorschau-Auto: nicht suchen, damit nichts ruckelt
 	if (t - lastPlayerTick.load() < 1500) return;
+	// Nach einer Pause (Ladebildschirm, Spiel) die Liste neu aufbauen: alte Autos koennen schon geloescht sein
+	static unsigned long long lastRun = 0;
+	if (t - lastRun > 1000) {
+		previewActors.clear();
+		previews.clear();
+		nextPreviewScan = t + 1500; // dem neuen Menue kurz Zeit zum Aufbauen geben
+	}
+	lastRun = t;
 	if (t >= nextPreviewScan) {
 		nextPreviewScan = t + 3000;
 		previewActors = ue::Instances(clsPreview);
@@ -502,9 +534,9 @@ void TickPreview() {
 		if (logged++ < 3) zl::Log("menu cars: %d (scan %llu ms)", (int)previewActors.size(), GetTickCount64() - t);
 	}
 	for (auto it = previews.begin(); it != previews.end();) // alte Autos vergessen
-		it = ue::IsValid(it->first) ? std::next(it) : previews.erase(it);
+		it = ue::IsAlive(it->first) ? std::next(it) : previews.erase(it);
 	for (void* a : previewActors) {
-		if (!ue::IsValid(a)) continue;
+		if (!ue::IsAlive(a)) continue;
 		try { SyncPreview(a); } catch (...) {}
 	}
 }

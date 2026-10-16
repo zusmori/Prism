@@ -40,6 +40,8 @@ bool Ready();
 bool CheckObjects(void* knownObject);
 // Lebt das Objekt noch (steht es noch an seinem Platz im Objekt-Array)?
 bool IsValid(const void* obj);
+// Lebt das Objekt und ist nicht zum Loeschen markiert (RF_PendingKill)?
+bool IsAlive(const void* obj);
 
 int ObjectCount();
 void* ObjectAt(int i);

@@ -24,7 +24,6 @@ std::atomic<bool> menuOpen{false};
 static void __fastcall ProcessEventHook(void* obj, void* fn, void* params, void* result) {
 	items::RunQueue();
 	try {
-		items::TickPreview();
 		items::OnProcessEvent(obj, fn, params);
 	} catch (...) {}
 	ue::ProcessEventOrig(obj, fn, params, result);

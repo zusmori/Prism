@@ -158,6 +158,15 @@ bool IsValid(const void* obj) {
 	}
 }
 
+bool IsAlive(const void* obj) {
+	if (!IsValid(obj)) return false;
+	try {
+		return (Read<uint64_t>(obj, 0x10) & 0x20000000ull) == 0; // ObjectFlags & RF_PendingKill
+	} catch (...) {
+		return false;
+	}
+}
+
 bool CheckObjects(void* obj) {
 	if (!obj || !GNames) return false;
 	try {
