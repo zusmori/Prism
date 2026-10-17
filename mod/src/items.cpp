@@ -50,6 +50,7 @@ void RunQueue() {
 	}
 }
 
+static void TickColors(void* previewActor, void* car);
 // ---------- Engine-Infos ----------
 static void *clsDB, *clsProduct, *clsSlot, *clsPC, *clsPRI;
 static int offProducts = -1, offLabel = -1, offLongLabel = -1, offSlot = -1, offQuality = -1, offSlotIndex = -1;
@@ -753,7 +754,6 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 // und tauschen nur die Teile, die nicht passen, ueber die Garage-Funktion ChangeCarPart aus.
 struct OnlineId { uint64_t a = 0, b = 0; bool operator==(const OnlineId& o) const { return a == o.a && b == o.b; } };
 struct OwnPart { int id = 0; OnlineId online; };
-static void TickColors(void* previewActor, void* car);
 struct PreviewState {
 	std::map<int, OwnPart> orig;  // Slot -> eigenes Item (mit Online-ID, z. B. deine Lackierung)
 	std::map<int, int> lastSeen;  // Slot -> zuletzt gesehener Wert
