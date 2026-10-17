@@ -214,7 +214,7 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 }
 
 // ---------- Rechts: eine Zeile ----------
-static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cur, int& pick, float w) {
+static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cur, int& pick, float w, bool paintable = false) {
 	ImGui::PushID(id);
 	ImVec2 p = ImGui::GetCursorScreenPos();
 	const float rh = 46;
@@ -241,17 +241,94 @@ static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cu
 		Text(d, fSmall, ImVec2(rx, p.y + (rh - fSmall->FontSize) / 2), Alpha(qc, 0.85f), sub);
 	}
 	if (s > 0.01f) CheckMark(d, ImVec2(q.x - 22, p.y + rh / 2), s);
+	// kleines Farb-Symbol: dieses Item gibt es lackiert
+	if (paintable) {
+		float nx = tx + h * 2.0f + TextW(fRegular, n.c_str()) + 12, cy = p.y + rh / 2;
+		d->AddCircleFilled(ImVec2(nx, cy), 2.8f, U(Rgb(220, 60, 60, 0.9f)), 12);
+		d->AddCircleFilled(ImVec2(nx + 7.5f, cy), 2.8f, U(Rgb(240, 240, 240, 0.9f)), 12);
+		d->AddCircleFilled(ImVec2(nx + 15, cy), 2.8f, U(Rgb(70, 140, 240, 0.9f)), 12);
+	}
 	ImGui::PopID();
 }
 
-// Eingabefeld im ZLauncher-Stil (Hintergrund, Rand, optional Lupe). true = Enter gedrueckt
+// Eingabefeld im ZLauncher-Stil, komplett selbst gebaut (ohne ImGui-InputText): Zeichen kommen direkt aus
+// der Tastatur-Abfrage. So kann das Spiel den Fokus nicht mehr "wegnehmen". true = Enter gedrueckt
+static ImGuiID focusedField = 0;
+static double caretT = 0;
+
+static void AppendUtf8(char* buf, size_t n, unsigned c) {
+	char enc[5] = {0};
+	if (c < 0x80) enc[0] = (char)c;
+	else if (c < 0x800) { enc[0] = (char)(0xC0 | (c >> 6)); enc[1] = (char)(0x80 | (c & 0x3F)); }
+	else { enc[0] = (char)(0xE0 | (c >> 12)); enc[1] = (char)(0x80 | ((c >> 6) & 0x3F)); enc[2] = (char)(0x80 | (c & 0x3F)); }
+	size_t len = strlen(buf), el = strlen(enc);
+	if (len + el < n) memcpy(buf + len, enc, el + 1);
+}
+static void Backspace(char* buf) {
+	size_t len = strlen(buf);
+	while (len > 0) {
+		len--;
+		if ((buf[len] & 0xC0) != 0x80) break; // Anfang eines UTF-8-Zeichens
+	}
+	buf[len] = 0;
+}
+
+bool BlurField() {
+	if (!focusedField) return false;
+	focusedField = 0;
+	return true;
+}
+
 static bool Field(ImDrawList* dl, const char* id, const char* hint, char* buf, size_t n, ImVec2 sp, ImVec2 sq, bool& focusFlag, bool icon,
 	bool clearBtn) {
+	ImGuiIO& io = ImGui::GetIO();
 	const float sh = sq.y - sp.y;
-	ImGuiID aid = ImGui::GetID(id);
-	float* f = ImGui::GetStateStorage()->GetFloatRef(aid + 7, 0.0f);
-	dl->AddRectFilled(sp, sq, U(Mix(cPanel, cPanel2, *f)), 12);
-	dl->AddRect(sp, sq, U(Mix(cLine2, Acc(0.7f), *f)), 12, 0, 1.0f);
+	ImGuiID fid = ImGui::GetID(id);
+	bool showClr = clearBtn && buf[0];
+	ImVec2 clrP(sq.x - 38, sp.y + (sh - 32) / 2);
+	// Leeren-Knopf zuerst (hat Vorrang vor dem Feld)
+	bool clr = false, clrHov = false;
+	if (showClr) {
+		ImGui::SetCursorScreenPos(clrP);
+		ImGui::PushID(id);
+		clr = ImGui::InvisibleButton("##clr", ImVec2(32, 32));
+		clrHov = ImGui::IsItemHovered();
+		ImGui::PopID();
+	}
+	ImGui::SetCursorScreenPos(sp);
+	bool click = ImGui::InvisibleButton(id, ImVec2(sq.x - sp.x, sh));
+	if (click || clr || focusFlag) { focusedField = fid; caretT = ImGui::GetTime(); focusFlag = false; }
+	else if (focusedField == fid && ImGui::IsMouseClicked(0) && !ImGui::IsMouseHoveringRect(sp, sq, false)) focusedField = 0;
+	if (clr) buf[0] = 0;
+	bool focused = focusedField == fid;
+	bool enter = false;
+	if (focused) {
+		bool typed = false;
+		for (int i = 0; i < io.InputQueueCharacters.Size; i++) {
+			unsigned c = io.InputQueueCharacters[i];
+			if (c >= 32 && c != 127) { AppendUtf8(buf, n, c); typed = true; }
+		}
+		io.InputQueueCharacters.resize(0);
+		if (ImGui::IsKeyPressed(ImGuiKey_Backspace, true)) {
+			if (io.KeyCtrl) buf[0] = 0;
+			else Backspace(buf);
+			typed = true;
+		}
+		if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) {
+			if (const char* clip = ImGui::GetClipboardText())
+				for (const char* c = clip; *c && strlen(buf) + 1 < n; c++)
+					if ((unsigned char)*c >= 32) { size_t l = strlen(buf); buf[l] = *c; buf[l + 1] = 0; }
+			typed = true;
+		}
+		if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A, false)) { buf[0] = 0; typed = true; } // Strg+A: alles neu tippen
+		if (ImGui::IsKeyPressed(ImGuiKey_Enter, false)) enter = true;
+		if (typed) caretT = ImGui::GetTime();
+	}
+	float* f = ImGui::GetStateStorage()->GetFloatRef(fid + 7, 0.0f);
+	*f = Approach(*f, focused ? 1.0f : 0.0f, 18.0f);
+	float hov = Anim(fid + 11, ImGui::IsItemHovered() && !focused ? 1.0f : 0.0f);
+	dl->AddRectFilled(sp, sq, U(Mix(Mix(cPanel, cHover, hov * 0.6f), cPanel2, *f)), 12);
+	dl->AddRect(sp, sq, U(Mix(Mix(cLine2, Rgb(255, 255, 255, 0.16f), hov), Acc(0.7f), *f)), 12, 0, 1.0f);
 	float tx = sp.x + 14;
 	if (icon) {
 		ImVec2 lc(sp.x + 20, sp.y + sh / 2 - 1);
@@ -260,25 +337,20 @@ static bool Field(ImDrawList* dl, const char* id, const char* hint, char* buf, s
 		dl->AddLine(ImVec2(lc.x + 4, lc.y + 4), ImVec2(lc.x + 8, lc.y + 8), c, 1.6f);
 		tx = sp.x + 38;
 	}
-	bool showClr = clearBtn && buf[0];
-	ImGui::SetCursorScreenPos(ImVec2(tx, sp.y + (sh - fRegular->FontSize) / 2 - 11));
-	ImGui::SetNextItemWidth(sq.x - tx - (showClr ? 40 : 14));
-	if (focusFlag) { ImGui::SetKeyboardFocusHere(); focusFlag = false; }
-	ImGui::PushStyleColor(ImGuiCol_Text, cText);
-	bool enter = ImGui::InputTextWithHint(id, hint, buf, n, ImGuiInputTextFlags_EnterReturnsTrue);
-	ImGui::PopStyleColor();
-	bool active = ImGui::IsItemActive();
-	*f = Approach(*f, active ? 1.0f : 0.0f, 18.0f);
-	// Klick irgendwo ins Feld aktiviert es zuverlaessig
-	if (!active && ImGui::IsMouseClicked(0) && ImGui::IsMouseHoveringRect(sp, sq, false) &&
-		!(showClr && ImGui::IsMouseHoveringRect(ImVec2(sq.x - 38, sp.y), sq, false)))
-		focusFlag = true;
+	float right = sq.x - (showClr ? 44 : 14);
+	float ty = sp.y + (sh - fRegular->FontSize) / 2 - 1;
+	float tw = TextW(fRegular, buf);
+	float off = std::max(0.0f, tw - (right - tx - 4)); // langer Text: Ende sichtbar
+	dl->PushClipRect(ImVec2(tx - 1, sp.y), ImVec2(right, sq.y), true);
+	if (!buf[0]) Text(dl, fRegular, ImVec2(tx, ty), cFaint, hint);
+	else Text(dl, fRegular, ImVec2(tx - off, ty), cText, buf);
+	if (focused && fmod(ImGui::GetTime() - caretT, 1.06) < 0.6) {
+		float cx = tx + tw - off + 1;
+		dl->AddRectFilled(ImVec2(cx, ty + 1), ImVec2(cx + 1.6f, ty + fRegular->FontSize + 1), U(Acc(1.0f)), 0);
+	}
+	dl->PopClipRect();
 	if (showClr) {
-		ImGui::SetCursorScreenPos(ImVec2(sq.x - 38, sp.y + (sh - 32) / 2));
-		ImGui::PushID(id);
-		if (ImGui::InvisibleButton("##clr", ImVec2(32, 32))) { buf[0] = 0; focusFlag = true; }
-		float h = Anim(ImGui::GetID("clrh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-		ImGui::PopID();
+		float h = Anim(fid + 13, clrHov ? 1.0f : 0.0f);
 		ImVec2 c(sq.x - 22, sp.y + sh / 2);
 		dl->AddCircleFilled(c, 9, U(Rgb(255, 255, 255, 0.06f + 0.08f * h)), 20);
 		ImU32 xc = U(Mix(cMuted, cText, h));
@@ -680,8 +752,8 @@ void Render(bool* open) {
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * a);
 		int curPaint = items::paints.count(curSlot) ? items::paints[curSlot] : 0;
 		float cy = o.y + listTop + 34 + 18;
-		Text(dl, fTiny, ImVec2(o.x + px, cy - 7), cFaint, "COLOR");
-		float x = o.x + px + 52;
+		Text(dl, fTiny, ImVec2(o.x + px, cy - 7), cFaint, "PAINT");
+		float x = o.x + px + 50;
 		const char* hoverName = nullptr;
 		auto swatch = [&](int id, ImVec4 col, const char* name) {
 			ImGui::SetCursorScreenPos(ImVec2(x - 11, cy - 11));
@@ -704,12 +776,12 @@ void Render(bool* open) {
 			}
 			x += 25;
 		};
-		swatch(0, cMuted, "Default");
+		swatch(0, cMuted, "Unpainted");
 		for (auto& pi : items::paintList) swatch(pi.id, ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f), pi.name.c_str());
 		// Name der Farbe (beim Drueberfahren, sonst die gewaehlte)
 		const char* shownName = hoverName;
 		if (!shownName) {
-			shownName = "Default";
+			shownName = "Unpainted";
 			for (auto& pi : items::paintList)
 				if (pi.id == curPaint) shownName = pi.name.c_str();
 		}
@@ -744,7 +816,7 @@ void Render(bool* open) {
 	while (clip.Step())
 		for (int r = clip.DisplayStart; r < clip.DisplayEnd; r++) {
 			const items::Item* it = shown[r];
-			ItemRow(it->id, it->name.c_str(), kQuality[std::clamp(it->quality, 0, 9)], QualityColor(it->quality), cur, pick, rw);
+			ItemRow(it->id, it->name.c_str(), kQuality[std::clamp(it->quality, 0, 9)], QualityColor(it->quality), cur, pick, rw, it->paintable && !items::paintList.empty());
 		}
 	if (!q.empty() && shown.empty()) {
 		ImVec2 p = ImGui::GetCursorScreenPos();

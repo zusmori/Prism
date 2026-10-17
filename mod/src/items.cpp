@@ -66,7 +66,7 @@ static std::atomic<unsigned long long> applyAt{0};
 static void *fnIsPaintable = nullptr, *clsPainted = nullptr, *cdoPainted = nullptr, *fnCreatePaint = nullptr;
 static void *fnPathName = nullptr, *cdoObject = nullptr;
 static int offIsPaintableRet = -1, offCreateId = -1, offCreateRet = -1, offPaintID = -1, offPathObj = -1, offPathRet = -1;
-static int offClientOnline = -1, offFullAttr = -1;
+static int offClientOnline = -1, offFullAttr = -1, offClientOnline1 = -1, offFullOnline = -1;
 static bool attrArraysOk = false;
 static std::map<int, bool> paintableById; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
@@ -131,6 +131,9 @@ bool Setup() {
 	cdoObject = ue::FindObject("Object Core.Default__Object");
 	offClientOnline = ue::PropOffset(clsPRI, "ClientLoadoutsOnline");
 	offFullAttr = ue::PropOffset(clsPRI, "FullLoadoutAttributes");
+	offClientOnline1 = ue::PropOffset(clsPRI, "ClientLoadoutOnline");
+	offFullOnline = ue::PropOffset(clsPRI, "FullOnlineLoadout");
+	zl::Log("paint lists: clientOnline=%x clientsOnline=%x fullOnline=%x fullAttr=%x", offClientOnline1, offClientOnline, offFullOnline, offFullAttr);
 	{
 		void* s1 = ue::FindObject("ScriptStruct TAGame._Types_TA.ClientLoadoutOnlineProduct");
 		void* s2 = ue::FindObject("ScriptStruct TAGame._Types_TA.ProductAttributesArray");
@@ -225,6 +228,7 @@ void LoadProducts() {
 		void* clsPaint = ue::FindClass("Class TAGame.ProductPaint_TA");
 		int offPaints = ue::PropOffset(clsDBp, "Paints");
 		int offPLabel = clsPaint ? ue::PropOffset(clsPaint, "Label") : -1, offPColors = clsPaint ? ue::PropOffset(clsPaint, "Colors") : -1;
+		int offPFlags = clsPaint ? ue::PropOffset(clsPaint, "bVisible") : -1; // bVisible = 1, bIncludeByDefault = 2
 		auto dbsP = ue::Instances(clsDBp);
 		if (!dbsP.empty() && offPaints >= 0) {
 			auto* pa = ue::Ptr<ue::TArray<void*>>(dbsP[0], offPaints);
@@ -234,6 +238,7 @@ void LoadProducts() {
 				try {
 					PaintInfo pi{i, offPLabel >= 0 ? ue::Narrow(ue::Read<ue::FString>(po, offPLabel)) : "", {0.5f, 0.5f, 0.5f}};
 					if (pi.name.empty()) continue;
+					pi.flags = offPFlags >= 0 ? ue::Read<uint32_t>(po, offPFlags) : 3;
 					if (offPColors >= 0) {
 						const float* c = reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(po) + offPColors);
 						for (int k = 0; k < 3; k++) pi.rgb[k] = powf(std::clamp(c[k], 0.0f, 1.0f), 1.0f / 2.2f);
@@ -243,8 +248,15 @@ void LoadProducts() {
 			}
 		}
 		std::string names;
-		for (auto& p : pl) names += std::to_string(p.id) + "=" + p.name + " ";
+		for (auto& p : pl) names += std::to_string(p.id) + "=" + p.name + "(" + std::to_string(p.flags & 3) + ") ";
 		zl::Log("paints: %d %s", (int)pl.size(), names.c_str());
+		// Nur die normalen Lackierungen, die es fuer lackierbare Items gibt (wie im Spiel):
+		// Crimson, Lime, Black, Sky Blue, Cobalt, Burnt Sienna, Forest Green, Purple, Pink, Orange, Grey, Titanium White, Saffron.
+		// Gold, Platinum, Glow usw. gibt es nur bei einzelnen Items.
+		std::vector<PaintInfo> std13;
+		for (auto& p : pl)
+			if (p.id >= 1 && p.id <= 13) std13.push_back(p);
+		pl = std::move(std13);
 	}
 	{
 		std::lock_guard<std::mutex> lk(mu);
@@ -383,7 +395,7 @@ static bool SetSlotAttr(ue::TArray<void*>* elem, void* attr) {
 // Liste mit Produkt-Eintraegen (je 0x10 = eine Attribut-Liste) fuer ein Team
 static void PaintList(ue::TArray<ue::TArray<void*>>* prods, const std::map<int, int>& ov, const std::map<int, int>& pt, const char* what) {
 	static int logged = 0;
-	if (logged < 4) { logged++; zl::Log("paint: %s has %d entries", what, prods->data ? prods->count : -1); }
+	if (logged < 12) { logged++; zl::Log("paint: %s has %d entries", what, prods->data ? prods->count : -1); }
 	if (!prods->data || prods->count <= 0 || prods->count > 64) return;
 	for (int i = 0; i < kSlotCount; i++) {
 		int slot = kSlots[i].index;
@@ -408,9 +420,12 @@ static void WritePaints(void* pri) {
 		ov = overrides;
 		pt = paints;
 	}
+	// Alle Stellen, an denen das Spiel Item-Attribute fuer den Spieler ablegt
+	if (offClientOnline1 >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline1), ov, pt, "ClientLoadoutOnline");
 	for (int t = 0; t < 2; t++) {
-		PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline + t * 0x10), ov, pt, "online loadout");
-		if (offFullAttr >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullAttr + t * 0x10), ov, pt, "full attributes");
+		PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline + t * 0x10), ov, pt, "ClientLoadoutsOnline");
+		if (offFullOnline >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullOnline + t * 0x10), ov, pt, "FullOnlineLoadout");
+		if (offFullAttr >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullAttr + t * 0x10), ov, pt, "FullLoadoutAttributes");
 	}
 }
 

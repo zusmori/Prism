@@ -225,7 +225,11 @@ static void PollKeys() {
 		keyPrev[vk] = d;
 		ImGuiKey k = MapKey(vk);
 		if (k != ImGuiKey_None) io.AddKeyEvent(k, d);
-		if (d && vk == VK_ESCAPE) { menuOpen = false; return; }
+		if (d && vk == VK_ESCAPE) {
+			if (gui::BlurField()) continue; // erst aus dem Suchfeld raus
+			menuOpen = false;
+			return;
+		}
 		// Zeichen (AltGr = Strg+Alt erlaubt, z. B. @)
 		if (d && (!ctrl || alt)) {
 			wchar_t buf[4] = {0};

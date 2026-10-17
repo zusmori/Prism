@@ -1,6 +1,7 @@
 #pragma once
 // Item-Tausch: eigene Items im Loadout des lokalen Spielers (nur fuer dich sichtbar)
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -21,6 +22,7 @@ struct PaintInfo {
 	int id;
 	std::string name;
 	float rgb[3]; // sRGB 0..1
+	uint32_t flags = 0;
 };
 
 struct SlotInfo {
