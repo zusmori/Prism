@@ -98,7 +98,7 @@ func trayAdd(hwnd uintptr) {
 	d.UFlags = nifMessage | nifIcon | nifTip
 	d.UCallbackMessage = wmTray
 	d.HIcon = trayIcon
-	setUTF16(d.SzTip[:], "zusmori's Launcher")
+	setUTF16(d.SzTip[:], "ZLauncher")
 	r, _, _ := pNotify.Call(nimAdd, uintptr(unsafe.Pointer(&d)))
 	trayOn = r != 0
 }

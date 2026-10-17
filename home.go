@@ -21,7 +21,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -524,4 +526,56 @@ func vdfStr(m map[string]interface{}, key string) string {
 		}
 	}
 	return ""
+}
+
+// Rocket League schliessen: erst freundlich (Fenster schliessen), nach ein paar Sekunden notfalls beenden.
+func closeRL() error {
+	pids := processIDs("RocketLeague.exe")
+	if len(pids) == 0 {
+		return errors.New("Rocket League isn't running.")
+	}
+	for _, pid := range pids {
+		p := pid
+		cb := windows.NewCallback(func(h uintptr, _ uintptr) uintptr {
+			var wp uint32
+			pGetWindowThreadPI.Call(h, uintptr(unsafe.Pointer(&wp)))
+			if wp == p {
+				pPost.Call(h, 0x0010, 0, 0) // WM_CLOSE
+			}
+			return 1
+		})
+		pEnumWindows.Call(cb, 0)
+	}
+	go func() {
+		for i := 0; i < 40; i++ { // bis zu 8 s warten
+			time.Sleep(200 * time.Millisecond)
+			if !rlRunning() {
+				return
+			}
+		}
+		for _, pid := range processIDs("RocketLeague.exe") {
+			if h, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, pid); err == nil {
+				windows.TerminateProcess(h, 0)
+				windows.CloseHandle(h)
+			}
+		}
+	}()
+	return nil
+}
+
+func processIDs(name string) []uint32 {
+	var out []uint32
+	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return out
+	}
+	defer windows.CloseHandle(snap)
+	var e windows.ProcessEntry32
+	e.Size = uint32(unsafe.Sizeof(e))
+	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
+		if strings.EqualFold(windows.UTF16ToString(e.ExeFile[:]), name) {
+			out = append(out, e.ProcessID)
+		}
+	}
+	return out
 }

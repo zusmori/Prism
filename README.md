@@ -3,29 +3,29 @@
 </p>
 
 <h1 align="center">ZLauncher</h1>
-<p align="center"><b>zusmori's Launcher</b> · a Rocket League launcher for Windows</p>
+<p align="center">A Rocket League launcher for Windows</p>
 
 <p align="center">
   <a href="../../releases/latest"><b>⬇ Download the latest version</b></a>
 </p>
 
 <p align="center">
-  <img src="assets/home.jpg" width="880" alt="ZLauncher Home tab">
+  <img src="assets/home.jpg" width="880" alt="ZLauncher Home">
 </p>
 
 ## Features
 
-- **Play** – start Rocket League with Anti-Cheat (online) or without (Freeplay and workshop maps).
+- **Play** – start Rocket League with or without Anti-Cheat, close it again with one click.
 - **Friends** – see which Steam friends are online or in a game, live.
 - **Swap Maps** – play any workshop map in Freeplay. **Restore** puts the original arena back.
 - **Browse Maps** – find and download workshop maps right in the app.
-- **Item menu (beta)** – press **F8** in Rocket League to use any item in Freeplay and offline. Only you can see them, only without Anti-Cheat.
-- **Game Boost** – more performance while you play, reset when the game closes.
-- **Discord** – shows your mode and score on your profile, e.g. *2s Ranked · 2 : 1*.
-- 4 colors with video backgrounds, close to tray, automatic updates.
+- **Item menu** – press **F8** in game to use any item, painted versions, your own car colors and presets.
+- **Game Boost** – more performance while you play.
+- **Discord** – shows your mode and score on your profile.
+- Themes, tray mode and automatic updates.
 
 <p align="center">
-  <img src="assets/browse.jpg" width="880" alt="ZLauncher Browse Maps tab">
+  <img src="assets/items.jpg" width="880" alt="ZLauncher item menu in Rocket League">
 </p>
 
 ## Getting started
@@ -36,7 +36,7 @@
 
 ## Good to know
 
-- Workshop maps only work offline and **without Anti-Cheat**.
+- Workshop maps and the item menu only work **without Anti-Cheat**. Items are only visible to you.
 - Needs Windows 10/11 and Rocket League on Steam.
 - Unofficial fan project, not affiliated with Psyonix, Epic Games, Valve or Discord. Use at your own risk.
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>zusmori's Launcher</title>
+<title>ZLauncher</title>
 <style>
   :root{
     /* Akzentfarbe (wird ueber die Settings getauscht) */
@@ -794,6 +794,13 @@
   .hstat .dot{--c:113 113 122;animation:none;box-shadow:none}
   .hstat.run .dot{--c:126 226 168;animation:pulse 2.2s cubic-bezier(.4,0,.6,1) infinite}
   .hstat.eac .dot{--c:var(--ac2-rgb)}
+  .hclose{display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;border-radius:999px;font:inherit;font-size:12.5px;font-weight:600;color:#f3c1c8;cursor:pointer;
+    background:rgb(12 12 16 / .45);border:1px solid rgba(247,161,173,.22);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    opacity:0;transform:translateX(-8px) scale(.96);pointer-events:none;
+    transition:opacity .3s var(--ease),transform .35s var(--spring),background .2s,border-color .2s,color .2s}
+  .hclose.on{opacity:1;transform:none;pointer-events:auto}
+  .hclose:hover{background:rgba(247,161,173,.14);border-color:rgba(247,161,173,.45);color:#fff}
+  .hclose.busy{opacity:.55;pointer-events:none}
   .hbtns{display:flex;gap:12px;flex-wrap:wrap}
   .lbtn{position:relative;overflow:hidden;display:flex;align-items:center;gap:13px;height:62px;padding:0 22px 0 16px;border-radius:15px;cursor:pointer;
     border:1px solid var(--line2);background:rgb(15 15 18 / .7);backdrop-filter:blur(10px);color:var(--text);font:inherit;text-align:left;
@@ -1339,7 +1346,7 @@
         <div class="hshade"></div>
         <div class="hbrand">
           <svg id="heroBrand" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
-          <div class="hbt"><b><span>zusmori's</span> Launcher</b><small id="hVer">ZLauncher</small></div>
+          <div class="hbt"><b>ZLauncher</b><small id="hVer">Rocket League Launcher</small></div>
         </div>
         <button class="hswap" id="hSwap" title="Show in Swap Maps">
           <div class="hsh"><span class="dot"></span><b>Active swaps</b><span class="hsn" id="hSwapN"></span>
@@ -1352,6 +1359,7 @@
           <div class="hrow">
             <button class="lbtn pri play" id="playBtn"><span class="li"><span class="gi" data-ic="play"></span></span><span><b>Play</b><small id="playSub">With or without Anti-Cheat</small></span></button>
             <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
+            <button class="hclose" id="hClose" title="Close Rocket League"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Close game</span></button>
           </div>
         </div>
       </div>
@@ -1636,7 +1644,7 @@
       </div></div>
       <div class="ssec"><h4>About</h4><div class="sgrp">
         <div class="about"><svg id="setLogo" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
-          <div class="tx"><b>zusmori's Launcher</b><small id="verLbl">Version –</small></div>
+          <div class="tx"><b>ZLauncher</b><small id="verLbl">Version –</small></div>
           <button class="sbtn" id="verCheck"><span class="gi" data-ic="year"></span><span class="vtx">Check for updates</span></button></div>
         <div class="alinks"><a id="lnkGit">GitHub</a><span>·</span><a id="lnkRel">Release notes</a><span>·</span><span>Support on Discord: <b>zusmori</b></span></div>
       </div></div>
@@ -2718,7 +2726,7 @@ document.addEventListener('keydown', e => {
   else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
-(async () => { try { if (has('getVersion')){ const v = await getVersion(); $('verLbl').textContent = 'Version ' + v; $('hVer').textContent = 'ZLauncher · v' + v; } } catch (e) {} })();
+(async () => { try { if (has('getVersion')){ const v = await getVersion(); $('verLbl').textContent = 'Version ' + v; $('hVer').textContent = 'Version ' + v; } } catch (e) {} })();
 
 /* ---------- Home: Rocket League Logo (aus dem Steam-Cache) ---------- */
 (async () => {
@@ -2797,6 +2805,7 @@ function paintRL(st){
   else if (!st.found){ tx.innerHTML = '<b>Rocket League not found</b> · set the folder under Swap Maps'; }
   else tx.innerHTML = '<b>Not running</b>' + (st.steam ? '' : ' · Steam is closed');
   if (!st.running) home.since = null;
+  const hc = $('hClose'); hc.classList.toggle('on', !!st.running); if (!st.running) hc.classList.remove('busy');
   if (st.running && home.launching){ home.launching = null; Sfx.ui('done'); }
   const b = $('playBtn');
   b.classList.toggle('busy', !!home.launching);
@@ -2828,6 +2837,13 @@ async function launch(eac, force){
     toast(e, false);
   }
 }
+// Spiel schliessen (unten links, nur solange RL laeuft)
+$('hClose').onclick = async () => {
+  const b = $('hClose'); if (b.classList.contains('busy')) return;
+  b.classList.add('busy'); Sfx.ui('dismiss');
+  try { if (has('closeRL')) await closeRL(); } catch (e) { b.classList.remove('busy'); toast(e, false); }
+  setTimeout(pollRL, 1500); setTimeout(pollRL, 4000); setTimeout(pollRL, 9000);
+};
 // Auswahl: mit oder ohne Anti-Cheat
 function openPlay(){
   if (home.launching || (home.st && home.st.running)) return;

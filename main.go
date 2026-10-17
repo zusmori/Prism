@@ -528,7 +528,7 @@ func open(target string) {
 func msgBox(text string) {
 	user32 := windows.NewLazySystemDLL("user32.dll")
 	t, _ := windows.UTF16PtrFromString(text)
-	c, _ := windows.UTF16PtrFromString("zusmori's Launcher")
+	c, _ := windows.UTF16PtrFromString("ZLauncher")
 	user32.NewProc("MessageBoxW").Call(0, uintptr(unsafe.Pointer(t)), uintptr(unsafe.Pointer(c)), 0x40)
 }
 
@@ -550,7 +550,7 @@ func main() {
 		AutoFocus: true,
 		DataPath:  filepath.Join(dataDir, "webview"),
 		WindowOptions: webview2.WindowOptions{
-			Title:  "zusmori's Launcher",
+			Title:  "ZLauncher",
 			Width:  winW,
 			Height: winH,
 			IconId: 1,
@@ -558,7 +558,7 @@ func main() {
 		},
 	})
 	if w == nil {
-		msgBox("zusmori's Launcher needs the Microsoft Edge WebView2 Runtime.\n\nDownload it for free from Microsoft (search: \"WebView2 Runtime\") and start the app again.")
+		msgBox("ZLauncher needs the Microsoft Edge WebView2 Runtime.\n\nDownload it for free from Microsoft (search: \"WebView2 Runtime\") and start the app again.")
 		return
 	}
 	defer w.Destroy()
@@ -718,6 +718,7 @@ func main() {
 	w.Bind("setPresenceCtx", func(starting bool, maps int) { setPresenceCtx(starting, maps) })
 	w.Bind("setBoost", func(on bool) BoostStatus { return setBoost(on) })
 	w.Bind("launchRL", func(eac bool) error { return app.LaunchRL(eac) })
+	w.Bind("closeRL", func() error { return closeRL() })
 	w.Bind("friendsAsync", func(cb int, key string) {
 		go func() {
 			res, err := steamFriends(key)
