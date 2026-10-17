@@ -181,7 +181,7 @@ bool Setup() {
 
 static bool IsPlaceholder(const std::string& n) {
 	auto ends = [&](const char* x) { size_t l = strlen(x); return n.size() >= l && n.compare(n.size() - l, l, x) == 0; };
-	return n.rfind("Mystery", 0) == 0 || ends(" Drop") || n.find("Preview") != std::string::npos;
+	return n.rfind("Mystery", 0) == 0 || n.rfind("Random ", 0) == 0 || ends(" Drop") || n.find("Preview") != std::string::npos;
 }
 
 void LoadProducts() {
@@ -709,6 +709,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		}
 		inGame = true;
 		lastPlayerTick = GetTickCount64();
+		try { TickColors(nullptr, pawn); } catch (...) {}
 		// Gebuendeltes Anwenden hier im PlayerTick: sicherer Moment, um das Auto neu zu spawnen
 		if (unsigned long long t = applyAt.load(); t && GetTickCount64() >= t) {
 			applyAt = 0;
@@ -752,6 +753,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 // und tauschen nur die Teile, die nicht passen, ueber die Garage-Funktion ChangeCarPart aus.
 struct OnlineId { uint64_t a = 0, b = 0; bool operator==(const OnlineId& o) const { return a == o.a && b == o.b; } };
 struct OwnPart { int id = 0; OnlineId online; };
+static void TickColors(void* previewActor, void* car);
 struct PreviewState {
 	std::map<int, OwnPart> orig;  // Slot -> eigenes Item (mit Online-ID, z. B. deine Lackierung)
 	std::map<int, int> lastSeen;  // Slot -> zuletzt gesehener Wert
@@ -962,6 +964,7 @@ void TickPreview() {
 			if (pr->data && pr->count > 0) main = mainDone = true; // erstes Auto mit Loadout = deins
 		}
 		try { SyncPreview(a, main); } catch (...) {}
+		if (main) try { TickColors(a, nullptr); } catch (...) {}
 	}
 }
 
@@ -1011,6 +1014,8 @@ void Save() {
 		fprintf(f, "%s\"p%d\":%d", first ? "" : ",", s, id);
 		first = false;
 	}
+	auto hex = [](const float* c) { return (int(c[0] * 255 + 0.5f) << 16) | (int(c[1] * 255 + 0.5f) << 8) | int(c[2] * 255 + 0.5f); };
+	fprintf(f, "%s\"co\":%d,\"cp\":%d,\"ca\":%d", first ? "" : ",", colorsOn ? 1 : 0, hex(colorPrimary), hex(colorAccent));
 	fputs("}\n", f);
 	fclose(f);
 }
@@ -1026,6 +1031,92 @@ void SetPaint(int slot, int paintId) {
 	userGen++;
 	applyAt = GetTickCount64() + 400;
 	Save();
+}
+
+// ---------- Eigene Lackfarben (Primaer/Akzent) ----------
+bool colorsOn = false;
+float colorPrimary[3] = {0.95f, 0.45f, 0.10f}, colorAccent[3] = {0.10f, 0.10f, 0.12f}; // sRGB 0..1
+static std::atomic<int> colorGen{1};
+static void *clsCarMesh = nullptr, *fnApplyColors = nullptr;
+static int offApplyTeam = -1, offApplyCustom = -1, offTeamOverride = -1, offCustomOverride = -1, offPreviewMesh = -1, offCarMesh = -1;
+static bool colorsTried = false;
+
+static bool EnsureColors() {
+	if (colorsTried) return fnApplyColors != nullptr;
+	colorsTried = true;
+	clsCarMesh = ue::FindClass("Class TAGame.CarMeshComponentBase_TA");
+	if (clsCarMesh) {
+		fnApplyColors = ue::FindFunction(clsCarMesh, "ApplyColorsToCar");
+		if (fnApplyColors) { offApplyTeam = ue::PropOffset(fnApplyColors, "TeamColor"); offApplyCustom = ue::PropOffset(fnApplyColors, "CustomColor"); }
+		offTeamOverride = ue::PropOffset(clsCarMesh, "TeamColorOverride");
+		offCustomOverride = ue::PropOffset(clsCarMesh, "CustomColorOverride");
+	}
+	if (clsPreview) offPreviewMesh = ue::PropOffset(clsPreview, "CarMesh");
+	if (clsCar) offCarMesh = ue::PropOffset(clsCar, "CarMesh");
+	zl::Log("colors: mesh=%p apply=%p (team=%x custom=%x) overrides=%x/%x previewMesh=%x carMesh=%x", clsCarMesh, fnApplyColors, offApplyTeam, offApplyCustom,
+		offTeamOverride, offCustomOverride, offPreviewMesh, offCarMesh);
+	return fnApplyColors != nullptr;
+}
+
+// Farben auf ein Auto-Modell legen (merkt sich pro Modell, ob es schon die aktuellen Farben hat)
+static std::map<void*, int> colorsApplied;
+static void ApplyColorsTo(void* mesh, bool force) {
+	if (!mesh || !ue::IsAlive(mesh) || !EnsureColors() || offApplyTeam < 0 || offApplyCustom < 0) return;
+	int gen = colorGen.load();
+	if (!force && colorsApplied[mesh] == gen) return;
+	float lin[2][4];
+	for (int k = 0; k < 3; k++) {
+		lin[0][k] = powf(std::clamp(colorPrimary[k], 0.0f, 1.0f), 2.2f);
+		lin[1][k] = powf(std::clamp(colorAccent[k], 0.0f, 1.0f), 2.2f);
+	}
+	lin[0][3] = lin[1][3] = 1.0f;
+	if (offTeamOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(mesh) + offTeamOverride, lin[0], 16);
+	if (offCustomOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(mesh) + offCustomOverride, lin[1], 16);
+	std::vector<uint8_t> p(size_t(ue::StructSize(fnApplyColors)) + 16, 0);
+	memcpy(p.data() + offApplyTeam, lin[0], 16);
+	memcpy(p.data() + offApplyCustom, lin[1], 16);
+	ue::Call(mesh, fnApplyColors, p.data());
+	colorsApplied[mesh] = gen;
+}
+
+// Regelmaessig aufrufen: das Spiel setzt die Farben z. B. beim Teilewechsel wieder zurueck
+static void TickColors(void* previewActor, void* car) {
+	if (!colorsOn) return;
+	static unsigned long long next = 0;
+	unsigned long long t = GetTickCount64();
+	bool beat = t >= next; // alle 0,4 s erneut, weil das Spiel die Farben beim Neuladen ueberschreibt
+	if (beat) next = t + 400;
+	if (!beat && colorsApplied.size() && colorGen.load() == colorsApplied.begin()->second) return;
+	if (!EnsureColors()) return;
+	if (previewActor && offPreviewMesh >= 0) ApplyColorsTo(ue::Read<void*>(previewActor, offPreviewMesh), beat);
+	if (car && offCarMesh >= 0) ApplyColorsTo(ue::Read<void*>(car, offCarMesh), beat);
+}
+
+void SetColors(bool on, const float* primary, const float* accent, bool save) {
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		bool wasOn = colorsOn;
+		colorsOn = on;
+		if (primary) memcpy(colorPrimary, primary, sizeof colorPrimary);
+		if (accent) memcpy(colorAccent, accent, sizeof colorAccent);
+		if (wasOn && !on) { // aus: Spiel-Farben zurueck -> Karosserie neu laden bzw. Auto neu spawnen
+			Queue([] {
+				colorsApplied.clear();
+				for (void* a : previewActors) {
+					if (!ue::IsAlive(a)) continue;
+					auto* pr = ue::Ptr<ue::TArray<int32_t>>(a, offPrevLoadout);
+					if (!pr->data || pr->count <= 0) continue;
+					auto* onl = ue::Ptr<ue::TArray<OnlineId>>(a, offPrevLoadout + offLoadoutOnline);
+					ChangePart(a, 0, pr->data[0], (onl->data && onl->count > 0) ? onl->data[0] : OnlineId{});
+					break;
+				}
+			});
+			applyAt = GetTickCount64() + 400;
+		}
+	}
+	colorGen++;
+	nextPreviewCheck = 0;
+	if (save) Save();
 }
 
 // ---------- Presets ----------
@@ -1143,6 +1234,9 @@ void LoadSaved() {
 		int s = 0, id = 0;
 		if (sscanf(p, "\"%d\":%d", &s, &id) == 2 && id > 0) overrides[s] = id;
 		else if (sscanf(p, "\"p%d\":%d", &s, &id) == 2 && id > 0) paints[s] = id;
+		else if (sscanf(p, "\"co\":%d", &id) == 1) colorsOn = id != 0;
+		else if (sscanf(p, "\"cp\":%d", &id) == 1) { colorPrimary[0] = ((id >> 16) & 255) / 255.0f; colorPrimary[1] = ((id >> 8) & 255) / 255.0f; colorPrimary[2] = (id & 255) / 255.0f; }
+		else if (sscanf(p, "\"ca\":%d", &id) == 1) { colorAccent[0] = ((id >> 16) & 255) / 255.0f; colorAccent[1] = ((id >> 8) & 255) / 255.0f; colorAccent[2] = (id & 255) / 255.0f; }
 		p = strchr(p + 1, '"');
 		if (!p) break;
 		p++;

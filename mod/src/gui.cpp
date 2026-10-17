@@ -200,7 +200,7 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 		auto ow = items::ownItems.find(s.index);
 		if (ow != items::ownItems.end()) shownIt = FindItem(ow->second);
 	}
-	if (it) d->AddCircleFilled(ImVec2(p.x + size.x - 18, p.y + size.y / 2), 3.5f, U(QualityColor(it->quality)), 16);
+	if (it) d->AddCircleFilled(ImVec2(p.x + size.x - 18, p.y + size.y / 2), 3.5f, U(accent), 16); // gewaehlt: Punkt in Lila
 	// Lackierung (bei gewaehltem oder eigenem Item), nur wenn es sie fuer das Item gibt
 	auto pp = items::paints.find(s.index);
 	if (shownIt && pp != items::paints.end() && pp->second > 0 && pp->second < 32 && ((shownIt->paintMask >> pp->second) & 1))
@@ -560,6 +560,109 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 	ImGui::EndChild();
 }
 
+// ---------- Farben ----------
+struct ColorAction {
+	bool changed = false, save = false, on = false;
+	float p[3], a[3];
+};
+static int colorEdit = 0; // 0 = Primaer, 1 = Akzent
+static float editCol[2][3];
+static bool editing = false;
+
+static void Swatch(ImDrawList* dl, ImVec2 c, float r, const float* rgb) {
+	dl->AddCircleFilled(c, r, U(ImVec4(rgb[0], rgb[1], rgb[2], 1.0f)), 32);
+	dl->AddCircle(c, r, U(Rgb(255, 255, 255, 0.14f)), 32, 1.0f);
+}
+
+static void ColorsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, ColorAction& act) {
+	const float leftW = 250, listTop = top + 14;
+	dl->AddLine(ImVec2(o.x + pad + leftW + 14, o.y + top + 1), ImVec2(o.x + pad + leftW + 14, o.y + W.y - 1), U(cLine));
+	if (!editing) {
+		memcpy(editCol[0], items::colorPrimary, sizeof editCol[0]);
+		memcpy(editCol[1], items::colorAccent, sizeof editCol[1]);
+	}
+	bool on = items::colorsOn;
+	float x = o.x + pad, y = o.y + listTop;
+	Text(dl, fTiny, ImVec2(x + 2, y), cFaint, "CAR COLORS");
+	y += 22;
+	// Schalter
+	{
+		ImVec2 cp(x, y), cq(x + leftW, y + 56);
+		ImGui::SetCursorScreenPos(cp);
+		bool click = ImGui::InvisibleButton("##colon", ImVec2(leftW, 56));
+		float h = Anim(ImGui::GetID("colonh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+		float k = Anim(ImGui::GetID("colonk"), on ? 1.0f : 0.0f, 16.0f);
+		dl->AddRectFilled(cp, cq, U(Mix(cPanel, cHover, h)), 14);
+		dl->AddRect(cp, cq, U(Mix(cLine, Acc(0.5f), k)), 14);
+		Text(dl, fBold, ImVec2(cp.x + 16, cp.y + 10), cText, "Custom colors");
+		Text(dl, fSmall, ImVec2(cp.x + 16, cp.y + 30), cMuted, on ? "On  \xC2\xB7  any color, both teams" : "Off  \xC2\xB7  team colors");
+		ImVec2 sw(cq.x - 58, cp.y + 17);
+		dl->AddRectFilled(sw, ImVec2(sw.x + 42, sw.y + 22), U(Mix(cLine2, accent, k)), 11);
+		dl->AddCircleFilled(ImVec2(sw.x + 11 + 20 * k, sw.y + 11), 8, U(Rgb(255, 255, 255)), 20);
+		if (click) { act.changed = true; act.save = true; on = !on; }
+		y = cq.y + 12;
+	}
+	// Primaer / Akzent
+	const char* lbl[2] = {"Primary", "Accent"};
+	for (int i = 0; i < 2; i++) {
+		ImVec2 cp(x, y), cq(x + leftW, y + 62);
+		ImGui::SetCursorScreenPos(cp);
+		ImGui::PushID(i + 50);
+		if (ImGui::InvisibleButton("##ce", ImVec2(leftW, 62))) colorEdit = i;
+		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+		float sel = Anim(ImGui::GetID("s"), colorEdit == i ? 1.0f : 0.0f);
+		ImGui::PopID();
+		dl->AddRectFilled(cp, cq, U(Mix(Mix(cPanel, cHover, h), Acc(0.12f), sel)), 14);
+		dl->AddRect(cp, cq, U(Mix(cLine, Acc(0.55f), sel)), 14);
+		Swatch(dl, ImVec2(cp.x + 32, cp.y + 31), 15, editCol[i]);
+		Text(dl, fBold, ImVec2(cp.x + 58, cp.y + 13), cText, lbl[i]);
+		char hex[16];
+		snprintf(hex, sizeof hex, "#%02X%02X%02X", int(editCol[i][0] * 255 + 0.5f), int(editCol[i][1] * 255 + 0.5f), int(editCol[i][2] * 255 + 0.5f));
+		Text(dl, fSmall, ImVec2(cp.x + 58, cp.y + 34), cMuted, hex);
+		y = cq.y + 10;
+	}
+	Text(dl, fSmall, ImVec2(x + 4, y + 6), cFaint, "Only you can see these colors.");
+
+	// Rechts: Farbwahl
+	const float px = pad + leftW + 30, pw = W.x - px - pad;
+	Text(dl, fTitle, ImVec2(o.x + px, o.y + listTop - 2), cText, colorEdit == 0 ? "Primary color" : "Accent color");
+	float* col = editCol[colorEdit];
+	float before[3];
+	memcpy(before, col, sizeof before);
+	ImGui::SetCursorScreenPos(ImVec2(o.x + px, o.y + listTop + 40));
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10, 4));
+	ImGui::SetNextItemWidth(std::min(pw, 330.0f));
+	ImGui::ColorPicker3("##pick", col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
+		ImGuiColorEditFlags_PickerHueBar | ImGuiColorEditFlags_NoAlpha);
+	bool active = ImGui::IsItemActive();
+	ImGui::PopStyleVar(2);
+	// Schnellwahl
+	static const float quick[][3] = {{1, 1, 1}, {0.05f, 0.05f, 0.06f}, {0.55f, 0.55f, 0.58f}, {0.9f, 0.1f, 0.12f}, {1, 0.45f, 0.05f}, {1, 0.82f, 0.1f},
+		{0.35f, 0.85f, 0.2f}, {0.05f, 0.55f, 0.3f}, {0.15f, 0.75f, 1}, {0.1f, 0.3f, 0.95f}, {0.55f, 0.36f, 0.96f}, {1, 0.4f, 0.75f}};
+	float qy = o.y + listTop + 40 + 300 + 18, qx = o.x + px + 10;
+	Text(dl, fTiny, ImVec2(o.x + px, qy - 4), cFaint, "QUICK");
+	qx += 44;
+	for (int i = 0; i < 12; i++) {
+		ImGui::SetCursorScreenPos(ImVec2(qx - 12, qy - 7));
+		ImGui::PushID(i + 200);
+		if (ImGui::InvisibleButton("##q", ImVec2(24, 24))) { memcpy(col, quick[i], sizeof before); act.save = true; }
+		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
+		ImGui::PopID();
+		Swatch(dl, ImVec2(qx, qy + 5), 9.0f + 1.5f * h, quick[i]);
+		qx += 27;
+	}
+	bool changedCol = memcmp(before, col, sizeof before) != 0;
+	if (changedCol) { act.changed = true; on = true; } // Farbe waehlen schaltet die eigenen Farben ein
+	if (editing && !active) act.save = act.changed = true; // Ziehen beendet: speichern
+	editing = active;
+	if (act.changed) {
+		act.on = on;
+		memcpy(act.p, editCol[0], sizeof act.p);
+		memcpy(act.a, editCol[1], sizeof act.a);
+	}
+}
+
 // ---------- Fenster ----------
 void Render(bool* open) {
 	if (!requested) {
@@ -603,34 +706,46 @@ void Render(bool* open) {
 
 	// Kopf: Logo-Punkt, Titel, Hinweis
 	const float pad = 22;
-	dl->AddCircleFilled(ImVec2(o.x + pad + 6, o.y + 34), 6, A(accent), 20);
-	dl->AddCircleFilled(ImVec2(o.x + pad + 6, o.y + 34), 11, A(Acc(0.18f)), 24);
+	{
+		// Logo-Punkt: atmet langsam, mit Leuchtring der nach aussen laeuft
+		float t = (float)ImGui::GetTime();
+		ImVec2 lc(o.x + pad + 6, o.y + 34);
+		float breathe = 0.5f + 0.5f * sinf(t * 2.4f);
+		float ring = fmodf(t * 0.7f, 1.0f);
+		dl->AddCircle(lc, 6.0f + ring * 9.0f, A(Acc(0.45f * (1.0f - ring))), 24, 1.5f);
+		dl->AddCircleFilled(lc, 9.5f + breathe * 2.0f, A(Acc(0.12f + 0.10f * breathe)), 24);
+		dl->AddCircleFilled(lc, 5.5f + breathe * 0.8f, A(accent), 20);
+	}
 	Text(dl, fTitle, ImVec2(o.x + pad + 24, o.y + 21), cText, "ZLauncher");
 	// Reiter "Items" / "Presets" mit gleitender Markierung
 	{
-		const char* names[2] = {"Items", "Presets"};
+		const char* names[3] = {"Items", "Colors", "Presets"};
+		const int ids[3] = {0, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
 		float x0 = o.x + pad + 24 + TextW(fTitle, "ZLauncher") + 22, y0 = o.y + 15;
-		float w0 = TextW(fBold, names[0]) + 34, w1 = TextW(fBold, names[1]) + 34;
-		ImVec2 bp(x0, y0), bq(x0 + w0 + w1 + 8, y0 + 38);
+		float tws[3], tx[3], xx = x0 + 4;
+		for (int i = 0; i < 3; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
+		ImVec2 bp(x0, y0), bq(xx + 4, y0 + 38);
 		dl->AddRectFilled(bp, bq, A(cPanel), 19);
 		dl->AddRect(bp, bq, A(cLine), 19);
-		float tx[2] = {x0 + 4, x0 + 4 + w0}, tws[2] = {w0, w1};
-		for (int i = 0; i < 2; i++) {
+		int curPos = 0;
+		for (int i = 0; i < 3; i++) {
+			if (ids[i] == tab) curPos = i;
 			ImGui::SetCursorScreenPos(ImVec2(tx[i], y0 + 4));
 			ImGui::PushID(i);
-			if (ImGui::InvisibleButton("##tab", ImVec2(tws[i], 30)) && tab != i) {
-				tab = i;
+			if (ImGui::InvisibleButton("##tab", ImVec2(tws[i], 30)) && tab != ids[i]) {
+				tab = ids[i];
 				tabFade = 0.0f;
 				pendingDelete = -1;
 			}
 			ImGui::PopID();
 		}
-		float target = tx[tab] - o.x;
+		for (int i = 0; i < 3; i++) if (ids[i] == tab) curPos = i;
+		float target = tx[curPos] - o.x;
 		tabX = tabX < 0 ? target : Approach(tabX, target, 18.0f);
-		tabW = tabW <= 0 ? tws[tab] : Approach(tabW, tws[tab], 18.0f);
+		tabW = tabW <= 0 ? tws[curPos] : Approach(tabW, tws[curPos], 18.0f);
 		dl->AddRectFilled(ImVec2(o.x + tabX, y0 + 4), ImVec2(o.x + tabX + tabW, y0 + 34), A(Acc(0.20f)), 15);
-		for (int i = 0; i < 2; i++) {
-			float on = Anim(ImGui::GetID(names[i]), tab == i ? 1.0f : 0.0f);
+		for (int i = 0; i < 3; i++) {
+			float on = Anim(ImGui::GetID(names[i]), tab == ids[i] ? 1.0f : 0.0f);
 			float nw = TextW(fBold, names[i]);
 			Text(dl, fBold, ImVec2(tx[i] + (tws[i] - nw) / 2, y0 + 10), Mix(cMuted, Mix(accent, Rgb(255, 255, 255), 0.65f), on), names[i]);
 		}
@@ -683,6 +798,17 @@ void Render(bool* open) {
 
 	tabFade = Approach(tabFade, 1.0f, 12.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e * EaseOut(tabFade));
+	if (tab == 2) {
+		ColorAction ca;
+		ColorsBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, ca);
+		ImGui::PopStyleVar();
+		lk.unlock();
+		ImGui::End();
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+		if (ca.changed) items::SetColors(ca.on, ca.p, ca.a, ca.save);
+		return;
+	}
 	if (tab == 1) {
 		int action = 0, idx = -1;
 		PresetsBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, action, idx);

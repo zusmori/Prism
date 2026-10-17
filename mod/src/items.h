@@ -56,7 +56,11 @@ extern std::map<int, int> paints;     // Slot -> Farb-ID (nur bei lackierbaren I
 extern std::vector<PaintInfo> paintList;
 extern std::map<int, int> ownItems;   // Slot -> dein echtes Item (aus dem Hauptmenue)
 void SetPaint(int slot, int paintId); // 0 = Standard
-uint32_t PaintMaskOf(int productId);  // welche Lackierungen es fuer ein Item gibt
+uint32_t PaintMaskOf(int productId);
+// Eigene Lackfarben (frei waehlbar), sRGB 0..1
+extern bool colorsOn;
+extern float colorPrimary[3], colorAccent[3];
+void SetColors(bool on, const float* primary, const float* accent, bool save = true);  // welche Lackierungen es fuer ein Item gibt
 extern bool loaded;
 extern std::string status;
 extern std::atomic<bool> inGame;      // lokaler Spieler mit Auto vorhanden (Freeplay/Match)
