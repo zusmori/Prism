@@ -208,7 +208,12 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 	}
 	float sa = Anim(ImGui::GetID("sa"), sel ? 1.0f : 0.0f);
 	Text(d, fTiny, ImVec2(tx, p.y + 8), Mix(cFaint, Acc(1.0f), sa * 0.9f), s.label);
-	std::string name = Fit(fRegular, fRegular->FontSize, it ? it->name : "Your own", size.x - 60);
+	const items::Item* ownIt = nullptr;
+	if (!it) {
+		auto ow = items::ownItems.find(s.index);
+		if (ow != items::ownItems.end()) ownIt = FindItem(ow->second);
+	}
+	std::string name = Fit(fRegular, fRegular->FontSize, it ? it->name : (ownIt ? ownIt->name : "Your own"), size.x - 60);
 	Text(d, fRegular, ImVec2(tx, p.y + 22), it ? Mix(Hex(0xc9c9d3), cText, std::max(sa, h)) : Mix(cMuted, Hex(0xa9a9b5), h), name.c_str());
 	ImGui::PopID();
 }
@@ -369,6 +374,7 @@ static void SmoothScroll(float& target, float& last) {
 	target = std::clamp(target, 0.0f, mx);
 	float ns = Approach(sc, target, 16.0f);
 	if (fabsf(ns - target) < 0.5f) ns = target;
+	ns = roundf(ns);
 	if (ns != sc) ImGui::SetScrollY(ns);
 	last = ns;
 }
@@ -724,8 +730,11 @@ void Render(bool* open) {
 	std::string q = Lower(search);
 	std::vector<const items::Item*> shown;
 	int total = 0;
+	// Decals gibt es nur fuer ein bestimmtes Auto: nur die fuer dein aktuelles Auto zeigen
+	int body = items::overrides.count(0) ? items::overrides[0] : (items::ownItems.count(0) ? items::ownItems[0] : 0);
 	for (auto& it : items::list) {
 		if (it.slot != curSlot) continue;
+		if (curSlot == 1 && body && it.forCar && it.forCar != body) continue;
 		total++;
 		if (q.empty() || Lower(it.name).find(q) != std::string::npos) shown.push_back(&it);
 	}
@@ -774,10 +783,16 @@ void Render(bool* open) {
 				dl->AddCircleFilled(ImVec2(x, cy), r, U(col), 24);
 				dl->AddCircle(ImVec2(x, cy), r, U(Rgb(255, 255, 255, 0.12f)), 24, 1.0f);
 			}
-			x += 25;
+			x += 23;
 		};
 		swatch(0, cMuted, "Unpainted");
-		for (auto& pi : items::paintList) swatch(pi.id, ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f), pi.name.c_str());
+		for (auto& pi : items::paintList) {
+			if (pi.id == 15) { // besondere Lackierungen etwas abgesetzt
+				dl->AddLine(ImVec2(x - 6, cy - 8), ImVec2(x - 6, cy + 8), U(cLine2), 1.0f);
+				x += 6;
+			}
+			swatch(pi.id, ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f), pi.name.c_str());
+		}
 		// Name der Farbe (beim Drueberfahren, sonst die gewaehlte)
 		const char* shownName = hoverName;
 		if (!shownName) {
@@ -809,7 +824,13 @@ void Render(bool* open) {
 	ImGui::BeginChild("rows", ImVec2(pw + 8, W.y - ly - 14), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
 	SmoothScroll(scrollTarget, scrollLast);
 	const float rw = pw - 8;
-	ItemRow(0, "Your own", "", Rgb(80, 80, 92), cur, pick, rw);
+	{
+		// ganz oben: dein echtes Item aus Rocket League
+		auto ow = items::ownItems.find(curSlot);
+		const items::Item* own = ow != items::ownItems.end() ? FindItem(ow->second) : nullptr;
+		if (own) ItemRow(0, own->name.c_str(), "Your item", QualityColor(own->quality), cur, pick, rw);
+		else ItemRow(0, "Your own", "", Rgb(80, 80, 92), cur, pick, rw);
+	}
 	if (q.empty() || shown.size()) ImGui::Dummy(ImVec2(0, 2));
 	ImGuiListClipper clip;
 	clip.Begin((int)shown.size(), 46.0f + ImGui::GetStyle().ItemSpacing.y);
@@ -825,6 +846,15 @@ void Render(bool* open) {
 		ImGui::Dummy(ImVec2(0, 50));
 	}
 	ImGui::Dummy(ImVec2(0, 6));
+	{
+		// weiche Kanten oben/unten, wenn gescrollt ist
+		ImDrawList* cd = ImGui::GetWindowDrawList();
+		ImVec2 wp2 = ImGui::GetWindowPos(), ws = ImGui::GetWindowSize();
+		float sc = ImGui::GetScrollY(), mx = ImGui::GetScrollMaxY();
+		float ft = std::min(sc, 14.0f) / 14.0f, fb = std::min(mx - sc, 14.0f) / 14.0f;
+		if (ft > 0) cd->AddRectFilledMultiColor(wp2, ImVec2(wp2.x + ws.x, wp2.y + 18), U(Alpha(cBg, ft)), U(Alpha(cBg, ft)), U(Alpha(cBg, 0)), U(Alpha(cBg, 0)));
+		if (fb > 0) cd->AddRectFilledMultiColor(ImVec2(wp2.x, wp2.y + ws.y - 18), ImVec2(wp2.x + ws.x, wp2.y + ws.y), U(Alpha(cBg, 0)), U(Alpha(cBg, 0)), U(Alpha(cBg, fb)), U(Alpha(cBg, fb)));
+	}
 	ImGui::EndChild();
 	ImGui::PopStyleVar();
 	ImGui::PopStyleVar(); // Reiter-Einblendung

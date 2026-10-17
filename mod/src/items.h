@@ -16,6 +16,7 @@ struct Item {
 	int slot = -1;
 	int quality = 0;
 	bool paintable = false;
+	int forCar = 0; // z. B. Decal: gehoert zu diesem Auto (Produkt-ID), 0 = passt ueberall
 };
 
 struct PaintInfo {
@@ -51,6 +52,7 @@ extern std::vector<Item> list;        // alle Items, nach Namen sortiert
 extern std::map<int, int> overrides;  // Slot -> Produkt-ID
 extern std::map<int, int> paints;     // Slot -> Farb-ID (nur bei lackierbaren Items)
 extern std::vector<PaintInfo> paintList;
+extern std::map<int, int> ownItems;   // Slot -> dein echtes Item (aus dem Hauptmenue)
 void SetPaint(int slot, int paintId); // 0 = Standard
 extern bool loaded;
 extern std::string status;

@@ -195,6 +195,10 @@ void LoadProducts() {
 	std::vector<Item> out;
 	auto* arr = ue::Ptr<ue::TArray<void*>>(dbs[0], offProducts);
 	zl::Log("product database %p: %d products", dbs[0], arr->count);
+	int offRequired = ue::PropOffset(clsProduct, "RequiredProduct");
+	std::map<void*, int> idOf;
+	for (int id = 0; id < arr->count && id < 100000; id++)
+		if (arr->data[id]) idOf[arr->data[id]] = id;
 	for (int id = 0; id < arr->count && id < 100000; id++) {
 		void* p = arr->data[id];
 		if (!p) continue;
@@ -210,6 +214,11 @@ void LoadProducts() {
 			if (offLongLabel >= 0) it.name = ue::Narrow(ue::Read<ue::FString>(p, offLongLabel));
 			if (it.name.empty() && offLabel >= 0) it.name = ue::Narrow(ue::Read<ue::FString>(p, offLabel));
 			if (it.name.empty()) it.name = ue::Name(p);
+			if (offRequired >= 0) {
+				void* rq = ue::Read<void*>(p, offRequired);
+				auto f = rq ? idOf.find(rq) : idOf.end();
+				if (f != idOf.end()) it.forCar = f->second;
+			}
 			if (fnIsPaintable && offIsPaintableRet >= 0) {
 				std::vector<uint8_t> prm(size_t(ue::StructSize(fnIsPaintable)) + 16, 0);
 				ue::Call(p, fnIsPaintable, prm.data());
@@ -250,12 +259,10 @@ void LoadProducts() {
 		std::string names;
 		for (auto& p : pl) names += std::to_string(p.id) + "=" + p.name + "(" + std::to_string(p.flags & 3) + ") ";
 		zl::Log("paints: %d %s", (int)pl.size(), names.c_str());
-		// Nur die normalen Lackierungen, die es fuer lackierbare Items gibt (wie im Spiel):
-		// Crimson, Lime, Black, Sky Blue, Cobalt, Burnt Sienna, Forest Green, Purple, Pink, Orange, Grey, Titanium White, Saffron.
-		// Gold, Platinum, Glow usw. gibt es nur bei einzelnen Items.
+		// Die Lackierungen aus dem Spiel (ohne die Glow-Varianten, die es nur bei einzelnen Items gibt)
 		std::vector<PaintInfo> std13;
 		for (auto& p : pl)
-			if (p.id >= 1 && p.id <= 13) std13.push_back(p);
+			if (p.id >= 1 && p.id <= 18) std13.push_back(p); // 1-14 normal (inkl. Gold), 15-18 besondere (Rose Gold, White Gold, Onyx, Platinum)
 		pl = std::move(std13);
 	}
 	{
@@ -695,61 +702,169 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 // ---------- Auto im Hauptmenue / in der Garage (CarPreviewActor_TA) ----------
 // Das Spiel setzt das Vorschau-Auto immer wieder aus deinem Profil. Wir schauen regelmaessig nach
 // und tauschen nur die Teile, die nicht passen, ueber die Garage-Funktion ChangeCarPart aus.
+struct OnlineId { uint64_t a = 0, b = 0; bool operator==(const OnlineId& o) const { return a == o.a && b == o.b; } };
+struct OwnPart { int id = 0; OnlineId online; };
 struct PreviewState {
-	std::map<int, int> orig;     // Slot -> eigenes Item
-	std::map<int, int> lastSeen; // Slot -> zuletzt gesehener Wert
-	std::map<int, int> target;   // Slot -> zuletzt gesetztes Item
+	std::map<int, OwnPart> orig;  // Slot -> eigenes Item (mit Online-ID, z. B. deine Lackierung)
+	std::map<int, int> lastSeen;  // Slot -> zuletzt gesehener Wert
+	std::map<int, long long> target; // Slot -> zuletzt gesetztes Item + Farbe
 	std::map<int, unsigned long long> until; // Slot -> nicht vor diesem Zeitpunkt erneut tauschen
+	int gen = -1;
 };
 static std::map<void*, PreviewState> previews;
 static std::vector<void*> previewActors;
 static unsigned long long nextPreviewScan = 0;
 static std::atomic<unsigned long long> nextPreviewCheck{0};
+static std::atomic<int> userGen{0}; // steigt bei jeder Aenderung im Menue -> Wartezeiten aufheben
+std::map<int, int> ownItems;        // Slot -> dein echtes Item (fuer die Anzeige)
 
-static bool ChangePart(void* actor, int slot, int id) {
+// ---------- Lackierte Items fuer das Menue-Auto ----------
+// Das Spiel zeigt lackierte Shop-Items ueber "temporaere" Online-Produkte an. Genau so machen wir es auch:
+// eigene Produkt-Liste anlegen, Produkt + Painted-Attribut hinein, dann mit dessen ID ans Vorschau-Auto.
+static void *clsStore = nullptr, *store = nullptr, *ourSet = nullptr, *fnTempId = nullptr, *fnAddData = nullptr, *fnAddAttribute = nullptr;
+static int offAddData = -1, offAddRet = -1, offTempRet = -1, offOPInstance = -1, offAddAttr = -1, offLoadoutOnline = 0x30;
+static bool storeTried = false;
+static std::map<long long, OnlineId> paintedIds; // Produkt*1000+Farbe -> Online-ID
+
+static bool EnsureStore() {
+	if (ourSet) return true;
+	if (storeTried) return false;
+	storeTried = true;
+	clsStore = ue::FindClass("Class TAGame.OnlineProductStore_TA");
+	void* clsSet = ue::FindClass("Class TAGame.OnlineProductStoreSet_TA");
+	void* clsOP = ue::FindClass("Class TAGame.OnlineProduct_TA");
+	if (!clsStore || !clsSet || !clsOP) { zl::Log("paint menu: classes missing"); return false; }
+	void* fnGet = ue::FindFunction(clsStore, "GetInstance");
+	void* cdo = ue::FindObject("OnlineProductStore_TA TAGame.Default__OnlineProductStore_TA");
+	if (fnGet && cdo) {
+		std::vector<uint8_t> p(size_t(ue::StructSize(fnGet)) + 16, 0);
+		ue::Call(cdo, fnGet, p.data());
+		int ro = ue::PropOffset(fnGet, "ReturnValue");
+		store = ro >= 0 ? *reinterpret_cast<void**>(p.data() + ro) : nullptr;
+	}
+	void* fnCreate = ue::FindFunction(clsStore, "CreateSet");
+	if (store && fnCreate) {
+		std::vector<uint8_t> p(size_t(ue::StructSize(fnCreate)) + 16, 0);
+		ue::Call(store, fnCreate, p.data());
+		int ro = ue::PropOffset(fnCreate, "ReturnValue");
+		ourSet = ro >= 0 ? *reinterpret_cast<void**>(p.data() + ro) : nullptr;
+	}
+	if (ourSet && !localPlayers.empty()) {
+		if (void* fnInit = ue::FindFunction(clsSet, "InitLocal")) {
+			std::vector<uint8_t> p(size_t(ue::StructSize(fnInit)) + 16, 0);
+			int io = ue::PropOffset(fnInit, "InPlayer");
+			if (io >= 0) *reinterpret_cast<void**>(p.data() + io) = localPlayers[0];
+			ue::Call(ourSet, fnInit, p.data());
+		}
+	}
+	fnTempId = ue::FindFunction(clsStore, "GetTempInstanceID");
+	if (fnTempId) offTempRet = ue::PropOffset(fnTempId, "ReturnValue");
+	fnAddData = ue::FindFunction(clsSet, "AddProductData");
+	if (fnAddData) { offAddData = ue::PropOffset(fnAddData, "Data"); offAddRet = ue::PropOffset(fnAddData, "ReturnValue"); }
+	fnAddAttribute = ue::FindFunction(clsOP, "AddAttribute");
+	if (fnAddAttribute) offAddAttr = ue::PropOffset(fnAddAttribute, "InAttribute");
+	offOPInstance = ue::PropOffset(clsOP, "InstanceID");
+	if (void* ld = ue::FindObject("ScriptStruct TAGame._Types_TA.LoadoutData")) {
+		int o = ue::PropOffset(ld, "OnlineProducts");
+		if (o >= 0) offLoadoutOnline = o;
+	}
+	zl::Log("paint menu: store=%p set=%p tempId=%p addData=%p (data=%x ret=%x) addAttr=%p instance=%x loadoutOnline=%x",
+		store, ourSet, fnTempId, fnAddData, offAddData, offAddRet, fnAddAttribute, offOPInstance, offLoadoutOnline);
+	return ourSet != nullptr;
+}
+
+static bool PaintedId(int productId, int paintId, OnlineId& out) {
+	long long key = (long long)productId * 1000 + paintId;
+	auto it = paintedIds.find(key);
+	if (it != paintedIds.end()) { out = it->second; return true; }
+	if (!EnsureStore() || !fnTempId || !fnAddData || offAddData < 0 || offAddRet < 0 || offOPInstance < 0 || !fnAddAttribute) return false;
+	std::vector<uint8_t> t(size_t(ue::StructSize(fnTempId)) + 16, 0);
+	ue::Call(store, fnTempId, t.data());
+	OnlineId id = *reinterpret_cast<OnlineId*>(t.data() + offTempRet);
+	// FOnlineProductData: ProductID 0x00, InstanceID 0x08, SeriesID 0x18, Attributes 0x20 (leer)
+	std::vector<uint8_t> p(size_t(ue::StructSize(fnAddData)) + 16, 0);
+	*reinterpret_cast<int32_t*>(p.data() + offAddData) = productId;
+	*reinterpret_cast<OnlineId*>(p.data() + offAddData + 8) = id;
+	ue::Call(ourSet, fnAddData, p.data());
+	void* op = *reinterpret_cast<void**>(p.data() + offAddRet);
+	void* attr = op ? PaintAttr(paintId) : nullptr;
+	if (!op || !attr) { zl::Log("paint menu: couldn't create painted product %d/%d (op %p attr %p)", productId, paintId, op, attr); return false; }
+	std::vector<uint8_t> a(size_t(ue::StructSize(fnAddAttribute)) + 16, 0);
+	*reinterpret_cast<void**>(a.data() + offAddAttr) = attr;
+	ue::Call(op, fnAddAttribute, a.data());
+	out = ue::Read<OnlineId>(op, offOPInstance);
+	paintedIds[key] = out;
+	zl::Log("paint menu: product %d in %d -> %s (id %llx:%llx)", productId, paintId, ue::Name(op).c_str(), (unsigned long long)out.a, (unsigned long long)out.b);
+	return true;
+}
+
+static bool ChangePart(void* actor, int slot, int id, OnlineId online = {}) {
 	if (!fnChangePart || offCPSlot < 0 || offCPProduct < 0) return false;
 	std::vector<uint8_t> p(size_t(ue::StructSize(fnChangePart)) + 16, 0);
 	*reinterpret_cast<int32_t*>(p.data() + offCPSlot) = slot;
 	*reinterpret_cast<int32_t*>(p.data() + offCPProduct) = id;
+	if (offCPOnline >= 0) *reinterpret_cast<OnlineId*>(p.data() + offCPOnline) = online;
 	if (offCPPaint >= 0) *reinterpret_cast<int32_t*>(p.data() + offCPPaint) = 0;
 	ue::Call(actor, fnChangePart, p.data());
 	return true;
 }
 
-static void SyncPreview(void* actor) {
+static void SyncPreview(void* actor, bool main) {
 	auto* prods = ue::Ptr<ue::TArray<int32_t>>(actor, offPrevLoadout);
 	if (!prods->data || prods->count <= 0 || prods->count > 64) return;
-	std::map<int, int> ov;
+	auto* onl = ue::Ptr<ue::TArray<OnlineId>>(actor, offPrevLoadout + offLoadoutOnline);
+	auto onlineAt = [&](int slot) { return (onl->data && slot < onl->count) ? onl->data[slot] : OnlineId{}; };
+	std::map<int, int> ov, pt;
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		pt = paints;
 	}
 	PreviewState& st = previews[actor];
+	if (st.gen != userGen.load()) { st.until.clear(); st.gen = userGen.load(); } // du hast gerade etwas geaendert: sofort
 	for (auto& [slot, id] : ov) {
 		if (slot >= prods->count) continue;
+		int want = WantedPaint(slot, ov, pt);
+		OnlineId wantId;
+		if (want && !PaintedId(id, want, wantId)) want = 0;
+		long long tgt = (long long)id * 1000 + want;
 		int now = prods->data[slot];
-		if (now == id) { st.lastSeen[slot] = now; st.target[slot] = id; continue; }
+		bool ok = now == id && onlineAt(slot) == wantId;
+		if (ok) { st.lastSeen[slot] = now; st.target[slot] = tgt; continue; }
 		auto ls = st.lastSeen.find(slot);
 		auto tg = st.target.find(slot);
-		if (ls != st.lastSeen.end() && ls->second == now && tg != st.target.end() && tg->second == id) continue; // schon gesetzt
+		if (ls != st.lastSeen.end() && ls->second == now && tg != st.target.end() && tg->second == tgt) continue; // schon gesetzt
 		unsigned long long t = GetTickCount64();
 		if (t < st.until[slot]) continue; // nicht staendig neu laden (z. B. beim Durchscrollen in der Garage)
 		st.until[slot] = t + 2500;
-		if (!st.orig.count(slot)) st.orig[slot] = now; // dein eigenes Item
-		ChangePart(actor, slot, id);
+		if (!st.orig.count(slot)) st.orig[slot] = OwnPart{now, onlineAt(slot)}; // dein eigenes Item
+		ChangePart(actor, slot, id, wantId);
 		st.lastSeen[slot] = prods->data[slot];
-		st.target[slot] = id;
-		zl::Log("menu car %s: slot %d %d -> %d (now %d)", ue::Name(actor).c_str(), slot, now, id, prods->data[slot]);
+		st.target[slot] = tgt;
+		zl::Log("menu car %s: slot %d %d -> %d%s (now %d)", ue::Name(actor).c_str(), slot, now, id, want ? " painted" : "", prods->data[slot]);
 	}
 	// Slots zurueck auf das eigene Item
 	for (auto it = st.orig.begin(); it != st.orig.end();) {
 		int slot = it->first;
 		if (ov.count(slot) || slot >= prods->count) { ++it; continue; }
-		ChangePart(actor, slot, it->second);
-		zl::Log("menu car %s: slot %d back to %d", ue::Name(actor).c_str(), slot, it->second);
+		ChangePart(actor, slot, it->second.id, it->second.online);
+		zl::Log("menu car %s: slot %d back to %d", ue::Name(actor).c_str(), slot, it->second.id);
 		st.lastSeen.erase(slot);
 		st.target.erase(slot);
 		it = st.orig.erase(it);
+	}
+	// Deine echten Items merken (fuer die Liste: "Your own" zeigt den Namen)
+	if (main) {
+		std::map<int, int> own;
+		for (int i = 0; i < kSlotCount; i++) {
+			int slot = kSlots[i].index;
+			if (slot >= prods->count) continue;
+			auto o = st.orig.find(slot);
+			if (o != st.orig.end()) own[slot] = o->second.id;
+			else if (!ov.count(slot)) own[slot] = prods->data[slot];
+		}
+		std::lock_guard<std::mutex> lk(mu);
+		for (auto& [k, v] : own) ownItems[k] = v;
 	}
 }
 
@@ -778,9 +893,15 @@ void TickPreview() {
 	}
 	for (auto it = previews.begin(); it != previews.end();) // alte Autos vergessen
 		it = ue::IsAlive(it->first) ? std::next(it) : previews.erase(it);
+	bool mainDone = false;
 	for (void* a : previewActors) {
 		if (!ue::IsAlive(a)) continue;
-		try { SyncPreview(a); } catch (...) {}
+		bool main = false;
+		if (!mainDone) {
+			auto* pr = ue::Ptr<ue::TArray<int32_t>>(a, offPrevLoadout);
+			if (pr->data && pr->count > 0) main = mainDone = true; // erstes Auto mit Loadout = deins
+		}
+		try { SyncPreview(a, main); } catch (...) {}
 	}
 }
 
@@ -804,6 +925,7 @@ void Set(int slot, int id) {
 		else restore.erase(slot);
 	});
 	nextPreviewCheck = 0; // Menue-Auto sofort aktualisieren
+	userGen++;
 	applyAt = GetTickCount64() + 400; // mehrere Klicks kurz hintereinander = einmal neu spawnen
 	Save();
 }
@@ -840,6 +962,8 @@ void SetPaint(int slot, int paintId) {
 		else paints.erase(slot);
 	}
 	Queue([] { paintFailed.clear(); });
+	nextPreviewCheck = 0;
+	userGen++;
 	applyAt = GetTickCount64() + 400;
 	Save();
 }
@@ -936,6 +1060,7 @@ void ApplyPreset(int i) {
 		overrides = next;
 		paints = presets[i].paints;
 	}
+	userGen++;
 	Queue([next, before] {
 		for (auto& [slot, id] : before)
 			if (!next.count(slot)) restore.insert(slot); // Slots, die das Preset nicht hat: eigenes Item
