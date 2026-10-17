@@ -17,6 +17,8 @@ struct Item {
 	int quality = 0;
 	bool paintable = false;
 	int forCar = 0; // z. B. Decal: gehoert zu diesem Auto (Produkt-ID), 0 = passt ueberall
+	uint32_t paintMask = 0; // Bit n = Lackierung n gibt es fuer dieses Item
+	uint32_t paintExclude = 0, paintShop = 0;
 };
 
 struct PaintInfo {
@@ -54,6 +56,7 @@ extern std::map<int, int> paints;     // Slot -> Farb-ID (nur bei lackierbaren I
 extern std::vector<PaintInfo> paintList;
 extern std::map<int, int> ownItems;   // Slot -> dein echtes Item (aus dem Hauptmenue)
 void SetPaint(int slot, int paintId); // 0 = Standard
+uint32_t PaintMaskOf(int productId);  // welche Lackierungen es fuer ein Item gibt
 extern bool loaded;
 extern std::string status;
 extern std::atomic<bool> inGame;      // lokaler Spieler mit Auto vorhanden (Freeplay/Match)

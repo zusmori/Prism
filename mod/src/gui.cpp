@@ -195,17 +195,21 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 	const items::Item* it = ov != items::overrides.end() ? FindItem(ov->second) : nullptr;
 	// Punkt in der Seltenheitsfarbe, wenn ein Item gewaehlt ist
 	float tx = p.x + 16;
-	if (it) {
-		ImVec4 qc = QualityColor(it->quality);
-		d->AddCircleFilled(ImVec2(p.x + size.x - 18, p.y + size.y / 2), 3.5f, U(qc), 16);
-		auto pp = items::paints.find(s.index);
-		if (it->paintable && pp != items::paints.end())
-			for (auto& pi : items::paintList)
-				if (pi.id == pp->second) {
-					d->AddCircleFilled(ImVec2(p.x + size.x - 34, p.y + size.y / 2), 6.0f, U(ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f)), 16);
-					d->AddCircle(ImVec2(p.x + size.x - 34, p.y + size.y / 2), 6.0f, U(Rgb(255, 255, 255, 0.15f)), 16, 1.0f);
-				}
+	const items::Item* shownIt = it;
+	if (!shownIt) {
+		auto ow = items::ownItems.find(s.index);
+		if (ow != items::ownItems.end()) shownIt = FindItem(ow->second);
 	}
+	if (it) d->AddCircleFilled(ImVec2(p.x + size.x - 18, p.y + size.y / 2), 3.5f, U(QualityColor(it->quality)), 16);
+	// Lackierung (bei gewaehltem oder eigenem Item), nur wenn es sie fuer das Item gibt
+	auto pp = items::paints.find(s.index);
+	if (shownIt && pp != items::paints.end() && pp->second > 0 && pp->second < 32 && ((shownIt->paintMask >> pp->second) & 1))
+		for (auto& pi : items::paintList)
+			if (pi.id == pp->second) {
+				float px2 = p.x + size.x - (it ? 34 : 20);
+				d->AddCircleFilled(ImVec2(px2, p.y + size.y / 2), 6.0f, U(ImVec4(pi.rgb[0], pi.rgb[1], pi.rgb[2], 1.0f)), 16);
+				d->AddCircle(ImVec2(px2, p.y + size.y / 2), 6.0f, U(Rgb(255, 255, 255, 0.15f)), 16, 1.0f);
+			}
 	float sa = Anim(ImGui::GetID("sa"), sel ? 1.0f : 0.0f);
 	Text(d, fTiny, ImVec2(tx, p.y + 8), Mix(cFaint, Acc(1.0f), sa * 0.9f), s.label);
 	const items::Item* ownIt = nullptr;
@@ -246,13 +250,6 @@ static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cu
 		Text(d, fSmall, ImVec2(rx, p.y + (rh - fSmall->FontSize) / 2), Alpha(qc, 0.85f), sub);
 	}
 	if (s > 0.01f) CheckMark(d, ImVec2(q.x - 22, p.y + rh / 2), s);
-	// kleines Farb-Symbol: dieses Item gibt es lackiert
-	if (paintable) {
-		float nx = tx + h * 2.0f + TextW(fRegular, n.c_str()) + 12, cy = p.y + rh / 2;
-		d->AddCircleFilled(ImVec2(nx, cy), 2.8f, U(Rgb(220, 60, 60, 0.9f)), 12);
-		d->AddCircleFilled(ImVec2(nx + 7.5f, cy), 2.8f, U(Rgb(240, 240, 240, 0.9f)), 12);
-		d->AddCircleFilled(ImVec2(nx + 15, cy), 2.8f, U(Rgb(70, 140, 240, 0.9f)), 12);
-	}
 	ImGui::PopID();
 }
 
@@ -373,7 +370,9 @@ static void SmoothScroll(float& target, float& last) {
 	if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && io.MouseWheel != 0.0f) target -= io.MouseWheel * 140.0f;
 	target = std::clamp(target, 0.0f, mx);
 	float ns = Approach(sc, target, 16.0f);
-	if (fabsf(ns - target) < 0.5f) ns = target;
+	// immer mindestens 1 Pixel weiter, sonst bleibt es durch das Runden kurz vor dem Ziel haengen
+	if (ns != target && fabsf(ns - sc) < 1.0f) ns = sc + (target > sc ? 1.0f : -1.0f);
+	if (fabsf(ns - target) < 2.0f) ns = target;
 	ns = roundf(ns);
 	if (ns != sc) ImGui::SetScrollY(ns);
 	last = ns;
@@ -752,7 +751,12 @@ void Render(bool* open) {
 	// Farben (nur bei lackierbaren Items)
 	int cur = items::overrides.count(curSlot) ? items::overrides[curSlot] : 0;
 	const items::Item* curItem = cur > 0 ? FindItem(cur) : nullptr;
-	bool showColors = curItem && curItem->paintable && !items::paintList.empty();
+	if (!curItem) { // dein eigenes Item kann man auch lackieren
+		auto ow = items::ownItems.find(curSlot);
+		if (ow != items::ownItems.end()) curItem = FindItem(ow->second);
+	}
+	uint32_t mask = curItem && curItem->paintable ? curItem->paintMask : 0;
+	bool showColors = mask != 0 && !items::paintList.empty();
 	static float colorH = 0.0f;
 	colorH = Approach(colorH, showColors ? 46.0f : 0.0f, 16.0f);
 	int pickPaint = -1;
@@ -760,6 +764,7 @@ void Render(bool* open) {
 		float a = std::clamp(colorH / 46.0f, 0.0f, 1.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * a);
 		int curPaint = items::paints.count(curSlot) ? items::paints[curSlot] : 0;
+		if (curPaint <= 0 || curPaint >= 32 || !((mask >> curPaint) & 1)) curPaint = 0; // gibt es fuer dieses Item nicht
 		float cy = o.y + listTop + 34 + 18;
 		Text(dl, fTiny, ImVec2(o.x + px, cy - 7), cFaint, "PAINT");
 		float x = o.x + px + 50;
@@ -786,8 +791,11 @@ void Render(bool* open) {
 			x += 23;
 		};
 		swatch(0, cMuted, "Unpainted");
+		bool sep = false;
 		for (auto& pi : items::paintList) {
-			if (pi.id == 15) { // besondere Lackierungen etwas abgesetzt
+			if (pi.id <= 0 || pi.id >= 32 || !((mask >> pi.id) & 1)) continue; // nur Lackierungen, die es fuer dieses Item gibt
+			if (pi.id >= 15 && !sep) { // besondere Lackierungen etwas abgesetzt
+				sep = true;
 				dl->AddLine(ImVec2(x - 6, cy - 8), ImVec2(x - 6, cy + 8), U(cLine2), 1.0f);
 				x += 6;
 			}
@@ -837,7 +845,7 @@ void Render(bool* open) {
 	while (clip.Step())
 		for (int r = clip.DisplayStart; r < clip.DisplayEnd; r++) {
 			const items::Item* it = shown[r];
-			ItemRow(it->id, it->name.c_str(), kQuality[std::clamp(it->quality, 0, 9)], QualityColor(it->quality), cur, pick, rw, it->paintable && !items::paintList.empty());
+			ItemRow(it->id, it->name.c_str(), kQuality[std::clamp(it->quality, 0, 9)], QualityColor(it->quality), cur, pick, rw);
 		}
 	if (!q.empty() && shown.empty()) {
 		ImVec2 p = ImGui::GetCursorScreenPos();

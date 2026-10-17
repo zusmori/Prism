@@ -68,7 +68,8 @@ static void *fnPathName = nullptr, *cdoObject = nullptr;
 static int offIsPaintableRet = -1, offCreateId = -1, offCreateRet = -1, offPaintID = -1, offPathObj = -1, offPathRet = -1;
 static int offClientOnline = -1, offFullAttr = -1, offClientOnline1 = -1, offFullOnline = -1;
 static bool attrArraysOk = false;
-static std::map<int, bool> paintableById; // Zeitpunkt fuer das (gebuendelte) Anwenden
+static std::map<int, bool> paintableById;
+static std::map<int, uint32_t> paintMaskById; // Zeitpunkt fuer das (gebuendelte) Anwenden
 static std::set<void*> tickFns;       // alle "PlayerTick"-Funktionen
 static std::atomic<void*> localPC{nullptr};
 static std::vector<void*> localPlayers; // LocalPlayer-Objekte (einmal gesucht)
@@ -196,6 +197,15 @@ void LoadProducts() {
 	auto* arr = ue::Ptr<ue::TArray<void*>>(dbs[0], offProducts);
 	zl::Log("product database %p: %d products", dbs[0], arr->count);
 	int offRequired = ue::PropOffset(clsProduct, "RequiredProduct");
+	int offProdAttrs = ue::PropOffset(clsProduct, "Attributes");
+	void* clsUpload = ue::FindClass("Class TAGame.ProductAttribute_PaintSettingsUpload_TA");
+	int offExcl = clsUpload ? ue::PropOffset(clsUpload, "ExcludePaints") : -1, offShopEx = clsUpload ? ue::PropOffset(clsUpload, "ShopExclusivePaints") : -1;
+	auto maskOf = [](ue::TArray<int32_t>* a) {
+		uint32_t m = 0;
+		for (int i = 0; a->data && i < a->count && i < 64; i++)
+			if (a->data[i] > 0 && a->data[i] < 32) m |= 1u << a->data[i];
+		return m;
+	};
 	std::map<void*, int> idOf;
 	for (int id = 0; id < arr->count && id < 100000; id++)
 		if (arr->data[id]) idOf[arr->data[id]] = id;
@@ -224,6 +234,18 @@ void LoadProducts() {
 				ue::Call(p, fnIsPaintable, prm.data());
 				it.paintable = (*reinterpret_cast<uint32_t*>(prm.data() + offIsPaintableRet) & 1) != 0;
 			}
+			// Welche Lackierungen gibt es fuer genau dieses Item? (Ausschluesse / nur-im-Shop aus den Item-Daten)
+			if (it.paintable && offProdAttrs >= 0 && clsUpload) {
+				auto* attrs = ue::Ptr<ue::TArray<void*>>(p, offProdAttrs);
+				for (int k = 0; attrs->data && k < attrs->count && k < 32; k++) {
+					void* at = attrs->data[k];
+					if (!at || !ue::IsA(at, clsUpload)) continue;
+					if (offExcl >= 0) it.paintExclude |= maskOf(ue::Ptr<ue::TArray<int32_t>>(at, offExcl));
+					if (offShopEx >= 0) it.paintShop |= maskOf(ue::Ptr<ue::TArray<int32_t>>(at, offShopEx));
+				}
+			}
+			// "Drops" (z. B. Black Market Drop) sind Belohnungs-Kisten, keine echten Items
+			if (it.name.size() > 5 && it.name.compare(it.name.size() - 5, 5, " Drop") == 0) continue;
 			out.push_back(std::move(it));
 		} catch (...) {}
 	}
@@ -260,10 +282,21 @@ void LoadProducts() {
 		for (auto& p : pl) names += std::to_string(p.id) + "=" + p.name + "(" + std::to_string(p.flags & 3) + ") ";
 		zl::Log("paints: %d %s", (int)pl.size(), names.c_str());
 		// Die Lackierungen aus dem Spiel (ohne die Glow-Varianten, die es nur bei einzelnen Items gibt)
-		std::vector<PaintInfo> std13;
-		for (auto& p : pl)
-			if (p.id >= 1 && p.id <= 18) std13.push_back(p); // 1-14 normal (inkl. Gold), 15-18 besondere (Rose Gold, White Gold, Onyx, Platinum)
-		pl = std::move(std13);
+		// alle behalten: welche es pro Item gibt, steht in paintMask
+	}
+	// Standard-Lackierungen (im Spiel "bIncludeByDefault") minus Ausschluesse plus Shop-Lackierungen
+	uint32_t defMask = 0;
+	for (auto& p : pl)
+		if (p.flags & 2) defMask |= 1u << p.id;
+	int logged = 0;
+	for (auto& it : out) {
+		if (!it.paintable) continue;
+		it.paintMask = (defMask & ~it.paintExclude) | it.paintShop;
+		paintMaskById[it.id] = it.paintMask;
+		if (logged < 6 && (it.paintExclude || it.paintShop)) {
+			logged++;
+			zl::Log("paints for %s: mask %x (excluded %x, shop %x)", it.name.c_str(), it.paintMask, it.paintExclude, it.paintShop);
+		}
 	}
 	{
 		std::lock_guard<std::mutex> lk(mu);
@@ -368,13 +401,16 @@ static void* EngineBuffer(int& capPtrs) {
 	return str->data;
 }
 
-// Wunsch-Farbe fuer einen Slot (0 = keine)
-static int WantedPaint(int slot, const std::map<int, int>& ov, const std::map<int, int>& pt) {
+uint32_t PaintMaskOf(int productId) {
+	auto m = paintMaskById.find(productId);
+	return m != paintMaskById.end() ? m->second : 0;
+}
+
+// Wunsch-Farbe fuer ein Item in einem Slot (0 = keine / gibt es fuer dieses Item nicht)
+static int WantedPaint(int slot, int productId, const std::map<int, int>& pt) {
 	auto p = pt.find(slot);
-	auto o = ov.find(slot);
-	if (p == pt.end() || p->second <= 0 || o == ov.end()) return 0;
-	auto pb = paintableById.find(o->second);
-	return (pb != paintableById.end() && pb->second) ? p->second : 0;
+	if (p == pt.end() || p->second <= 0 || p->second >= 32 || productId <= 0) return 0;
+	return (PaintMaskOf(productId) >> p->second) & 1 ? p->second : 0;
 }
 
 static bool SetSlotAttr(ue::TArray<void*>* elem, void* attr) {
@@ -400,14 +436,15 @@ static bool SetSlotAttr(ue::TArray<void*>* elem, void* attr) {
 }
 
 // Liste mit Produkt-Eintraegen (je 0x10 = eine Attribut-Liste) fuer ein Team
-static void PaintList(ue::TArray<ue::TArray<void*>>* prods, const std::map<int, int>& ov, const std::map<int, int>& pt, const char* what) {
+static void PaintList(ue::TArray<ue::TArray<void*>>* prods, ue::TArray<int32_t>* ids, const std::map<int, int>& pt, const char* what) {
 	static int logged = 0;
 	if (logged < 12) { logged++; zl::Log("paint: %s has %d entries", what, prods->data ? prods->count : -1); }
 	if (!prods->data || prods->count <= 0 || prods->count > 64) return;
 	for (int i = 0; i < kSlotCount; i++) {
 		int slot = kSlots[i].index;
 		if (slot >= prods->count) continue;
-		int want = WantedPaint(slot, ov, pt);
+		int pid = (ids->data && slot < ids->count) ? ids->data[slot] : 0; // Item in diesem Slot (deins oder gewaehltes)
+		int want = WantedPaint(slot, pid, pt);
 		ue::TArray<void*>* elem = &prods->data[slot];
 		if (!want) { SetSlotAttr(elem, nullptr); continue; }
 		if (paintFailed.count({elem, want})) continue;
@@ -428,11 +465,13 @@ static void WritePaints(void* pri) {
 		pt = paints;
 	}
 	// Alle Stellen, an denen das Spiel Item-Attribute fuer den Spieler ablegt
-	if (offClientOnline1 >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline1), ov, pt, "ClientLoadoutOnline");
+	(void)ov;
+	auto ids = [&](int t) { return ue::Ptr<ue::TArray<int32_t>>(pri, offClient + t * 0x10); };
+	if (offClientOnline1 >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline1), ids(0), pt, "ClientLoadoutOnline");
 	for (int t = 0; t < 2; t++) {
-		PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline + t * 0x10), ov, pt, "ClientLoadoutsOnline");
-		if (offFullOnline >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullOnline + t * 0x10), ov, pt, "FullOnlineLoadout");
-		if (offFullAttr >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullAttr + t * 0x10), ov, pt, "FullLoadoutAttributes");
+		PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline + t * 0x10), ids(t), pt, "ClientLoadoutsOnline");
+		if (offFullOnline >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullOnline + t * 0x10), ids(t), pt, "FullOnlineLoadout");
+		if (offFullAttr >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullAttr + t * 0x10), ids(t), pt, "FullLoadoutAttributes");
 	}
 }
 
@@ -451,7 +490,8 @@ static bool PaintsOk(void* pri) {
 		int slot = kSlots[i].index;
 		if (slot >= prods->count) continue;
 		ue::TArray<void*>* elem = &prods->data[slot];
-		int want = WantedPaint(slot, ov, pt);
+		auto* idl = ue::Ptr<ue::TArray<int32_t>>(pri, offClient);
+		int want = WantedPaint(slot, (idl->data && slot < idl->count) ? idl->data[slot] : 0, pt);
 		auto ours = attrOurs.find(elem);
 		bool isOurs = ours != attrOurs.end() && elem->data == ours->second;
 		if (want && paintFailed.count({elem, want})) continue;
@@ -826,9 +866,17 @@ static void SyncPreview(void* actor, bool main) {
 	}
 	PreviewState& st = previews[actor];
 	if (st.gen != userGen.load()) { st.until.clear(); st.gen = userGen.load(); } // du hast gerade etwas geaendert: sofort
-	for (auto& [slot, id] : ov) {
+	// Was soll im Slot sein? Gewaehltes Item - oder dein eigenes Item, wenn du es lackieren willst
+	std::map<int, int> desired = ov;
+	for (auto& [slot, paint] : pt) {
+		if (ov.count(slot) || slot >= prods->count) continue;
+		auto o = st.orig.find(slot);
+		int ownId = o != st.orig.end() ? o->second.id : prods->data[slot];
+		if (WantedPaint(slot, ownId, pt)) desired[slot] = ownId;
+	}
+	for (auto& [slot, id] : desired) {
 		if (slot >= prods->count) continue;
-		int want = WantedPaint(slot, ov, pt);
+		int want = WantedPaint(slot, id, pt);
 		OnlineId wantId;
 		if (want && !PaintedId(id, want, wantId)) want = 0;
 		long long tgt = (long long)id * 1000 + want;
@@ -850,7 +898,7 @@ static void SyncPreview(void* actor, bool main) {
 	// Slots zurueck auf das eigene Item
 	for (auto it = st.orig.begin(); it != st.orig.end();) {
 		int slot = it->first;
-		if (ov.count(slot) || slot >= prods->count) { ++it; continue; }
+		if (desired.count(slot) || slot >= prods->count) { ++it; continue; }
 		ChangePart(actor, slot, it->second.id, it->second.online);
 		zl::Log("menu car %s: slot %d back to %d", ue::Name(actor).c_str(), slot, it->second.id);
 		st.lastSeen.erase(slot);
