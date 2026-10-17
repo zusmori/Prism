@@ -59,8 +59,9 @@ void SetPaint(int slot, int paintId); // 0 = Standard
 uint32_t PaintMaskOf(int productId);
 // Eigene Lackfarben (frei waehlbar), sRGB 0..1
 extern bool colorsOn;
-extern float colorPrimary[3], colorAccent[3];
-void SetColors(bool on, const float* primary, const float* accent, bool save = true);  // welche Lackierungen es fuer ein Item gibt
+extern bool colorsBoth;           // eine Farbkombi fuer beide Teams
+extern float colors[2][2][3];     // [Team 0 blau / 1 orange][0 Primaer / 1 Akzent]
+void SetColors(bool on, bool both, const float (*cols)[2][3], bool save = true);  // welche Lackierungen es fuer ein Item gibt
 extern bool loaded;
 extern std::string status;
 extern std::atomic<bool> inGame;      // lokaler Spieler mit Auto vorhanden (Freeplay/Match)

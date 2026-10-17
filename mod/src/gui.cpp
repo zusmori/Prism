@@ -217,7 +217,8 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 		auto ow = items::ownItems.find(s.index);
 		if (ow != items::ownItems.end()) ownIt = FindItem(ow->second);
 	}
-	std::string name = Fit(fRegular, fRegular->FontSize, it ? it->name : (ownIt ? ownIt->name : "Your own"), size.x - 60);
+	const char* ownLabel = items::ownItems.count(s.index) ? "Nothing equipped" : "Your own"; // bekannt, aber leer
+	std::string name = Fit(fRegular, fRegular->FontSize, it ? it->name : (ownIt ? ownIt->name : ownLabel), size.x - 60);
 	Text(d, fRegular, ImVec2(tx, p.y + 22), it ? Mix(Hex(0xc9c9d3), cText, std::max(sa, h)) : Mix(cMuted, Hex(0xa9a9b5), h), name.c_str());
 	ImGui::PopID();
 }
@@ -560,106 +561,255 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 	ImGui::EndChild();
 }
 
+
+// ---------- ZLauncher-Logo (Pixel wie im Launcher, Farben folgen der Akzentfarbe) ----------
+struct LogoPx { unsigned char x, y, k; };
+static const LogoPx kLogo[] = {{11,2,0},{12,2,0},{13,2,1},{9,3,0},{10,3,0},{11,3,1},{12,3,3},{7,4,0},{8,4,0},{9,4,1},{10,4,1},{11,4,3},{6,5,0},{7,5,1},{8,5,1},{9,5,1},{10,5,3},{5,6,0},{6,6,1},{7,6,1},{8,6,1},{9,6,3},{12,6,2},{13,6,4},{4,7,0},{5,7,1},{6,7,1},{7,7,1},{8,7,3},{10,7,2},{11,7,2},{12,7,6},{3,8,0},{4,8,1},{5,8,1},{6,8,1},{7,8,3},{8,8,2},{9,8,2},{10,8,4},{11,8,6},{3,9,0},{4,9,1},{5,9,1},{6,9,1},{7,9,3},{8,9,2},{9,9,4},{10,9,6},{2,10,0},{3,10,1},{4,10,1},{5,10,1},{6,10,3},{7,10,2},{8,10,4},{9,10,6},{12,10,5},{13,10,7},{2,11,1},{3,11,3},{4,11,3},{5,11,3},{6,11,2},{7,11,4},{8,11,6},{9,11,5},{10,11,5},{11,11,7},{12,11,8},{4,12,4},{5,12,2},{6,12,4},{7,12,6},{8,12,5},{9,12,7},{10,12,8},{5,13,4},{6,13,6},{7,13,5},{8,13,7},{9,13,8},{6,14,7},{7,14,8},{8,14,8}};
+static ImVec4 LogoColor(int k) {
+	static const float mixW[] = {0.0f, 0.12f, 0.28f, 0.40f, 0.58f, 0.75f, 0.92f, 1.0f};
+	if (k == 8) return Mix(accent, Rgb(0, 0, 0), 0.32f);
+	return Mix(Rgb(255, 255, 255), accent, mixW[k]);
+}
+// Hover wie im Launcher: Logo dreht sich leicht, wird groesser und leuchtet (mit Feder-Bewegung)
+static void Logo(ImDrawList* dl, ImVec2 c, float size, float hover) {
+	static float x = 0, v = 0;
+	float dt = Dt();
+	v += (hover - x) * 220.0f * dt; // Feder
+	v *= expf(-14.0f * dt);         // Daempfung
+	x += v * dt;
+	float rot = -0.21f * x, sc = 1.0f + 0.16f * x;
+	float glow = 0.22f + 0.30f * std::clamp(x, 0.0f, 1.2f);
+	for (int i = 3; i >= 1; i--) dl->AddCircleFilled(c, size * (0.30f + 0.14f * i), U(Acc(glow * 0.18f)), 32);
+	float px = size * sc / 16.0f, cs = cosf(rot), sn = sinf(rot);
+	ImVec2 off(c.x + 1.0f * x, c.y - 1.0f * x);
+	auto P = [&](float lx, float ly) { lx -= 8.0f; ly -= 8.0f; return ImVec2(off.x + (lx * cs - ly * sn) * px, off.y + (lx * sn + ly * cs) * px); };
+	for (auto& p : kLogo) {
+		ImU32 col = U(LogoColor(p.k));
+		dl->AddQuadFilled(P(p.x, p.y), P(p.x + 1.04f, p.y), P(p.x + 1.04f, p.y + 1.04f), P(p.x, p.y + 1.04f), col);
+	}
+}
+
 // ---------- Farben ----------
 struct ColorAction {
-	bool changed = false, save = false, on = false;
-	float p[3], a[3];
+	bool changed = false, save = false, on = false, both = true;
+	float cols[2][2][3];
+	int finishSlot = -1, finishId = -1;
 };
-static int colorEdit = 0; // 0 = Primaer, 1 = Akzent
-static float editCol[2][3];
+static int colorEdit = 0;    // 0 Primaer, 1 Akzent, 2 Primaer-Finish, 3 Akzent-Finish
+static int colorTeam = 0;    // bearbeitetes Team (0 blau, 1 orange), wenn nicht fuer beide
+static float editCols[2][2][3];
 static bool editing = false;
+static float fScrollTarget = 0.0f, fScrollLast = -1.0f;
+static char finishSearch[48] = {0};
+static bool focusFinish = false;
 
 static void Swatch(ImDrawList* dl, ImVec2 c, float r, const float* rgb) {
 	dl->AddCircleFilled(c, r, U(ImVec4(rgb[0], rgb[1], rgb[2], 1.0f)), 32);
 	dl->AddCircle(c, r, U(Rgb(255, 255, 255, 0.14f)), 32, 1.0f);
 }
 
+// kleiner Schalter (animiert)
+static bool Toggle(ImDrawList* dl, const char* id, ImVec2 p, bool on) {
+	ImGui::SetCursorScreenPos(p);
+	bool click = ImGui::InvisibleButton(id, ImVec2(42, 22));
+	float k = Anim(ImGui::GetID(id) + 3, on ? 1.0f : 0.0f, 16.0f);
+	dl->AddRectFilled(p, ImVec2(p.x + 42, p.y + 22), U(Mix(cLine2, accent, k)), 11);
+	dl->AddCircleFilled(ImVec2(p.x + 11 + 20 * k, p.y + 11), 8, U(Rgb(255, 255, 255)), 20);
+	return click;
+}
+
+// Karte links (Farbe oder Lackierung)
+static bool SideCard(ImDrawList* dl, int idx, ImVec2 cp, ImVec2 cq, const char* title, const char* sub, const float* swatch, ImVec4 dot) {
+	ImGui::SetCursorScreenPos(cp);
+	ImGui::PushID(idx + 50);
+	bool click = ImGui::InvisibleButton("##ce", ImVec2(cq.x - cp.x, cq.y - cp.y));
+	float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+	float sel = Anim(ImGui::GetID("s"), colorEdit == idx ? 1.0f : 0.0f);
+	ImGui::PopID();
+	dl->AddRectFilled(cp, cq, U(Mix(Mix(cPanel, cHover, h), Acc(0.12f), sel)), 12);
+	dl->AddRect(cp, cq, U(Mix(cLine, Acc(0.55f), sel)), 12);
+	float cy = (cp.y + cq.y) / 2;
+	if (swatch) Swatch(dl, ImVec2(cp.x + 24, cy), 11, swatch);
+	else {
+		dl->AddRectFilled(ImVec2(cp.x + 13, cy - 11), ImVec2(cp.x + 35, cy + 11), U(Alpha(dot, 0.25f)), 6);
+		dl->AddRect(ImVec2(cp.x + 13, cy - 11), ImVec2(cp.x + 35, cy + 11), U(Alpha(dot, 0.8f)), 6, 0, 1.2f);
+	}
+	Text(dl, fBold, ImVec2(cp.x + 46, cy - 18), cText, title);
+	Text(dl, fSmall, ImVec2(cp.x + 46, cy + 1), cMuted, Fit(fSmall, fSmall->FontSize, sub, cq.x - cp.x - 58).c_str());
+	return click;
+}
+
 static void ColorsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, ColorAction& act) {
+	ImGuiIO& io = ImGui::GetIO();
 	const float leftW = 250, listTop = top + 14;
 	dl->AddLine(ImVec2(o.x + pad + leftW + 14, o.y + top + 1), ImVec2(o.x + pad + leftW + 14, o.y + W.y - 1), U(cLine));
-	if (!editing) {
-		memcpy(editCol[0], items::colorPrimary, sizeof editCol[0]);
-		memcpy(editCol[1], items::colorAccent, sizeof editCol[1]);
-	}
-	bool on = items::colorsOn;
+	if (!editing) memcpy(editCols, items::colors, sizeof editCols);
+	bool on = items::colorsOn, both = items::colorsBoth;
+	int team = both ? 0 : colorTeam;
 	float x = o.x + pad, y = o.y + listTop;
+
+	// --- Links ---
 	Text(dl, fTiny, ImVec2(x + 2, y), cFaint, "CAR COLORS");
-	y += 22;
-	// Schalter
+	y += 20;
 	{
-		ImVec2 cp(x, y), cq(x + leftW, y + 56);
-		ImGui::SetCursorScreenPos(cp);
-		bool click = ImGui::InvisibleButton("##colon", ImVec2(leftW, 56));
-		float h = Anim(ImGui::GetID("colonh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-		float k = Anim(ImGui::GetID("colonk"), on ? 1.0f : 0.0f, 16.0f);
-		dl->AddRectFilled(cp, cq, U(Mix(cPanel, cHover, h)), 14);
-		dl->AddRect(cp, cq, U(Mix(cLine, Acc(0.5f), k)), 14);
-		Text(dl, fBold, ImVec2(cp.x + 16, cp.y + 10), cText, "Custom colors");
-		Text(dl, fSmall, ImVec2(cp.x + 16, cp.y + 30), cMuted, on ? "On  \xC2\xB7  any color, both teams" : "Off  \xC2\xB7  team colors");
-		ImVec2 sw(cq.x - 58, cp.y + 17);
-		dl->AddRectFilled(sw, ImVec2(sw.x + 42, sw.y + 22), U(Mix(cLine2, accent, k)), 11);
-		dl->AddCircleFilled(ImVec2(sw.x + 11 + 20 * k, sw.y + 11), 8, U(Rgb(255, 255, 255)), 20);
-		if (click) { act.changed = true; act.save = true; on = !on; }
-		y = cq.y + 12;
-	}
-	// Primaer / Akzent
-	const char* lbl[2] = {"Primary", "Accent"};
-	for (int i = 0; i < 2; i++) {
-		ImVec2 cp(x, y), cq(x + leftW, y + 62);
-		ImGui::SetCursorScreenPos(cp);
-		ImGui::PushID(i + 50);
-		if (ImGui::InvisibleButton("##ce", ImVec2(leftW, 62))) colorEdit = i;
-		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-		float sel = Anim(ImGui::GetID("s"), colorEdit == i ? 1.0f : 0.0f);
-		ImGui::PopID();
-		dl->AddRectFilled(cp, cq, U(Mix(Mix(cPanel, cHover, h), Acc(0.12f), sel)), 14);
-		dl->AddRect(cp, cq, U(Mix(cLine, Acc(0.55f), sel)), 14);
-		Swatch(dl, ImVec2(cp.x + 32, cp.y + 31), 15, editCol[i]);
-		Text(dl, fBold, ImVec2(cp.x + 58, cp.y + 13), cText, lbl[i]);
-		char hex[16];
-		snprintf(hex, sizeof hex, "#%02X%02X%02X", int(editCol[i][0] * 255 + 0.5f), int(editCol[i][1] * 255 + 0.5f), int(editCol[i][2] * 255 + 0.5f));
-		Text(dl, fSmall, ImVec2(cp.x + 58, cp.y + 34), cMuted, hex);
+		ImVec2 cp(x, y), cq(x + leftW, y + 92);
+		dl->AddRectFilled(cp, cq, U(cPanel), 12);
+		dl->AddRect(cp, cq, U(on ? Acc(0.45f) : cLine), 12);
+		Text(dl, fBold, ImVec2(cp.x + 14, cp.y + 13), cText, "Custom colors");
+		if (Toggle(dl, "##colon", ImVec2(cq.x - 56, cp.y + 11), on)) { on = !on; act.changed = act.save = true; }
+		dl->AddLine(ImVec2(cp.x + 12, cp.y + 46), ImVec2(cq.x - 12, cp.y + 46), U(cLine));
+		// "fuer beide Teams" als Kaestchen
+		ImVec2 bp(cp.x + 14, cp.y + 59);
+		ImGui::SetCursorScreenPos(ImVec2(cp.x + 8, cp.y + 52));
+		bool bclick = ImGui::InvisibleButton("##both", ImVec2(leftW - 16, 32));
+		float bh = Anim(ImGui::GetID("bothh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+		float bk = Anim(ImGui::GetID("bothk"), both ? 1.0f : 0.0f, 18.0f);
+		dl->AddRectFilled(bp, ImVec2(bp.x + 18, bp.y + 18), U(Mix(Mix(cPanel2, cHover, bh), accent, bk)), 5);
+		dl->AddRect(bp, ImVec2(bp.x + 18, bp.y + 18), U(Mix(cLine2, accent, bk)), 5);
+		if (bk > 0.01f) {
+			ImU32 w = U(Rgb(255, 255, 255, bk));
+			dl->AddLine(ImVec2(bp.x + 4.5f, bp.y + 9.5f), ImVec2(bp.x + 7.5f, bp.y + 12.5f), w, 1.8f);
+			dl->AddLine(ImVec2(bp.x + 7.5f, bp.y + 12.5f), ImVec2(bp.x + 13.5f, bp.y + 5.5f), w, 1.8f);
+		}
+		Text(dl, fRegular, ImVec2(bp.x + 28, bp.y), cText, "Use for both teams");
+		if (bclick) { both = !both; act.changed = act.save = true; }
 		y = cq.y + 10;
 	}
-	Text(dl, fSmall, ImVec2(x + 4, y + 6), cFaint, "Only you can see these colors.");
-
-	// Rechts: Farbwahl
-	const float px = pad + leftW + 30, pw = W.x - px - pad;
-	Text(dl, fTitle, ImVec2(o.x + px, o.y + listTop - 2), cText, colorEdit == 0 ? "Primary color" : "Accent color");
-	float* col = editCol[colorEdit];
-	float before[3];
-	memcpy(before, col, sizeof before);
-	ImGui::SetCursorScreenPos(ImVec2(o.x + px, o.y + listTop + 40));
-	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(10, 4));
-	ImGui::SetNextItemWidth(std::min(pw, 330.0f));
-	ImGui::ColorPicker3("##pick", col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
-		ImGuiColorEditFlags_PickerHueBar | ImGuiColorEditFlags_NoAlpha);
-	bool active = ImGui::IsItemActive();
-	ImGui::PopStyleVar(2);
-	// Schnellwahl
-	static const float quick[][3] = {{1, 1, 1}, {0.05f, 0.05f, 0.06f}, {0.55f, 0.55f, 0.58f}, {0.9f, 0.1f, 0.12f}, {1, 0.45f, 0.05f}, {1, 0.82f, 0.1f},
-		{0.35f, 0.85f, 0.2f}, {0.05f, 0.55f, 0.3f}, {0.15f, 0.75f, 1}, {0.1f, 0.3f, 0.95f}, {0.55f, 0.36f, 0.96f}, {1, 0.4f, 0.75f}};
-	float qy = o.y + listTop + 40 + 300 + 18, qx = o.x + px + 10;
-	Text(dl, fTiny, ImVec2(o.x + px, qy - 4), cFaint, "QUICK");
-	qx += 44;
-	for (int i = 0; i < 12; i++) {
-		ImGui::SetCursorScreenPos(ImVec2(qx - 12, qy - 7));
-		ImGui::PushID(i + 200);
-		if (ImGui::InvisibleButton("##q", ImVec2(24, 24))) { memcpy(col, quick[i], sizeof before); act.save = true; }
-		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
-		ImGui::PopID();
-		Swatch(dl, ImVec2(qx, qy + 5), 9.0f + 1.5f * h, quick[i]);
-		qx += 27;
+	// Team-Auswahl (nur ohne "beide Teams")
+	static float teamH = 0.0f;
+	teamH = Approach(teamH, both ? 0.0f : 44.0f, 16.0f);
+	if (teamH > 1.0f) {
+		float a = std::clamp(teamH / 44.0f, 0.0f, 1.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * a);
+		const char* tn[2] = {"Blue team", "Orange team"};
+		ImVec4 tc[2] = {Rgb(70, 140, 255), Rgb(255, 140, 50)};
+		float tw = (leftW - 8) / 2;
+		for (int i = 0; i < 2; i++) {
+			ImVec2 tp(x + i * (tw + 8), y), tq(tp.x + tw, y + 34);
+			ImGui::SetCursorScreenPos(tp);
+			ImGui::PushID(i + 300);
+			if (ImGui::InvisibleButton("##team", ImVec2(tw, 34)) && !both) colorTeam = i;
+			float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+			float sel = Anim(ImGui::GetID("s"), colorTeam == i ? 1.0f : 0.0f);
+			ImGui::PopID();
+			dl->AddRectFilled(tp, tq, U(Mix(Mix(cPanel, cHover, h), Alpha(tc[i], 0.18f), sel)), 10);
+			dl->AddRect(tp, tq, U(Mix(cLine, Alpha(tc[i], 0.7f), sel)), 10);
+			dl->AddCircleFilled(ImVec2(tp.x + 16, tp.y + 17), 4, U(tc[i]), 12);
+			Text(dl, fBold, ImVec2(tp.x + 28, tp.y + 8), Mix(cMuted, cText, sel), tn[i]);
+		}
+		ImGui::PopStyleVar();
+		y += teamH;
 	}
-	bool changedCol = memcmp(before, col, sizeof before) != 0;
-	if (changedCol) { act.changed = true; on = true; } // Farbe waehlen schaltet die eigenen Farben ein
-	if (editing && !active) act.save = act.changed = true; // Ziehen beendet: speichern
-	editing = active;
+	// Farben
+	char hex[2][16];
+	for (int c = 0; c < 2; c++)
+		snprintf(hex[c], sizeof hex[c], "#%02X%02X%02X", int(editCols[team][c][0] * 255 + 0.5f), int(editCols[team][c][1] * 255 + 0.5f), int(editCols[team][c][2] * 255 + 0.5f));
+	const float ch = 48, gap = 8;
+	if (SideCard(dl, 0, ImVec2(x, y), ImVec2(x + leftW, y + ch), "Primary", hex[0], editCols[team][0], cMuted)) colorEdit = 0;
+	y += ch + gap;
+	if (SideCard(dl, 1, ImVec2(x, y), ImVec2(x + leftW, y + ch), "Accent", hex[1], editCols[team][1], cMuted)) colorEdit = 1;
+	y += ch + 16;
+	// Lackierungen (Paint Finish)
+	Text(dl, fTiny, ImVec2(x + 2, y), cFaint, "PAINT FINISH");
+	y += 20;
+	for (int f = 0; f < 2; f++) {
+		int slot = f == 0 ? 7 : 12;
+		auto ov = items::overrides.find(slot);
+		const items::Item* it = ov != items::overrides.end() ? FindItem(ov->second) : nullptr;
+		if (!it) {
+			auto ow = items::ownItems.find(slot);
+			if (ow != items::ownItems.end()) it = FindItem(ow->second);
+		}
+		std::string sub = it ? it->name : std::string("Your own");
+		if (ov == items::overrides.end() && it) sub += "  \xC2\xB7  yours";
+		if (SideCard(dl, 2 + f, ImVec2(x, y), ImVec2(x + leftW, y + ch), f == 0 ? "Primary finish" : "Accent finish", sub.c_str(), nullptr,
+				it ? QualityColor(it->quality) : cMuted))
+			{ colorEdit = 2 + f; finishSearch[0] = 0; fScrollTarget = 0; fScrollLast = -1; }
+		y += ch + gap;
+	}
+
+	// --- Rechts ---
+	const float px = pad + leftW + 30, pw = W.x - px - pad;
+	if (colorEdit <= 1) {
+		const char* title = colorEdit == 0 ? "Primary color" : "Accent color";
+		Text(dl, fTitle, ImVec2(o.x + px, o.y + listTop - 2), cText, title);
+		if (!both) {
+			const char* t = colorTeam == 0 ? "Blue team" : "Orange team";
+			float w = TextW(fSmall, t);
+			ImVec4 c = colorTeam == 0 ? Rgb(70, 140, 255) : Rgb(255, 140, 50);
+			dl->AddCircleFilled(ImVec2(o.x + px + pw - w - 12, o.y + listTop + 9), 4, U(c), 12);
+			Text(dl, fSmall, ImVec2(o.x + px + pw - w, o.y + listTop + 2), cMuted, t);
+		}
+		float* col = editCols[team][colorEdit];
+		float before[3];
+		memcpy(before, col, sizeof before);
+		const float pickW = std::min(pw, 360.0f);
+		ImGui::SetCursorScreenPos(ImVec2(o.x + px, o.y + listTop + 40));
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(12, 4));
+		ImGui::SetNextItemWidth(pickW);
+		ImGui::ColorPicker3("##pick", col, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
+			ImGuiColorEditFlags_PickerHueBar | ImGuiColorEditFlags_NoAlpha);
+		bool active = ImGui::IsItemActive();
+		ImVec2 pickMax = ImGui::GetItemRectMax();
+		ImGui::PopStyleVar(2);
+		// Schnellwahl: gleichmaessig ueber die volle Breite des Farbfelds verteilt
+		static const float quick[][3] = {{1, 1, 1}, {0.05f, 0.05f, 0.06f}, {0.55f, 0.55f, 0.58f}, {0.9f, 0.1f, 0.12f}, {1, 0.45f, 0.05f}, {1, 0.82f, 0.1f},
+			{0.35f, 0.85f, 0.2f}, {0.05f, 0.55f, 0.3f}, {0.15f, 0.75f, 1}, {0.1f, 0.3f, 0.95f}, {0.55f, 0.36f, 0.96f}, {1, 0.4f, 0.75f}};
+		const int nq = 12;
+		const float r = 10.0f;
+		float qy = pickMax.y + 40, x0 = o.x + px + r, x1 = pickMax.x - r;
+		Text(dl, fTiny, ImVec2(o.x + px, pickMax.y + 14), cFaint, "QUICK COLORS");
+		for (int i = 0; i < nq; i++) {
+			float qx = x0 + (x1 - x0) * i / (nq - 1);
+			ImGui::SetCursorScreenPos(ImVec2(qx - 13, qy - 13));
+			ImGui::PushID(i + 200);
+			if (ImGui::InvisibleButton("##q", ImVec2(26, 26))) { memcpy(col, quick[i], sizeof before); act.save = true; }
+			float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
+			ImGui::PopID();
+			Swatch(dl, ImVec2(qx, qy), r + 1.5f * h, quick[i]);
+		}
+		bool changedCol = memcmp(before, col, sizeof before) != 0;
+		if (changedCol) { act.changed = true; on = true; } // Farbe waehlen schaltet die eigenen Farben ein
+		if (both && changedCol) memcpy(editCols[1][colorEdit], col, sizeof before); // beide Teams gleich
+		if (editing && !active) act.save = act.changed = true; // Ziehen beendet: speichern
+		editing = active;
+	} else {
+		// Lackierung waehlen (Liste wie bei den Items)
+		int slot = colorEdit == 2 ? 7 : 12;
+		Text(dl, fTitle, ImVec2(o.x + px, o.y + listTop - 2), cText, colorEdit == 2 ? "Primary finish" : "Accent finish");
+		std::string q = Lower(finishSearch);
+		std::vector<const items::Item*> shown;
+		for (auto& it : items::list)
+			if (it.slot == 7 && (q.empty() || Lower(it.name).find(q) != std::string::npos)) shown.push_back(&it);
+		const float sy = listTop + 36, sh = 42;
+		Field(dl, "##fq", "Search", finishSearch, sizeof finishSearch, ImVec2(o.x + px, o.y + sy), ImVec2(o.x + px + pw, o.y + sy + sh), focusFinish, true, true);
+		int cur = items::overrides.count(slot) ? items::overrides[slot] : 0;
+		int pick = -1;
+		const float ly = sy + sh + 12;
+		ImGui::SetCursorScreenPos(ImVec2(o.x + px - 4, o.y + ly));
+		ImGui::BeginChild("finishes", ImVec2(pw + 8, W.y - ly - 14), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
+		SmoothScroll(fScrollTarget, fScrollLast);
+		const float rw = pw - 8;
+		auto ow = items::ownItems.find(slot);
+		const items::Item* own = ow != items::ownItems.end() ? FindItem(ow->second) : nullptr;
+		if (own) ItemRow(0, own->name.c_str(), "Your item", QualityColor(own->quality), cur, pick, rw);
+		else ItemRow(0, "Your own", "", Rgb(80, 80, 92), cur, pick, rw);
+		ImGui::Dummy(ImVec2(0, 2));
+		ImGuiListClipper clip;
+		clip.Begin((int)shown.size(), 46.0f + ImGui::GetStyle().ItemSpacing.y);
+		while (clip.Step())
+			for (int r = clip.DisplayStart; r < clip.DisplayEnd; r++)
+				ItemRow(shown[r]->id, shown[r]->name.c_str(), kQuality[std::clamp(shown[r]->quality, 0, 9)], QualityColor(shown[r]->quality), cur, pick, rw);
+		ImGui::Dummy(ImVec2(0, 6));
+		ImGui::EndChild();
+		if (pick >= 0 && pick != cur) { act.finishSlot = slot; act.finishId = pick; }
+		(void)io;
+	}
 	if (act.changed) {
 		act.on = on;
-		memcpy(act.p, editCol[0], sizeof act.p);
-		memcpy(act.a, editCol[1], sizeof act.a);
+		act.both = both;
+		memcpy(act.cols, editCols, sizeof act.cols);
 	}
 }
 
@@ -707,21 +857,17 @@ void Render(bool* open) {
 	// Kopf: Logo-Punkt, Titel, Hinweis
 	const float pad = 22;
 	{
-		// Logo-Punkt: atmet langsam, mit Leuchtring der nach aussen laeuft
-		float t = (float)ImGui::GetTime();
-		ImVec2 lc(o.x + pad + 6, o.y + 34);
-		float breathe = 0.5f + 0.5f * sinf(t * 2.4f);
-		float ring = fmodf(t * 0.7f, 1.0f);
-		dl->AddCircle(lc, 6.0f + ring * 9.0f, A(Acc(0.45f * (1.0f - ring))), 24, 1.5f);
-		dl->AddCircleFilled(lc, 9.5f + breathe * 2.0f, A(Acc(0.12f + 0.10f * breathe)), 24);
-		dl->AddCircleFilled(lc, 5.5f + breathe * 0.8f, A(accent), 20);
+		ImVec2 lc(o.x + pad + 8, o.y + 33);
+		float tw = TextW(fTitle, "ZLauncher");
+		bool hov = wantOpen && ImGui::IsMouseHoveringRect(ImVec2(lc.x - 16, lc.y - 18), ImVec2(o.x + pad + 34 + tw, lc.y + 18), false);
+		Logo(dl, lc, 26.0f, hov ? 1.0f : 0.0f);
 	}
-	Text(dl, fTitle, ImVec2(o.x + pad + 24, o.y + 21), cText, "ZLauncher");
+	Text(dl, fTitle, ImVec2(o.x + pad + 34, o.y + 21), cText, "ZLauncher");
 	// Reiter "Items" / "Presets" mit gleitender Markierung
 	{
 		const char* names[3] = {"Items", "Colors", "Presets"};
 		const int ids[3] = {0, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
-		float x0 = o.x + pad + 24 + TextW(fTitle, "ZLauncher") + 22, y0 = o.y + 15;
+		float x0 = o.x + pad + 34 + TextW(fTitle, "ZLauncher") + 22, y0 = o.y + 15;
 		float tws[3], tx[3], xx = x0 + 4;
 		for (int i = 0; i < 3; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
 		ImVec2 bp(x0, y0), bq(xx + 4, y0 + 38);
@@ -806,7 +952,8 @@ void Render(bool* open) {
 		ImGui::End();
 		ImGui::PopFont();
 		ImGui::PopStyleVar();
-		if (ca.changed) items::SetColors(ca.on, ca.p, ca.a, ca.save);
+		if (ca.changed) items::SetColors(ca.on, ca.both, ca.cols, ca.save);
+		if (ca.finishSlot >= 0) items::Set(ca.finishSlot, ca.finishId);
 		return;
 	}
 	if (tab == 1) {
@@ -835,7 +982,8 @@ void Render(bool* open) {
 	ImDrawListSplitter split;
 	split.Split(dl, 2);
 	split.SetCurrentChannel(dl, 1);
-	for (int i = 0; i < items::kSlotCount; i++) SlotRow(items::kSlots[i], ImVec2(leftW, rowH), selY);
+	for (int i = 0; i < items::kSlotCount; i++)
+		if (items::kSlots[i].index != 7 && items::kSlots[i].index != 12) SlotRow(items::kSlots[i], ImVec2(leftW, rowH), selY); // Lackierungen: Reiter Colors
 	split.SetCurrentChannel(dl, 0);
 	if (selY >= 0) {
 		float rel = selY - o.y;
@@ -963,7 +1111,7 @@ void Render(bool* open) {
 		auto ow = items::ownItems.find(curSlot);
 		const items::Item* own = ow != items::ownItems.end() ? FindItem(ow->second) : nullptr;
 		if (own) ItemRow(0, own->name.c_str(), "Your item", QualityColor(own->quality), cur, pick, rw);
-		else ItemRow(0, "Your own", "", Rgb(80, 80, 92), cur, pick, rw);
+		else ItemRow(0, items::ownItems.count(curSlot) ? "Nothing equipped" : "Your own", "", Rgb(80, 80, 92), cur, pick, rw);
 	}
 	if (q.empty() || shown.size()) ImGui::Dummy(ImVec2(0, 2));
 	ImGuiListClipper clip;
