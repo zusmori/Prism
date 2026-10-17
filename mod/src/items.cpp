@@ -179,6 +179,11 @@ bool Setup() {
 	return ready;
 }
 
+static bool IsPlaceholder(const std::string& n) {
+	auto ends = [&](const char* x) { size_t l = strlen(x); return n.size() >= l && n.compare(n.size() - l, l, x) == 0; };
+	return n.rfind("Mystery", 0) == 0 || ends(" Drop") || n.find("Preview") != std::string::npos;
+}
+
 void LoadProducts() {
 	if (!Setup()) {
 		std::lock_guard<std::mutex> lk(mu);
@@ -196,6 +201,7 @@ void LoadProducts() {
 	std::vector<Item> out;
 	auto* arr = ue::Ptr<ue::TArray<void*>>(dbs[0], offProducts);
 	zl::Log("product database %p: %d products", dbs[0], arr->count);
+	int hidden = 0;
 	int offRequired = ue::PropOffset(clsProduct, "RequiredProduct");
 	int offProdAttrs = ue::PropOffset(clsProduct, "Attributes");
 	void* clsUpload = ue::FindClass("Class TAGame.ProductAttribute_PaintSettingsUpload_TA");
@@ -244,8 +250,9 @@ void LoadProducts() {
 					if (offShopEx >= 0) it.paintShop |= maskOf(ue::Ptr<ue::TArray<int32_t>>(at, offShopEx));
 				}
 			}
-			// "Drops" (z. B. Black Market Drop) sind Belohnungs-Kisten, keine echten Items
-			if (it.name.size() > 5 && it.name.compare(it.name.size() - 5, 5, " Drop") == 0) continue;
+			// Platzhalter aus dem Spiel (Belohnungs-Kisten, "Mystery"-Items, Vorschau-Tuecher) sind keine echten Items:
+			// sie legen nur ein Tuch/Modell ueber das Auto, das beim Wechseln haengen bleibt
+			if (IsPlaceholder(it.name)) { if (hidden++ < 40) zl::Log("hidden placeholder: %s (%d)", it.name.c_str(), id); continue; }
 			out.push_back(std::move(it));
 		} catch (...) {}
 	}
