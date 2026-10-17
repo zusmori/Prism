@@ -794,13 +794,6 @@
   .hstat .dot{--c:113 113 122;animation:none;box-shadow:none}
   .hstat.run .dot{--c:126 226 168;animation:pulse 2.2s cubic-bezier(.4,0,.6,1) infinite}
   .hstat.eac .dot{--c:var(--ac2-rgb)}
-  .hclose{display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;border-radius:999px;font:inherit;font-size:12.5px;font-weight:600;color:#f3c1c8;cursor:pointer;
-    background:rgb(12 12 16 / .45);border:1px solid rgba(247,161,173,.22);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-    opacity:0;transform:translateX(-8px) scale(.96);pointer-events:none;
-    transition:opacity .3s var(--ease),transform .35s var(--spring),background .2s,border-color .2s,color .2s}
-  .hclose.on{opacity:1;transform:none;pointer-events:auto}
-  .hclose:hover{background:rgba(247,161,173,.14);border-color:rgba(247,161,173,.45);color:#fff}
-  .hclose.busy{opacity:.55;pointer-events:none}
   .hbtns{display:flex;gap:12px;flex-wrap:wrap}
   .lbtn{position:relative;overflow:hidden;display:flex;align-items:center;gap:13px;height:62px;padding:0 22px 0 16px;border-radius:15px;cursor:pointer;
     border:1px solid var(--line2);background:rgb(15 15 18 / .7);backdrop-filter:blur(10px);color:var(--text);font:inherit;text-align:left;
@@ -832,6 +825,19 @@
   .lbtn.play.running .li{background:rgba(126,226,168,.16)!important;box-shadow:inset 0 0 0 1px rgba(126,226,168,.4);animation:none!important}
   .lbtn.play.running .li .gi{color:var(--ok)}
   .lbtn.play.running .li .gi svg{filter:drop-shadow(0 0 4px rgba(126,226,168,.9))}
+  /* Laeuft das Spiel, wird Play zu "Close": beim Drueberfahren weich rot, Symbol dreht zum X */
+  .lbtn.play .xi{position:absolute;opacity:0;transform:rotate(-90deg) scale(.6);transition:opacity .25s var(--ease),transform .4s var(--spring)}
+  .lbtn.play .li{position:relative}
+  .lbtn.play .li .gi{transition:opacity .25s var(--ease),transform .4s var(--spring)}
+  .lbtn.play.running{cursor:pointer;transition:background .3s var(--ease),border-color .3s var(--ease),box-shadow .35s var(--ease),transform .15s var(--ease)}
+  .lbtn.play.running small{transition:color .3s var(--ease)}
+  .lbtn.play.running:hover{border-color:rgba(247,161,173,.6);box-shadow:0 0 0 1px rgba(247,161,173,.14),0 12px 30px -14px rgba(0,0,0,.8),0 0 26px -8px rgba(247,161,173,.6)}
+  .lbtn.play.running:hover small{color:var(--err)}
+  .lbtn.play.running:hover .li{background:rgba(247,161,173,.16)!important;box-shadow:inset 0 0 0 1px rgba(247,161,173,.45)}
+  .lbtn.play.running:hover .li .gi{opacity:0;transform:rotate(90deg) scale(.6)}
+  .lbtn.play.running:hover .xi{opacity:1;transform:none;color:#ffb3bf}
+  .lbtn.play.running:active{transform:scale(.98)}
+  .lbtn.play.closing{pointer-events:none;opacity:.7}
   /* Video-Hintergrund (je Farbe ein Video, weich ueberblendet) */
   .hv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);pointer-events:none;
     transition:opacity 1.1s var(--ease),transform 1.6s var(--ease)}
@@ -1357,9 +1363,8 @@
           <img class="rllogo" id="rlLogo" alt="Rocket League" draggable="false">
           <span class="tag" id="rlTag"><span class="gi" data-ic="car"></span>Rocket League</span>
           <div class="hrow">
-            <button class="lbtn pri play" id="playBtn"><span class="li"><span class="gi" data-ic="play"></span></span><span><b>Play</b><small id="playSub">With or without Anti-Cheat</small></span></button>
+            <button class="lbtn pri play" id="playBtn"><span class="li"><span class="gi" data-ic="play"></span><svg class="xi" width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span><b>Play</b><small id="playSub">With or without Anti-Cheat</small></span></button>
             <div class="hstat" id="hStat"><span class="dot"></span><span id="hStatTx">Checking …</span></div>
-            <button class="hclose" id="hClose" title="Close Rocket League"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Close game</span></button>
           </div>
         </div>
       </div>
@@ -2805,14 +2810,14 @@ function paintRL(st){
   else if (!st.found){ tx.innerHTML = '<b>Rocket League not found</b> · set the folder under Swap Maps'; }
   else tx.innerHTML = '<b>Not running</b>' + (st.steam ? '' : ' · Steam is closed');
   if (!st.running) home.since = null;
-  const hc = $('hClose'); hc.classList.toggle('on', !!st.running); if (!st.running) hc.classList.remove('busy');
   if (st.running && home.launching){ home.launching = null; Sfx.ui('done'); }
   const b = $('playBtn');
   b.classList.toggle('busy', !!home.launching);
-  b.disabled = !!st.running;
+  b.disabled = false;
   b.classList.toggle('running', !!st.running);
-  b.querySelector('b').textContent = st.running ? 'Running' : home.launching ? 'Starting …' : 'Play';
-  $('playSub').textContent = st.running ? (st.eac ? 'With Anti-Cheat' : 'Without Anti-Cheat')
+  if (!st.running) b.classList.remove('closing');
+  b.querySelector('b').textContent = st.running ? (b.classList.contains('closing') ? 'Closing …' : 'Close') : home.launching ? 'Starting …' : 'Play';
+  $('playSub').textContent = st.running ? (st.eac ? 'Running with Anti-Cheat' : 'Running without Anti-Cheat')
     : home.launching ? (home.launching === 'eac' ? 'With Anti-Cheat' : 'Without Anti-Cheat') : 'With or without Anti-Cheat';
 }
 async function pollRL(){ try { paintRL(await rlCall()); } catch (e) {} pollBoost(); }
@@ -2837,13 +2842,6 @@ async function launch(eac, force){
     toast(e, false);
   }
 }
-// Spiel schliessen (unten links, nur solange RL laeuft)
-$('hClose').onclick = async () => {
-  const b = $('hClose'); if (b.classList.contains('busy')) return;
-  b.classList.add('busy'); Sfx.ui('dismiss');
-  try { if (has('closeRL')) await closeRL(); } catch (e) { b.classList.remove('busy'); toast(e, false); }
-  setTimeout(pollRL, 1500); setTimeout(pollRL, 4000); setTimeout(pollRL, 9000);
-};
 // Auswahl: mit oder ohne Anti-Cheat
 function openPlay(){
   if (home.launching || (home.st && home.st.running)) return;
@@ -2854,7 +2852,15 @@ function openPlay(){
   setTimeout(() => $('pEac').focus({preventScroll: true}), 60);   // Enter = mit Anti-Cheat
 }
 const closePlay = () => $('playDlg').classList.remove('show');
-$('playBtn').onclick = openPlay;
+$('playBtn').onclick = () => (home.st && home.st.running) ? closeGame() : openPlay();
+// Laeuft das Spiel, schliesst derselbe Knopf es wieder
+async function closeGame(){
+  const b = $('playBtn'); if (b.classList.contains('closing')) return;
+  b.classList.add('closing'); b.querySelector('b').textContent = 'Closing …'; Sfx.ui('dismiss');
+  try { if (has('closeRL')) await closeRL(); }
+  catch (e) { b.classList.remove('closing'); b.querySelector('b').textContent = 'Close'; toast(e, false); }
+  [1200, 3000, 6000, 9500].forEach(t => setTimeout(pollRL, t));
+}
 $('pNoEac').onclick = () => { closePlay(); launch(false); };
 $('pEac').onclick = () => { closePlay(); setTimeout(() => launch(true), (Object.keys(curState.swaps || {}).length || settings.itemMod !== false) ? 220 : 0); };
 $('playCancel').onclick = () => { closePlay(); Sfx.ui('dismiss'); };
