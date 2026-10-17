@@ -1106,6 +1106,15 @@ static void ApplyColorsTo(void* mesh, bool force) {
 // Regelmaessig aufrufen: das Spiel setzt die Farben z. B. beim Teilewechsel wieder zurueck
 static void TickColors(void* previewActor, void* car) {
 	if (!colorsOn) return;
+	// Im Spiel jedes Bild: das Spiel setzt die Farben beim Zuruecksetzen (neues Auto) und mit
+	// "Use standard team colors" selbst wieder - so sieht man die normale Farbe nie, auch nicht kurz
+	if (car && offCarMesh >= 0 && EnsureColors()) {
+		void* m = ue::Read<void*>(car, offCarMesh);
+		if (m != ourMeshes[1].load()) zl::Log("colors: your car's model %p (%s)", m, m ? ue::Name(m).c_str() : "-");
+		ourMeshes[1] = m;
+		ApplyColorsTo(m, true);
+		if (!previewActor) return;
+	}
 	static unsigned long long next = 0;
 	unsigned long long t = GetTickCount64();
 	bool beat = t >= next; // alle 0,4 s erneut, weil das Spiel die Farben beim Neuladen ueberschreibt
