@@ -284,10 +284,11 @@ void LoadProducts() {
 		// Die Lackierungen aus dem Spiel (ohne die Glow-Varianten, die es nur bei einzelnen Items gibt)
 		// alle behalten: welche es pro Item gibt, steht in paintMask
 	}
-	// Standard-Lackierungen (im Spiel "bIncludeByDefault") minus Ausschluesse plus Shop-Lackierungen
+	// Lackierungen pro Item: normale minus Ausschluesse plus die besonderen aus den Item-Daten
 	uint32_t defMask = 0;
 	for (auto& p : pl)
-		if (p.flags & 2) defMask |= 1u << p.id;
+		if ((p.flags & 3) == 3 && p.id < 32) defMask |= 1u << p.id; // normale, sichtbare Lackierungen (Crimson ... Gold)
+	// Besondere (Rose Gold, White Gold, Onyx, Platinum, Glow) nur, wenn die Item-Daten sie ausdruecklich haben
 	int logged = 0;
 	for (auto& it : out) {
 		if (!it.paintable) continue;
