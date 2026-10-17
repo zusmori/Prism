@@ -777,6 +777,9 @@ static bool PaintedId(int productId, int paintId, OnlineId& out) {
 	long long key = (long long)productId * 1000 + paintId;
 	auto it = paintedIds.find(key);
 	if (it != paintedIds.end()) { out = it->second; return true; }
+	static std::set<long long> failed;
+	if (failed.count(key)) return false;
+	failed.insert(key); // nur einmal versuchen; bei Erfolg unten wieder raus
 	if (!EnsureStore() || !fnTempId || !fnAddData || offAddData < 0 || offAddRet < 0 || offOPInstance < 0 || !fnAddAttribute) return false;
 	std::vector<uint8_t> t(size_t(ue::StructSize(fnTempId)) + 16, 0);
 	ue::Call(store, fnTempId, t.data());
@@ -794,6 +797,7 @@ static bool PaintedId(int productId, int paintId, OnlineId& out) {
 	ue::Call(op, fnAddAttribute, a.data());
 	out = ue::Read<OnlineId>(op, offOPInstance);
 	paintedIds[key] = out;
+	failed.erase(key);
 	zl::Log("paint menu: product %d in %d -> %s (id %llx:%llx)", productId, paintId, ue::Name(op).c_str(), (unsigned long long)out.a, (unsigned long long)out.b);
 	return true;
 }
