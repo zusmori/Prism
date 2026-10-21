@@ -100,7 +100,6 @@ static void ReadTheme() {
 	fclose(f);
 	std::string s(buf);
 	if (s.find("\"theme\":\"purple\"") != std::string::npos) set(139, 92, 246, 129, 140, 248, 167, 139, 250, 232, 121, 249);
-	else if (s.find("\"theme\":\"blue\"") != std::string::npos) set(59, 130, 246, 129, 140, 248, 96, 165, 250, 56, 189, 248);
 	else if (s.find("\"theme\":\"cyan\"") != std::string::npos) set(6, 182, 212, 96, 165, 250, 34, 211, 238, 45, 212, 191);
 	else if (s.find("\"theme\":\"green\"") != std::string::npos) set(16, 185, 129, 34, 211, 238, 52, 211, 153, 163, 230, 53);
 }
@@ -148,9 +147,10 @@ void Style() {
 	c[ImGuiCol_ScrollbarGrabActive] = Acc(0.6f);
 }
 
+static double logoOpenFx = -1;
 void SetOpen(bool open) {
 	wantOpen = open;
-	if (open) { focusSearch = false; ReadTheme(); }
+	if (open) { focusSearch = false; ReadTheme(); logoOpenFx = 0.25; } // Lichtbrechung kurz nach dem Oeffnen
 }
 bool Visible() { return wantOpen || vis > 0.001f; }
 
@@ -664,46 +664,57 @@ static ImVec4 SpecAt(float t) {
 	t = std::clamp(t, 0.0f, 1.0f);
 	return t < 0.55f ? Mix(spec[0], spec[1], t / 0.55f) : Mix(spec[1], spec[2], (t - 0.55f) / 0.45f);
 }
-// Hover: Logo kippt leicht und waechst mit Feder-Bewegung, ein Lichtfunke laeuft den Strahl hinunter
+// Lichtbrechung (wie im Launcher): weisses Licht faellt links ins Prisma, rechts tritt ein Spektrum-Faecher aus.
+// Laeuft beim Oeffnen des Menues und beim Drueberfahren.
+static double logoFx = -10;
 static void Logo(ImDrawList* dl, ImVec2 c, float size, float hover) {
-	static float x = 0, v = 0;
-	static double hoverAt = -10;
 	static bool was = false;
-	float dt = Dt();
-	v += (hover - x) * 220.0f * dt; // Feder
-	v *= expf(-14.0f * dt);         // Daempfung
-	x += v * dt;
-	if (hover > 0.5f && !was) hoverAt = ImGui::GetTime();
+	double now = ImGui::GetTime();
+	if (hover > 0.5f && !was && now - logoFx > 1.2) logoFx = now;
 	was = hover > 0.5f;
-	float rot = -0.14f * x, sc = 1.0f + 0.14f * x;
-	float glow = 0.20f + 0.30f * std::clamp(x, 0.0f, 1.2f);
+	float t = float(now - logoFx);
+	float glow = 0.18f + 0.22f * hover;
 	for (int i = 3; i >= 1; i--) dl->AddCircleFilled(ImVec2(c.x, c.y + size * 0.08f), size * (0.28f + 0.13f * i), U(Alpha(spec[1], glow * 0.16f)), 32);
-	float u = size * sc / 200.0f, cs = cosf(rot), sn = sinf(rot);
-	auto P = [&](float lx, float ly) { lx -= 100.0f; ly -= 96.0f; return ImVec2(c.x + (lx * cs - ly * sn) * u, c.y + (lx * sn + ly * cs) * u); };
+	float u = size / 200.0f;
+	auto P = [&](float lx, float ly) { return ImVec2(c.x + (lx - 100.0f) * u, c.y + (ly - 96.0f) * u); };
+	// ein Strahl: zeichnet sich von a nach b, bleibt kurz und blendet aus
+	auto ray = [&](ImVec2 a, ImVec2 b, ImVec4 c0, ImVec4 c1, float w, float delay, float dur) {
+		float p = (t - delay) / dur;
+		if (p <= 0.0f || p >= 1.0f) return;
+		float f = std::min(1.0f, EaseOut(p / 0.45f)), al = p < 0.6f ? 1.0f : 1.0f - (p - 0.6f) / 0.4f;
+		const int n = 10;
+		for (int i = 0; i < n; i++) {
+			float s0 = f * i / n, s1 = f * (i + 1) / n;
+			ImVec2 p0(a.x + (b.x - a.x) * s0, a.y + (b.y - a.y) * s0), p1(a.x + (b.x - a.x) * s1, a.y + (b.y - a.y) * s1);
+			dl->AddLine(p0, p1, U(Alpha(Mix(c0, c1, (s0 + s1) * 0.5f), al)), w);
+		}
+	};
+	ImVec4 white = Rgb(255, 255, 255), clear = Rgb(255, 255, 255, 0.0f);
+	float rw = std::max(1.2f, 6.0f * u);
+	ray(P(-74, 114), P(66, 98), clear, white, rw, 0.0f, 1.05f);
+	ray(P(66, 98), P(138, 104), white, white, rw, 0.17f, 0.9f);
+	ImVec2 ex = P(138, 104);
+	ray(ex, P(236, 78), spec[0], Alpha(spec[0], 0.0f), rw, 0.26f, 1.0f);
+	ray(ex, P(240, 106), spec[1], Alpha(spec[1], 0.0f), rw, 0.305f, 1.0f);
+	ray(ex, P(236, 134), spec[2], Alpha(spec[2], 0.0f), rw, 0.35f, 1.0f);
+	// Prisma
 	ImVec2 t0 = P(100, 34), t1 = P(164, 152), t2 = P(36, 152);
 	float lw = std::max(1.6f, 15.0f * u);
-	ImU32 white = U(Rgb(244, 244, 250));
-	dl->AddTriangle(t0, t1, t2, white, lw);
-	for (ImVec2 p : {t0, t1, t2}) dl->AddCircleFilled(p, lw * 0.5f, white, 12); // runde Ecken
-	// Strahl: viele kurze Stuecke mit fliessender Farbe
+	ImU32 wc = U(Rgb(244, 244, 250));
+	dl->AddTriangle(t0, t1, t2, wc, lw);
+	for (ImVec2 p : {t0, t1, t2}) dl->AddCircleFilled(p, lw * 0.5f, wc, 12); // runde Ecken
+	// Strahl im Spektrum; leuchtet auf, wenn Licht hindurchgeht
+	float pulse = (t > 0.15f && t < 1.05f) ? sinf((t - 0.15f) / 0.9f * 3.14159f) : 0.0f;
 	ImVec2 b0 = P(100, 34), b1 = P(120, 152);
 	float bw = std::max(1.4f, 12.0f * u);
 	const int n = 14;
 	for (int i = 0; i < n; i++) {
 		float a = float(i) / n, b = float(i + 1) / n;
 		ImVec2 p0(b0.x + (b1.x - b0.x) * a, b0.y + (b1.y - b0.y) * a), p1(b0.x + (b1.x - b0.x) * b, b0.y + (b1.y - b0.y) * b);
-		dl->AddLine(p0, p1, U(SpecAt((a + b) * 0.5f)), bw);
+		dl->AddLine(p0, p1, U(Mix(SpecAt((a + b) * 0.5f), white, 0.45f * pulse)), bw);
 	}
-	dl->AddCircleFilled(b0, bw * 0.5f, U(spec[0]), 12);
-	dl->AddCircleFilled(b1, bw * 0.5f, U(spec[2]), 12);
-	// Lichtfunke beim Drueberfahren
-	float g = float(ImGui::GetTime() - hoverAt) / 0.6f;
-	if (g > 0.0f && g < 1.0f) {
-		float e = 1.0f - powf(1.0f - g, 2.0f), a = sinf(g * 3.14159f);
-		float s0 = std::max(0.0f, e - 0.18f), s1 = e;
-		ImVec2 p0(b0.x + (b1.x - b0.x) * s0, b0.y + (b1.y - b0.y) * s0), p1(b0.x + (b1.x - b0.x) * s1, b0.y + (b1.y - b0.y) * s1);
-		dl->AddLine(p0, p1, U(Rgb(255, 255, 255, 0.9f * a)), bw);
-	}
+	dl->AddCircleFilled(b0, bw * 0.5f, U(Mix(spec[0], white, 0.45f * pulse)), 12);
+	dl->AddCircleFilled(b1, bw * 0.5f, U(Mix(spec[2], white, 0.45f * pulse)), 12);
 }
 
 // ---------- Farben ----------
@@ -1071,6 +1082,7 @@ void Render(bool* open) {
 		ImVec2 lc(o.x + pad + 8, o.y + 33);
 		float tw = TextW(fTitle, "Prism");
 		bool hov = wantOpen && ImGui::IsMouseHoveringRect(ImVec2(lc.x - 16, lc.y - 18), ImVec2(o.x + pad + 34 + tw, lc.y + 18), false);
+		if (logoOpenFx > 0) { logoOpenFx -= Dt(); if (logoOpenFx <= 0) logoFx = ImGui::GetTime(); }
 		Logo(dl, lc, 26.0f, hov ? 1.0f : 0.0f);
 	}
 	Text(dl, fTitle, ImVec2(o.x + pad + 34, o.y + 21), cText, "Prism");
