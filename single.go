@@ -3,9 +3,11 @@
 package main
 
 // Nur ein ZLauncher gleichzeitig: ein zweiter Start holt das laufende Fenster nach vorne
-// (auch aus dem Tray) und beendet sich dann selbst.
+// (auch aus dem Tray) und beendet sich dann selbst. Ist die neu gestartete exe aber neuer
+// (z. B. gerade heruntergeladen), beendet sich die alte und die neue startet.
 
 import (
+	"os"
 	"time"
 	"unsafe"
 
@@ -18,7 +20,24 @@ var (
 	pAllowSetForeground    = user32.NewProc("AllowSetForegroundWindow")
 	instanceMutex          windows.Handle
 	showMsg                uintptr // eigene Nachricht "ZLauncher.Show"
+	exeStamp               = exeTime()
 )
+
+// Aenderungszeit der eigenen exe (Sekunden), 0 = unbekannt
+func exeTime() int64 {
+	if exe, err := os.Executable(); err == nil {
+		if fi, err := os.Stat(exe); err == nil {
+			return fi.ModTime().Unix()
+		}
+	}
+	return 0
+}
+
+// Nachricht der zweiten Instanz: lp = Zeit ihrer exe. Neuer als wir -> wir beenden uns (true)
+func otherIsNewer(lp uintptr) bool {
+	t := int64(lp)
+	return t > 0 && exeStamp > 0 && t > exeStamp+1
+}
 
 func init() {
 	if p, err := windows.UTF16PtrFromString("ZLauncher.Show"); err == nil {
@@ -52,10 +71,11 @@ func singleInstance(wait time.Duration) bool {
 	}
 }
 
-// laufende Instanz bitten, ihr Fenster zu zeigen (erreicht auch das versteckte Tray-Fenster)
+// laufende Instanz bitten, ihr Fenster zu zeigen (erreicht auch das versteckte Tray-Fenster).
+// Sie beendet sich, wenn unsere exe neuer ist.
 func wakeOtherInstance() {
 	if showMsg != 0 {
 		pAllowSetForeground.Call(^uintptr(0)) // ASFW_ANY: die laufende Instanz darf ihr Fenster nach vorne holen
-		pPostMessage.Call(0xFFFF /* HWND_BROADCAST */, showMsg, 0, 0)
+		pPostMessage.Call(0xFFFF /* HWND_BROADCAST */, showMsg, 0, uintptr(exeStamp))
 	}
 }

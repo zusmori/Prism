@@ -53,6 +53,7 @@ void RunQueue() {
 
 static void TickColors(void* previewActor, void* car);
 static void CarEventColors(void* car);
+static void RestoreSharedPrefs();
 static std::atomic<void*> localPRIForColors{nullptr}; // PRI deines Autos (fuer die Farben)
 static void PatchColorEvent(void* mesh, void* params);
 static void *clsCarMesh = nullptr, *fnApplyColors = nullptr;
@@ -731,6 +732,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		try { pawn = (ue::IsA(caller, clsPC) && offPawn >= 0) ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
 		if (!pawn || !clsCar || !ue::IsA(pawn, clsCar)) {
 			// Hauptmenue/Garage: sicherer Moment (einmal pro Frame), um das Vorschau-Auto anzupassen
+			try { RestoreSharedPrefs(); } catch (...) {}
 			try { TickPreview(); } catch (...) {}
 			// Item-Liste schon im Hauptmenue laden (wird fuer Farben gebraucht, auch ohne F8)
 			static unsigned long long nextLoad = 0;
@@ -1187,7 +1189,7 @@ static void MarkOurs(void* mesh) {
 			if (!prefsOrig.count(mesh)) prefsOrig[mesh] = cur;
 			*ue::Ptr<void*>(mesh, offColorPrefs) = cleanPrefs;
 			static int n = 0;
-			if (n++ < 4) zl::Log("colors: %s uses its own color settings (was %p, bits %x)", ue::Name(mesh).c_str(), cur,
+			if (n++ < 12) zl::Log("colors: %s uses its own color settings (was %p, bits %x)", ue::Name(mesh).c_str(), cur,
 				(cur && offPrefsBits >= 0) ? ue::Read<uint32_t>(cur, offPrefsBits) : 0);
 		}
 	}
@@ -1231,6 +1233,7 @@ static void ClearOurColors() {
 		if (void* fnPaint = ue::FindFunction(ue::ClassOf(m), "ApplyPaintSettings")) ue::Call(m, fnPaint);
 		n++;
 	}
+	RestoreSharedPrefs();
 	prefsOrig.clear();
 	colorsApplied.clear();
 	ourMeshes[0] = nullptr;
@@ -1276,10 +1279,44 @@ static void CarEventColors(void* car) {
 
 // Dein Auto im Spiel: nicht mehr jedes Bild (das war teuer und hat bei Resets kurz eingefroren), sondern
 // sofort bei einem neuen Modell, danach kurz oefter (Teile laden nach) und dann nur noch zur Kontrolle.
+// Freeplay: dort faehrt nur dein Auto. "Use Default Team Colors" / Standardfarben im Freeplay werden dort
+// fuer die Zeit im Freeplay ganz ausgeschaltet (und beim Verlassen wieder an), sonst setzt das Spiel
+// bei deinem Auto immer wieder blau/orange.
+static void* sharedPrefs = nullptr;
+static uint32_t sharedSaved = 0;
+static void RestoreSharedPrefs() {
+	if (!sharedPrefs) return;
+	if (ue::IsAlive(sharedPrefs) && offPrefsBits >= 0) {
+		uint32_t* b = ue::Ptr<uint32_t>(sharedPrefs, offPrefsBits);
+		*b = (*b & ~prefsMask) | (sharedSaved & prefsMask);
+	}
+	zl::Log("colors: default team colors setting back as it was");
+	sharedPrefs = nullptr;
+}
+static bool FreeplayPrefs(void* car, void* mesh) {
+	if (!clsFreeplayCar || !ue::IsA(car, clsFreeplayCar) || offColorPrefs < 0 || offPrefsBits < 0 || !prefsMask) return false;
+	void* pr = ue::Read<void*>(mesh, offColorPrefs);
+	if (pr == cleanPrefs) {
+		auto o = prefsOrig.find(mesh);
+		pr = o != prefsOrig.end() ? o->second : nullptr;
+	}
+	if (!pr || pr == cleanPrefs || !ue::IsAlive(pr)) return false;
+	uint32_t* b = ue::Ptr<uint32_t>(pr, offPrefsBits);
+	if (!(*b & prefsMask)) return false;
+	if (sharedPrefs != pr) { RestoreSharedPrefs(); sharedPrefs = pr; sharedSaved = *b; }
+	*b &= ~prefsMask;
+	zl::Log("colors: freeplay -> default team colors off while you're here (bits %x)", sharedSaved);
+	return true;
+}
+
 static void TickCarColors(void* car) {
 	if (!car || offCarMesh < 0 || !EnsureColors()) return;
 	void* m = ue::Read<void*>(car, offCarMesh);
 	if (!m || !ue::IsAlive(m)) return;
+	if (FreeplayPrefs(car, m)) { // Einstellung gerade umgestellt: Lackierung neu aufbauen lassen
+		if (void* fnPaint = ue::FindFunction(ue::ClassOf(m), "ApplyPaintSettings")) ue::Call(m, fnPaint);
+		ourMeshes[1] = nullptr;
+	}
 	static unsigned long long seenAt = 0, next = 0, lastFull = 0;
 	static int lastGen = -1;
 	unsigned long long now = GetTickCount64();

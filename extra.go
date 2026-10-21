@@ -245,8 +245,12 @@ func subclassProc(hwnd, msg, wp, lp uintptr) uintptr {
 	if trayMessage(hwnd, msg, lp) {
 		return 0
 	}
-	if showMsg != 0 && msg == showMsg { // ZLauncher wurde ein zweites Mal gestartet: dieses Fenster zeigen
-		showFromTray(hwnd)
+	if showMsg != 0 && msg == showMsg { // ZLauncher wurde ein zweites Mal gestartet
+		if otherIsNewer(lp) {
+			trayQuit(hwnd) // neuere Version: diese hier beendet sich
+		} else {
+			showFromTray(hwnd)
+		}
 		return 0
 	}
 	switch msg {

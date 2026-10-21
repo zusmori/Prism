@@ -547,7 +547,10 @@ func main() {
 	}
 	if !singleInstance(wait) {
 		wakeOtherInstance()
-		return
+		// ist unsere exe neuer, macht die alte Platz: kurz warten und dann selbst starten
+		if !singleInstance(15 * time.Second) {
+			return
+		}
 	}
 	_ = os.MkdirAll(backupDir, 0755)
 	_ = os.MkdirAll(ownDir, 0755)
