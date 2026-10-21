@@ -796,6 +796,10 @@ static std::string grPkg;
 static int grApplied = 0;                                 // aktuell angewendete Lackierung (0 = original)
 static unsigned long long grNext = 0, grScanAt = 0;
 static bool grDumped = false, grModLogged = false;
+static std::vector<std::string> grParams; // Laufzeit-Parameter der Partikel (z. B. "CoreColor")
+static std::map<std::string, int32_t> grParamIdx;
+static float grTarget[3] = {1, 1, 1};
+static bool grCoreOn = false;
 
 static std::string LowerS(std::string v) { for (auto& c : v) c = (char)tolower((unsigned char)c); return v; }
 static std::string Outermost(void* o) {
@@ -885,7 +889,35 @@ static int TintTemplate(void* ps, const float* target) {
 				if (dist && ue::IsValid(dist)) {
 					void* dc = ue::ClassOf(dist);
 					std::string dn = ue::Name(dc);
-					if (dn == "DistributionVectorConstant") {
+					if (dn == "DistributionVectorParticleParameter") {
+						// Farbe kommt zur Laufzeit vom Boost (z. B. "CoreColor"): Name merken, Ausgabebereich und Ersatzwert umfaerben
+						int pn = ue::PropOffset(dc, "ParameterName");
+						if (pn >= 0) {
+							int32_t idx = ue::Read<int32_t>(dist, pn);
+							std::string nm = ue::NameOf(idx);
+							if (std::find(grParams.begin(), grParams.end(), nm) == grParams.end()) grParams.push_back(nm);
+							grParamIdx[nm] = idx;
+						}
+						for (const char* nm : {"Constant", "MinOutput", "MaxOutput"}) {
+							int oc = ue::PropOffset(dc, nm);
+							if (oc >= 0) PatchTriples(ps, reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(dist) + oc), 3, target, true, changed);
+						}
+						if (!grModLogged) {
+							auto V = [&](const char* nm) {
+								int oc = ue::PropOffset(dc, nm);
+								char b[64] = "-";
+								if (oc >= 0) {
+									const float* f = reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(dist) + oc);
+									snprintf(b, sizeof b, "(%.2f %.2f %.2f)", f[0], f[1], f[2]);
+								}
+								return std::string(nm) + "=" + b;
+							};
+							int pm = ue::PropOffset(dc, "ParamModes");
+							zl::Log("gold rush:     param dist %s %s %s %s %s modes=%d/%d/%d", V("MinInput").c_str(), V("MaxInput").c_str(), V("MinOutput").c_str(),
+								V("MaxOutput").c_str(), V("Constant").c_str(), pm >= 0 ? ue::Read<uint8_t>(dist, pm) : -1, pm >= 0 ? ue::Read<uint8_t>(dist, pm + 1) : -1,
+								pm >= 0 ? ue::Read<uint8_t>(dist, pm + 2) : -1);
+						}
+					} else if (dn == "DistributionVectorConstant") {
 						int oc = ue::PropOffset(dc, "Constant");
 						if (oc >= 0) PatchTriples(ps, reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(dist) + oc), 3, target, grayToo, changed);
 					} else if (dn == "DistributionVectorUniform") {
@@ -1144,8 +1176,126 @@ static bool FindGoldRushFx() {
 	return !all.empty();
 }
 
+// ----- Laufzeit-Farbe der Partikel ("CoreColor"): der Boost setzt sie selbst an seinen Partikel-Komponenten.
+// So kommt das Gold zustande - hier wird sie laufend mit der Lackfarbe ueberschrieben (so macht es auch AlphaConsole).
+static void *clsPSC = nullptr, *fnPscSetVec = nullptr, *fnPscSetCol = nullptr;
+static int oPscTpl = -1, oPscInst = -1, spStride = 0, spName = -1, spType = -1, spVector = -1, spColor = -1;
+static int oSvName = -1, oSvVal = -1, oScName = -1, oScVal = -1;
+static std::vector<void*> grComps;
+static std::map<std::string, std::array<float, 3>> grParamOrig; // Originalwert je Parameter (vor dem Ueberschreiben)
+static unsigned long long grCompsAt = 0;
+
+static bool PscSetup() {
+	if (clsPSC) return oPscTpl >= 0;
+	clsPSC = ue::FindClass("Class Engine.ParticleSystemComponent");
+	if (!clsPSC) return false;
+	oPscTpl = ue::PropOffset(clsPSC, "Template");
+	oPscInst = ue::PropOffset(clsPSC, "InstanceParameters");
+	if (void* st = ue::FindObject("ScriptStruct Engine.ParticleSystemComponent.ParticleSysParam")) {
+		spStride = ue::StructSize(st);
+		spName = ue::PropOffset(st, "Name");
+		spType = ue::PropOffset(st, "ParamType");
+		spVector = ue::PropOffset(st, "Vector");
+		spColor = ue::PropOffset(st, "Color");
+	}
+	fnPscSetVec = ue::FindFunction(clsPSC, "SetVectorParameter");
+	fnPscSetCol = ue::FindFunction(clsPSC, "SetColorParameter");
+	if (fnPscSetVec) { oSvName = ue::PropOffset(fnPscSetVec, "ParameterName"); oSvVal = ue::PropOffset(fnPscSetVec, "Param"); }
+	if (fnPscSetCol) { oScName = ue::PropOffset(fnPscSetCol, "ParameterName"); oScVal = ue::PropOffset(fnPscSetCol, "Param"); }
+	zl::Log("gold rush: psc tpl=%x inst=%x param stride=%d name=%d type=%d vector=%d color=%d setVec=%p(%d/%d) setCol=%p(%d/%d)", oPscTpl, oPscInst, spStride,
+		spName, spType, spVector, spColor, fnPscSetVec, oSvName, oSvVal, fnPscSetCol, oScName, oScVal);
+	return oPscTpl >= 0;
+}
+
+static void FindGoldRushComps() {
+	grComps.clear();
+	if (!PscSetup()) return;
+	for (void* c : ue::Instances(clsPSC)) {
+		if (!ue::IsValid(c)) continue;
+		void* t = ue::Read<void*>(c, oPscTpl);
+		if (t && std::find(grTemplates.begin(), grTemplates.end(), t) != grTemplates.end()) grComps.push_back(c);
+	}
+}
+
+// Wert eines Instanz-Parameters lesen (Vektor oder Farbe), false = nicht gesetzt
+static bool PscGetParam(void* c, const std::string& name, float* out, int& type) {
+	if (oPscInst < 0 || spStride <= 0 || spName < 0) return false;
+	auto* arr = ue::Ptr<ue::TArray<uint8_t>>(c, oPscInst);
+	for (int i = 0; arr->data && i < arr->count && i < 64; i++) {
+		uint8_t* e = arr->data + size_t(i) * spStride;
+		if (ue::NameOf(reinterpret_cast<ue::FName*>(e + spName)->index) != name) continue;
+		type = spType >= 0 ? e[spType] : 2;
+		if (type == 3 && spColor >= 0) { // FColor (B, G, R, A)
+			out[0] = e[spColor + 2] / 255.0f; out[1] = e[spColor + 1] / 255.0f; out[2] = e[spColor] / 255.0f;
+		} else if (spVector >= 0) memcpy(out, e + spVector, 12);
+		return true;
+	}
+	return false;
+}
+
+static void PscSetParam(void* c, int32_t nameIdx, const float* v, int type) {
+	if (type == 3 && fnPscSetCol && oScName >= 0 && oScVal >= 0) {
+		std::vector<uint8_t> prm(size_t(ue::StructSize(fnPscSetCol)) + 16, 0);
+		*reinterpret_cast<ue::FName*>(prm.data() + oScName) = ue::FName{nameIdx, 0};
+		uint8_t* col = prm.data() + oScVal;
+		col[2] = (uint8_t)std::clamp(v[0] * 255.0f, 0.0f, 255.0f); col[1] = (uint8_t)std::clamp(v[1] * 255.0f, 0.0f, 255.0f);
+		col[0] = (uint8_t)std::clamp(v[2] * 255.0f, 0.0f, 255.0f); col[3] = 255;
+		ue::Call(c, fnPscSetCol, prm.data());
+		return;
+	}
+	if (!fnPscSetVec || oSvName < 0 || oSvVal < 0) return;
+	std::vector<uint8_t> prm(size_t(ue::StructSize(fnPscSetVec)) + 16, 0);
+	*reinterpret_cast<ue::FName*>(prm.data() + oSvName) = ue::FName{nameIdx, 0};
+	memcpy(prm.data() + oSvVal, v, 12);
+	ue::Call(c, fnPscSetVec, prm.data());
+}
+
+static int32_t NameIndex(const std::string& n) {
+	auto f = grParamIdx.find(n);
+	return f != grParamIdx.end() ? f->second : -1;
+}
+
+// jedes Mal (alle ~50 ms): Laufzeit-Farbe der Partikel auf die Lackfarbe setzen bzw. zuruecksetzen
+static void ApplyCoreColor(const float* target, bool restore) {
+	static int logged = 0;
+	for (void* c : grComps) {
+		if (!ue::IsValid(c)) continue;
+		for (auto& pname : grParams) {
+			float cur[3] = {0, 0, 0};
+			int type = 2;
+			bool has = PscGetParam(c, pname, cur, type);
+			auto o = grParamOrig.find(pname);
+			if (restore) {
+				if (o != grParamOrig.end() && has) PscSetParam(c, NameIndex(pname), o->second.data(), type);
+				continue;
+			}
+			// Original merken: der erste Wert, der nicht von uns stammt
+			float mine[3];
+			bool isMine = false;
+			if (o != grParamOrig.end()) {
+				float mx0 = std::max({o->second[0], o->second[1], o->second[2], 0.0001f});
+				for (int k = 0; k < 3; k++) mine[k] = target[k] * mx0;
+				isMine = has && fabsf(cur[0] - mine[0]) < 0.02f && fabsf(cur[1] - mine[1]) < 0.02f && fabsf(cur[2] - mine[2]) < 0.02f;
+			}
+			if (has && !isMine && (o == grParamOrig.end() || std::max({cur[0], cur[1], cur[2]}) > 0.0001f)) {
+				grParamOrig[pname] = {cur[0], cur[1], cur[2]};
+				o = grParamOrig.find(pname);
+				if (logged++ < 6) zl::Log("gold rush: %s on %s was (%.2f %.2f %.2f) type %d", pname.c_str(), ue::Name(c).c_str(), cur[0], cur[1], cur[2], type);
+			}
+			float base = o != grParamOrig.end() ? std::max({o->second[0], o->second[1], o->second[2]}) : 1.5f;
+			if (base < 0.0001f) base = 1.5f;
+			float v[3] = {target[0] * base, target[1] * base, target[2] * base};
+			int32_t ni = NameIndex(pname);
+			if (ni >= 0 && has) PscSetParam(c, ni, v, type); // nur Parameter, die der Boost wirklich benutzt
+		}
+	}
+}
+
 static void TickBoostPaint() {
 	unsigned long long now = GetTickCount64();
+	// schnell: die Laufzeit-Farbe setzt das Spiel immer wieder neu (z. B. bei jedem Boost-Start)
+	static unsigned long long fast = 0;
+	if (grCoreOn && now >= fast) { fast = now + 40; try { ApplyCoreColor(grTarget, false); } catch (...) {} }
 	if (now < grNext || !loaded) return;
 	grNext = now + 400;
 	// gewuenschte Lackierung fuer den Gold Rush (nur wenn er gerade ausgewaehlt ist)
@@ -1165,7 +1315,13 @@ static void TickBoostPaint() {
 		}
 	}
 	if (want == 0) {
-		if (grApplied) { RestoreGoldRush(); grApplied = 0; zl::Log("gold rush: original colors back"); }
+		if (grApplied) {
+			RestoreGoldRush();
+			ApplyCoreColor(grTarget, true);
+			grCoreOn = false;
+			grApplied = 0;
+			zl::Log("gold rush: original colors back");
+		}
 		return;
 	}
 	// Farbe: Farbton auf volle Helligkeit; die Helligkeit kommt aus dem Original (Leuchten bleibt)
@@ -1173,6 +1329,15 @@ static void TickBoostPaint() {
 	float val = std::min(1.0f, mx * 1.6f);
 	float target[3];
 	for (int k = 0; k < 3; k++) target[k] = (mx > 0.0001f ? paint[k] / mx : 1.0f) * std::max(val, 0.02f);
+	memcpy(grTarget, target, sizeof grTarget);
+	grCoreOn = true;
+	// Partikel-Komponenten des Boosts (Garage und Spiel) regelmaessig neu suchen
+	if (now >= grCompsAt && !grTemplates.empty()) {
+		grCompsAt = now + 1500;
+		size_t before = grComps.size();
+		FindGoldRushComps();
+		if (grComps.size() != before) zl::Log("gold rush: %d particle components, params %d", (int)grComps.size(), (int)grParams.size());
+	}
 	// Vorlagen/Materialien noch da? (werden beim Laden einer Map neu angelegt)
 	bool alive = !grTemplates.empty() || !grMics.empty();
 	for (void* t : grTemplates) if (!ue::IsValid(t)) alive = false;
@@ -1182,6 +1347,8 @@ static void TickBoostPaint() {
 		grScanAt = now + 3000;
 		grPatches.clear();
 		grMicPatches.clear();
+		grComps.clear();
+		grCompsAt = 0;
 		grApplied = 0;
 		if (!FindGoldRushFx()) return;
 	}
