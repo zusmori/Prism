@@ -14,6 +14,7 @@
 #include "imgui_internal.h"
 #include "items.h"
 #include "log.h"
+#include "maps.h"
 
 namespace gui {
 
@@ -150,7 +151,7 @@ void Style() {
 static double logoOpenFx = -1;
 void SetOpen(bool open) {
 	wantOpen = open;
-	if (open) { focusSearch = false; ReadTheme(); logoOpenFx = 0.25; } // Lichtbrechung kurz nach dem Oeffnen
+	if (open) { focusSearch = false; ReadTheme(); logoOpenFx = 0.25; if (tab == 3) maps::Refresh(); } // Lichtbrechung kurz nach dem Oeffnen
 }
 bool Visible() { return wantOpen || vis > 0.001f; }
 
@@ -1034,6 +1035,372 @@ static void ColorsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad,
 }
 
 // ---------- Fenster ----------
+// ---------- Maps ----------
+static int mapArena = 0;           // gewaehlte Arena (Index in maps::arenas)
+static char mapSearch[64] = {0};
+static bool focusMapSearch = false;
+static float mScrollTarget = 0.0f, mScrollLast = -1.0f;
+static float arenaIndY = -1.0f;
+static float mListFade = 1.0f;
+
+struct MapAction {
+	int kind = 0; // 1 tauschen, 2 Arena zuruecksetzen, 3 alle zuruecksetzen, 4 spielen
+	std::wstring arena, path;
+	std::string arenaU8;
+};
+
+// kleines Tausch-Symbol (zwei Pfeile)
+static void SwapIcon(ImDrawList* d, ImVec2 c, float s, ImU32 col, float th = 1.5f) {
+	d->AddLine(ImVec2(c.x - s, c.y - s * 0.45f), ImVec2(c.x + s, c.y - s * 0.45f), col, th);
+	d->AddLine(ImVec2(c.x + s, c.y - s * 0.45f), ImVec2(c.x + s * 0.45f, c.y - s), col, th);
+	d->AddLine(ImVec2(c.x + s, c.y + s * 0.45f), ImVec2(c.x - s, c.y + s * 0.45f), col, th);
+	d->AddLine(ImVec2(c.x - s, c.y + s * 0.45f), ImVec2(c.x - s * 0.45f, c.y + s), col, th);
+}
+static void PlayIcon(ImDrawList* d, ImVec2 c, float s, ImU32 col) {
+	d->AddTriangleFilled(ImVec2(c.x - s * 0.55f, c.y - s), ImVec2(c.x - s * 0.55f, c.y + s), ImVec2(c.x + s * 0.85f, c.y), col);
+}
+
+// Knopf mit Text (+ Symbol); strong = Akzentfarbe
+static bool PillButton(ImDrawList* dl, const char* id, const char* label, ImVec2 p, float h, bool strong, bool enabled, int icon) {
+	float w = TextW(fBold, label) + 32 + (icon ? 18 : 0);
+	ImGui::SetCursorScreenPos(p);
+	bool click = ImGui::InvisibleButton(id, ImVec2(w, h)) && enabled;
+	float hv = Anim(ImGui::GetID(id), enabled && ImGui::IsItemHovered() ? 1.0f : 0.0f);
+	float pr = Anim(ImGui::GetID(id) + 1, enabled && ImGui::IsItemActive() ? 1.0f : 0.0f, 30.0f);
+	float in = pr * 1.2f;
+	ImVec2 a(p.x + in, p.y + in), b(p.x + w - in, p.y + h - in);
+	float en = enabled ? 1.0f : 0.4f;
+	if (strong) {
+		dl->AddRectFilled(a, b, U(Alpha(Mix(Mix(accent, Rgb(0, 0, 0), 0.06f), Mix(accent, Rgb(255, 255, 255), 0.10f), hv), en)), 11);
+		dl->AddRectFilledMultiColor(ImVec2(a.x + 1, a.y + 1), ImVec2(b.x - 1, a.y + (b.y - a.y) * 0.5f), U(Rgb(255, 255, 255, 0.10f * en)),
+			U(Rgb(255, 255, 255, 0.10f * en)), U(Rgb(255, 255, 255, 0)), U(Rgb(255, 255, 255, 0)));
+	} else {
+		dl->AddRectFilled(a, b, U(Rgb(255, 255, 255, (0.04f + 0.06f * hv) * en)), 11);
+		dl->AddRect(a, b, U(Rgb(255, 255, 255, (0.08f + 0.06f * hv) * en)), 11);
+	}
+	ImVec4 tc = strong ? Rgb(255, 255, 255, en) : Alpha(Mix(Hex(0xc9c9d3), cText, hv), en);
+	float tx = p.x + 16;
+	if (icon == 1) { PlayIcon(dl, ImVec2(tx + 5, p.y + h / 2), 5.0f, U(tc)); tx += 18; }
+	if (icon == 2) { // Pfeil zurueck
+		ImVec2 c(tx + 6, p.y + h / 2);
+		dl->PathArcTo(c, 5.5f, 0.6f, 5.4f, 18);
+		dl->PathStroke(U(tc), 0, 1.5f);
+		ImVec2 tip(c.x + 5.5f * cosf(0.6f), c.y + 5.5f * sinf(0.6f));
+		dl->AddLine(tip, ImVec2(tip.x + 3.2f, tip.y - 1.0f), U(tc), 1.5f);
+		dl->AddLine(tip, ImVec2(tip.x - 0.4f, tip.y - 3.6f), U(tc), 1.5f);
+		tx += 18;
+	}
+	Text(dl, fBold, ImVec2(tx, p.y + (h - fBold->FontSize) / 2 - 1), tc, label);
+	return click;
+}
+static float PillW(const char* label, int icon) { return TextW(fBold, label) + 32 + (icon ? 18 : 0); }
+
+// abgerundete Flaeche mit Farbverlauf (diagonal von c0 nach c1)
+static void GradRect(ImDrawList* d, ImVec2 a, ImVec2 b, float r, ImVec4 c0, ImVec4 c1, float alpha) {
+	int v0 = d->VtxBuffer.Size;
+	d->AddRectFilled(a, b, U(Rgb(255, 255, 255, alpha)), r);
+	ImGui::ShadeVertsLinearColorGradientKeepAlpha(d, v0, d->VtxBuffer.Size, a, b, U(ImVec4(c0.x, c0.y, c0.z, 1)), U(ImVec4(c1.x, c1.y, c1.z, 1)));
+}
+
+// Platzhalter ohne Vorschaubild: dunkle Flaeche mit feinem Prisma-Schimmer
+static void ThumbHolder(ImDrawList* d, ImVec2 a, ImVec2 b, unsigned seed) {
+	d->AddRectFilled(a, b, U(cPanel2), 8);
+	float t = (seed % 97) / 97.0f;
+	ImVec4 c0 = SpecAt(t), c1 = SpecAt(fmodf(t + 0.35f, 1.0f));
+	GradRect(d, a, b, 8, c0, c1, 0.14f);
+	ImVec2 c((a.x + b.x) / 2, (a.y + b.y) / 2);
+	float s = (b.y - a.y) * 0.22f;
+	d->AddTriangle(ImVec2(c.x, c.y - s), ImVec2(c.x + s * 1.05f, c.y + s * 0.8f), ImVec2(c.x - s * 1.05f, c.y + s * 0.8f), U(Rgb(255, 255, 255, 0.22f)), 1.4f);
+}
+
+static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, MapAction& act) {
+	std::lock_guard<std::mutex> mk(maps::mu);
+	const float leftW = 250, listTop = top + 14, rowH = 58;
+	const bool busy = maps::Busy().load();
+	const double now = GetTickCount64() / 1000.0;
+	auto& ar = maps::arenas;
+	if (mapArena >= (int)ar.size()) mapArena = 0;
+
+	// Noch nicht eingelesen / Ordner fehlt
+	if (!maps::scanned || !maps::found) {
+		ImVec2 c(o.x + W.x / 2, o.y + top + (W.y - top) / 2 - 24);
+		const char* m = !maps::scanned ? "Looking for maps …" : "Rocket League folder not found.";
+		if (!maps::scanned) Spinner(dl, c, 15);
+		float mw = TextW(fRegular, m);
+		Text(dl, fRegular, ImVec2(c.x - mw / 2, c.y + 28), cMuted, m);
+		return;
+	}
+
+	// ---------- Links: Arenen ----------
+	dl->AddLine(ImVec2(o.x + pad + leftW + 14, o.y + top + 1), ImVec2(o.x + pad + leftW + 14, o.y + W.y - 1), U(cLine));
+	Text(dl, fTiny, ImVec2(o.x + pad + 16, o.y + listTop), cFaint, "ARENAS");
+	float selY = -1;
+	int swappedCount = 0;
+	ImDrawListSplitter split;
+	split.Split(dl, 2);
+	split.SetCurrentChannel(dl, 1);
+	for (int i = 0; i < (int)ar.size(); i++) {
+		const auto& a = ar[i];
+		if (!a.swap.empty()) swappedCount++;
+		ImVec2 p(o.x + pad, o.y + listTop + 22 + i * rowH);
+		ImGui::SetCursorScreenPos(p);
+		ImGui::PushID(i + 7000);
+		bool click = ImGui::InvisibleButton("##ar", ImVec2(leftW, rowH));
+		bool sel = mapArena == i;
+		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() && !sel ? 1.0f : 0.0f);
+		float sa = Anim(ImGui::GetID("sa"), sel ? 1.0f : 0.0f);
+		bool working = busy && (maps::busyArena == a.fileU8 || maps::busyArena == "*");
+		ImGui::PopID();
+		if (click && !sel) {
+			mapArena = i;
+			mListFade = 0.0f;
+		}
+		if (sel) selY = p.y;
+		if (h > 0.01f) dl->AddRectFilled(p, ImVec2(p.x + leftW, p.y + rowH), U(Alpha(cHover, h)), 12);
+		// Symbol: Kachel mit Zustand
+		ImVec2 ic(p.x + 16, p.y + 13), iq(ic.x + 32, ic.y + 32);
+		bool sw = !a.swap.empty();
+		if (sw) {
+			GradRect(dl, ic, iq, 9, spec[0], spec[2], 0.30f + 0.08f * std::max(h, sa));
+			dl->AddRect(ic, iq, U(Alpha(spec[1], 0.45f)), 9, 0, 1.0f);
+		} else {
+			dl->AddRectFilled(ic, iq, U(Mix(cPanel2, cHover, h)), 9);
+			dl->AddRect(ic, iq, U(cLine2), 9, 0, 1.0f);
+		}
+		ImVec2 cc(ic.x + 16, ic.y + 16);
+		if (working) Spinner(dl, cc, 7);
+		else if (sw) SwapIcon(dl, cc, 6.0f, U(Rgb(255, 255, 255, 0.9f)));
+		else { // kleines Stadion: Oval mit Mittellinie
+			ImU32 lc = U(Mix(cFaint, cMuted, std::max(h, sa)));
+			dl->AddEllipse(cc, ImVec2(8.5f, 6.0f), lc, 0, 20, 1.3f);
+			dl->AddLine(ImVec2(cc.x, cc.y - 6), ImVec2(cc.x, cc.y + 6), lc, 1.2f);
+		}
+		float tx = p.x + 60;
+		Text(dl, fBold, ImVec2(tx, p.y + 11), Mix(Hex(0xc9c9d3), cText, std::max(sa, h)), a.name.c_str());
+		std::string sub;
+		ImVec4 sc = cFaint;
+		if (working) { sub = maps::busyMap.empty() ? "Restoring …" : "Copying map …"; sc = cMuted; }
+		else if (sw) { sub = a.swapTitle; sc = Mix(spec[0], Rgb(255, 255, 255), 0.35f); }
+		else if (a.locked) { sub = "Loaded right now"; sc = cFaint; }
+		else { sub = "Original"; sc = cFaint; }
+		sub = Fit(fSmall, fSmall->FontSize, sub, leftW - 76);
+		Text(dl, fSmall, ImVec2(tx, p.y + 31), sc, sub.c_str());
+		if (a.locked && !sw) { // Schloss
+			ImVec2 l(p.x + leftW - 22, p.y + rowH / 2);
+			ImU32 lc = U(cFaint);
+			dl->AddRect(ImVec2(l.x - 5, l.y - 1), ImVec2(l.x + 5, l.y + 6), lc, 2, 0, 1.3f);
+			dl->PathArcTo(ImVec2(l.x, l.y - 2), 3.2f, 3.14159f, 6.28318f, 10);
+			dl->PathStroke(lc, 0, 1.3f);
+		}
+	}
+	split.SetCurrentChannel(dl, 0);
+	if (selY >= 0) {
+		float rel = selY - o.y;
+		arenaIndY = arenaIndY < 0 ? rel : Approach(arenaIndY, rel, 20.0f);
+		ImVec2 a(o.x + pad, o.y + arenaIndY), b(o.x + pad + leftW, o.y + arenaIndY + rowH);
+		dl->AddRectFilled(a, b, U(Acc(0.12f)), 12);
+		dl->AddRectFilled(ImVec2(a.x, a.y + 14), ImVec2(a.x + 3, b.y - 14), U(accent), 2);
+	}
+	split.Merge(dl);
+
+	// alle zuruecksetzen
+	float by = o.y + listTop + 22 + ar.size() * rowH + 10;
+	{
+		float ra = Anim(ImGui::GetID("restall"), swappedCount > 0 ? 1.0f : 0.0f, 14.0f);
+		if (ra > 0.01f) {
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * ra);
+			if (PillButton(dl, "##restall", "Restore all", ImVec2(o.x + pad + 8, by), 34, false, swappedCount > 0 && !busy, 2)) act.kind = 3;
+			ImGui::PopStyleVar();
+		}
+	}
+	// So geht's
+	{
+		const char* steps[3] = {"Pick an arena", "Pick a map", "Start Freeplay in that arena"};
+		float sy = o.y + W.y - 22 - 3 * 24;
+		for (int i = 0; i < 3; i++) {
+			ImVec2 c(o.x + pad + 26, sy + i * 24 + 9);
+			dl->AddCircleFilled(c, 9, U(Rgb(255, 255, 255, 0.05f)), 20);
+			char n[4];
+			snprintf(n, sizeof n, "%d", i + 1);
+			float nw = TextW(fTiny, n);
+			Text(dl, fTiny, ImVec2(c.x - nw / 2, c.y - fTiny->FontSize / 2 - 1), cMuted, n);
+			Text(dl, fSmall, ImVec2(c.x + 18, c.y - fSmall->FontSize / 2 - 1), cFaint, steps[i]);
+		}
+	}
+
+	// ---------- Rechts ----------
+	const float px = pad + leftW + 30, pw = W.x - px - pad;
+	if (ar.empty()) {
+		Text(dl, fRegular, ImVec2(o.x + px, o.y + listTop + 4), cMuted, "No swappable arenas found.");
+		return;
+	}
+	const auto& cur = ar[mapArena];
+	const bool curSw = !cur.swap.empty();
+	const bool curWorking = busy && (maps::busyArena == cur.fileU8 || maps::busyArena == "*");
+
+	// Kopf: Arena-Name + Knoepfe
+	Text(dl, fTitle, ImVec2(o.x + px, o.y + listTop - 2), cText, cur.name.c_str());
+	{
+		float bx = o.x + px + pw;
+		float ba = Anim(ImGui::GetID("hdrbtn"), curSw ? 1.0f : 0.0f, 16.0f);
+		if (ba > 0.01f) {
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * ba);
+			float w1 = PillW("Play", 1);
+			bx -= w1;
+			if (PillButton(dl, "##play", "Play", ImVec2(bx, o.y + listTop - 6), 34, true, curSw && !busy, 1)) act.kind = 4;
+			float w2 = PillW("Restore", 2);
+			bx -= w2 + 8;
+			if (PillButton(dl, "##rest1", "Restore", ImVec2(bx, o.y + listTop - 6), 34, false, curSw && !busy, 2)) act.kind = 2;
+			ImGui::PopStyleVar();
+		}
+	}
+	// Zeile darunter: Zustand oder letzte Meldung
+	{
+		float y = o.y + listTop + 30;
+		bool fresh = now - maps::msgAt < 6.0 && !maps::msg.empty();
+		std::string line;
+		ImVec4 col = cMuted;
+		float x = o.x + px;
+		if (curWorking) {
+			Spinner(dl, ImVec2(x + 7, y + 8), 6);
+			x += 22;
+			line = maps::busyMap.empty() ? "Restoring the original arena …" : "Copying the map into " + cur.name + " …";
+		} else if (fresh) {
+			col = maps::msgErr ? Rgb(255, 140, 140) : Rgb(120, 220, 160);
+			dl->AddCircleFilled(ImVec2(x + 4, y + 8), 3.5f, U(col), 12);
+			x += 14;
+			line = maps::msg;
+		} else if (curSw) {
+			line = "Now: " + cur.swapTitle;
+			col = Mix(cMuted, cText, 0.3f);
+		} else if (cur.locked) {
+			line = "Rocket League has this arena loaded right now. Pick another one.";
+			col = cFaint;
+		} else line = "Original arena. Pick a map to put in its place.";
+		line = Fit(fSmall, fSmall->FontSize, line, o.x + px + pw - x);
+		Text(dl, fSmall, ImVec2(x, y), col, line.c_str());
+	}
+
+	// Suche
+	const float sy = listTop + 56, sh = 42;
+	Field(dl, "##mq", "Search maps", mapSearch, sizeof mapSearch, ImVec2(o.x + px, o.y + sy), ImVec2(o.x + px + pw, o.y + sy + sh), focusMapSearch, true, true);
+
+	std::string q = Lower(mapSearch);
+	std::vector<const maps::Map*> shown;
+	for (auto& m : maps::list)
+		if (q.empty() || m.lower.find(q) != std::string::npos) shown.push_back(&m);
+	// wo steckt welche Map gerade?
+	auto whereIs = [&](const std::string& name) -> int {
+		std::string ln = Lower(name);
+		for (int i = 0; i < (int)ar.size(); i++)
+			if (!ar[i].swap.empty() && Lower(ar[i].swap) == ln) return i;
+		return -1;
+	};
+
+	mListFade = Approach(mListFade, 1.0f, 12.0f);
+	const float ly = sy + sh + 12;
+	ImGui::SetCursorScreenPos(ImVec2(o.x + px - 4, o.y + ly + (1.0f - EaseOut(mListFade)) * 8.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * EaseOut(mListFade));
+	ImGui::BeginChild("maprows", ImVec2(pw + 8, W.y - ly - 14), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
+	SmoothScroll(mScrollTarget, mScrollLast);
+	ImDrawList* cd = ImGui::GetWindowDrawList();
+	const float rw = pw - 8, rh = 66;
+	if (maps::list.empty()) {
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		Text(cd, fBold, ImVec2(p.x + 14, p.y + 22), cText, "No maps yet");
+		Text(cd, fSmall, ImVec2(p.x + 14, p.y + 46), cMuted, "Download maps in Prism under Browse Maps,");
+		Text(cd, fSmall, ImVec2(p.x + 14, p.y + 66), cMuted, "or subscribe to some in the Steam Workshop.");
+		ImGui::Dummy(ImVec2(0, 96));
+	}
+	ImGuiListClipper clip;
+	clip.Begin((int)shown.size(), rh + ImGui::GetStyle().ItemSpacing.y);
+	while (clip.Step())
+		for (int r = clip.DisplayStart; r < clip.DisplayEnd; r++) {
+			const maps::Map& m = *shown[r];
+			ImGui::PushID(r + 20000);
+			ImVec2 p = ImGui::GetCursorScreenPos();
+			bool click = ImGui::InvisibleButton("##m", ImVec2(rw, rh));
+			int in = whereIs(m.name);
+			bool here = in == mapArena;
+			bool working = busy && Lower(maps::busyMap) == Lower(m.name);
+			bool canSwap = !busy && !here && !cur.locked;
+			float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
+			float s = Anim(ImGui::GetID("s"), here ? 1.0f : 0.0f, 16.0f);
+			ImGui::PopID();
+			if (click && canSwap) {
+				act.kind = 1;
+				act.arena = cur.file;
+				act.path = m.path;
+			}
+			ImVec2 q(p.x + rw, p.y + rh);
+			if (h > 0.01f || s > 0.01f) cd->AddRectFilled(p, q, U(Mix(Alpha(cHover, h), Acc(0.13f), s)), 12);
+			if (s > 0.01f) cd->AddRect(p, q, U(Acc(0.35f * s)), 12, 0, 1.0f);
+			// Vorschaubild
+			ImVec2 ta(p.x + 8, p.y + 7), tb(ta.x + 92, ta.y + 52);
+			unsigned long long tex = maps::Thumb(m.id);
+			if (tex) {
+				float z = 1.0f + 0.06f * h; // beim Drueberfahren leicht hineinzoomen
+				float du = (1.0f - 1.0f / z) * 0.5f;
+				cd->AddImageRounded((ImTextureID)tex, ta, tb, ImVec2(du, du), ImVec2(1 - du, 1 - du), U(Rgb(255, 255, 255)), 8);
+			} else {
+				unsigned seed = 0;
+				for (char ch : m.name) seed = seed * 31 + (unsigned char)ch;
+				ThumbHolder(cd, ta, tb, seed);
+			}
+			cd->AddRect(ta, tb, U(Rgb(255, 255, 255, 0.07f)), 8);
+			// Text
+			float tx = tb.x + 14, right = q.x - 16;
+			float badgeW = 0;
+			const char* badge = nullptr;
+			std::string inName;
+			if (here) badge = "Active";
+			else if (in >= 0) { inName = "In " + ar[in].name; badge = inName.c_str(); }
+			if (badge) badgeW = TextW(fTiny, badge) + 18;
+			bool hoverSwap = canSwap && h > 0.01f;
+			float swapW = TextW(fBold, "Swap") + 46;
+			float textR = right - std::max(badge && !hoverSwap ? badgeW + 10 : 0.0f, hoverSwap ? swapW * h + 10 : 0.0f);
+			std::string title = Fit(fBold, fBold->FontSize, m.title, textR - tx);
+			Text(cd, fBold, ImVec2(tx + 2 * h, p.y + 15), Mix(Hex(0xd4d4dc), cText, std::max(h, s)), title.c_str());
+			char sz[32];
+			snprintf(sz, sizeof sz, "%.1f MB", m.mb);
+			std::string sub = m.author.empty() ? std::string(sz) : m.author + "  \xC2\xB7  " + sz;
+			sub = Fit(fSmall, fSmall->FontSize, sub, textR - tx);
+			Text(cd, fSmall, ImVec2(tx + 2 * h, p.y + 37), cFaint, sub.c_str());
+			// rechts: Zustand / Tauschen
+			if (working) Spinner(cd, ImVec2(right - 10, p.y + rh / 2), 8);
+			else if (badge && h < 0.99f) {
+				float ba = hoverSwap ? 1.0f - h : 1.0f;
+				ImVec2 b0(right - badgeW, p.y + rh / 2 - 11), b1(right, p.y + rh / 2 + 11);
+				ImVec4 bc = here ? accent : cMuted;
+				cd->AddRectFilled(b0, b1, U(Alpha(here ? Acc(0.22f) : Rgb(255, 255, 255, 0.06f), ba)), 11);
+				Text(cd, fTiny, ImVec2(b0.x + 9, b0.y + 4), Alpha(Mix(bc, Rgb(255, 255, 255), 0.55f), ba), badge);
+			}
+			if (hoverSwap && !working) {
+				ImVec2 b0(right - swapW, p.y + rh / 2 - 15), b1(right, p.y + rh / 2 + 15);
+				cd->AddRectFilled(b0, b1, U(Alpha(accent, h)), 10);
+				SwapIcon(cd, ImVec2(b0.x + 18, (b0.y + b1.y) / 2), 5.0f, U(Rgb(255, 255, 255, h)), 1.4f);
+				Text(cd, fBold, ImVec2(b0.x + 32, b0.y + 6), Rgb(255, 255, 255, h), "Swap");
+			}
+		}
+	if (!q.empty() && shown.empty() && !maps::list.empty()) {
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		std::string m = "Nothing matches \"" + std::string(mapSearch) + "\"";
+		Text(cd, fRegular, ImVec2(p.x + 14, p.y + 18), cMuted, Fit(fRegular, fRegular->FontSize, m, rw - 28).c_str());
+		ImGui::Dummy(ImVec2(0, 50));
+	}
+	ImGui::Dummy(ImVec2(0, 6));
+	{
+		ImVec2 wp2 = ImGui::GetWindowPos(), ws = ImGui::GetWindowSize();
+		float sc = ImGui::GetScrollY(), mx = ImGui::GetScrollMaxY();
+		float ft = std::min(sc, 14.0f) / 14.0f, fb = std::min(mx - sc, 14.0f) / 14.0f;
+		if (ft > 0) cd->AddRectFilledMultiColor(wp2, ImVec2(wp2.x + ws.x, wp2.y + 18), U(Alpha(cBg, ft)), U(Alpha(cBg, ft)), U(Alpha(cBg, 0)), U(Alpha(cBg, 0)));
+		if (fb > 0) cd->AddRectFilledMultiColor(ImVec2(wp2.x, wp2.y + ws.y - 18), ImVec2(wp2.x + ws.x, wp2.y + ws.y), U(Alpha(cBg, 0)), U(Alpha(cBg, 0)), U(Alpha(cBg, fb)), U(Alpha(cBg, fb)));
+	}
+	ImGui::EndChild();
+	ImGui::PopStyleVar();
+	if (act.kind == 2 || act.kind == 4) { act.arena = cur.file; act.arenaU8 = cur.fileU8; }
+}
+
 void Render(bool* open) {
 	if (!requested) {
 		requested = true;
@@ -1088,16 +1455,17 @@ void Render(bool* open) {
 	Text(dl, fTitle, ImVec2(o.x + pad + 34, o.y + 21), cText, "Prism");
 	// Reiter "Items" / "Presets" mit gleitender Markierung
 	{
-		const char* names[3] = {"Items", "Colors", "Presets"};
-		const int ids[3] = {0, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
+		constexpr int N = 4;
+		const char* names[N] = {"Items", "Colors", "Presets", "Maps"};
+		const int ids[N] = {0, 2, 1, 3}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
 		float x0 = o.x + pad + 34 + TextW(fTitle, "Prism") + 22, y0 = o.y + 15;
-		float tws[3], tx[3], xx = x0 + 4;
-		for (int i = 0; i < 3; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
+		float tws[N], tx[N], xx = x0 + 4;
+		for (int i = 0; i < N; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
 		ImVec2 bp(x0, y0), bq(xx + 4, y0 + 38);
 		dl->AddRectFilled(bp, bq, A(cPanel), 19);
 		dl->AddRect(bp, bq, A(cLine), 19);
 		int curPos = 0;
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < N; i++) {
 			if (ids[i] == tab) curPos = i;
 			ImGui::SetCursorScreenPos(ImVec2(tx[i], y0 + 4));
 			ImGui::PushID(i);
@@ -1106,24 +1474,25 @@ void Render(bool* open) {
 				tabFade = 0.0f;
 				pendingDelete = -1;
 				renameIdx = -1;
+				if (tab == 3) maps::Refresh();
 			}
 			ImGui::PopID();
 		}
-		for (int i = 0; i < 3; i++) if (ids[i] == tab) curPos = i;
+		for (int i = 0; i < N; i++) if (ids[i] == tab) curPos = i;
 		float target = tx[curPos] - o.x;
 		tabX = tabX < 0 ? target : Approach(tabX, target, 18.0f);
 		tabW = tabW <= 0 ? tws[curPos] : Approach(tabW, tws[curPos], 18.0f);
 		dl->AddRectFilled(ImVec2(o.x + tabX, y0 + 4), ImVec2(o.x + tabX + tabW, y0 + 34), A(Acc(0.20f)), 15);
 		SpecLine(dl, o.x + tabX + tabW * 0.26f, o.x + tabX + tabW * 0.74f, y0 + 32, 1.5f, 0.9f); // Spektrum-Strich unter dem Reiter
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < N; i++) {
 			float on = Anim(ImGui::GetID(names[i]), tab == ids[i] ? 1.0f : 0.0f);
 			float nw = TextW(fBold, names[i]);
 			Text(dl, fBold, ImVec2(tx[i] + (tws[i] - nw) / 2, y0 + 10), Mix(cMuted, Mix(accent, Rgb(255, 255, 255), 0.65f), on), names[i]);
 		}
 	}
 
-	// Zuruecksetzen (zweimal klicken): alles wieder auf deine echten Items
-	{
+	// Zuruecksetzen (zweimal klicken): alles wieder auf deine echten Items (nicht im Reiter Maps)
+	if (tab != 3) {
 		bool any = !items::overrides.empty() || !items::paints.empty() || items::colorsOn;
 		if (resetArmed && (ImGui::GetTime() - resetArmedAt > 3.0 || !any)) resetArmed = false;
 		const char* label = resetArmed ? "Reset all?" : "Reset";
@@ -1183,6 +1552,26 @@ void Render(bool* open) {
 	}
 	const float top = 66;
 	dl->AddLine(ImVec2(o.x + 1, o.y + top), ImVec2(o.x + W.x - 1, o.y + top), A(cLine));
+
+	// Maps: braucht die Items nicht
+	if (tab == 3) {
+		static double lastScan = 0;
+		if (wantOpen && !maps::Busy().load() && ImGui::GetTime() - lastScan > 4.0) { lastScan = ImGui::GetTime(); maps::Refresh(); }
+		tabFade = Approach(tabFade, 1.0f, 12.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e * EaseOut(tabFade));
+		MapAction ma;
+		MapsBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, ma);
+		ImGui::PopStyleVar();
+		lk.unlock();
+		ImGui::End();
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+		if (ma.kind == 1) maps::Swap(ma.arena, ma.path);
+		if (ma.kind == 2) maps::Restore(ma.arena);
+		if (ma.kind == 3) maps::RestoreAll();
+		if (ma.kind == 4) { maps::Play(ma.arenaU8); *open = false; }
+		return;
+	}
 
 	// Noch keine Items: Laden / Fehler
 	if (!items::loaded) {

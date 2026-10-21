@@ -17,9 +17,9 @@
 
 - **Play** – start Rocket League with or without Anti-Cheat, close it again with one click.
 - **Friends** – see which Steam friends are online or in a game, live.
-- **Swap Maps** – play any workshop map in Freeplay. **Restore** puts the original arena back.
 - **Browse Maps** – find and download workshop maps right in the app.
-- **Item menu** – press **F8** in game to use any item, painted versions, your own car colors and presets.
+- **F8 menu** – press **F8** in game to use any item, painted versions, your own car colors and presets.
+- **Maps in game** – in the F8 menu under **Maps**, put any workshop map into an arena and play it in Freeplay. **Restore** puts the original arena back.
 - **Game Boost** – more performance while you play.
 - **Discord** – shows your mode and score on your profile.
 - Themes, tray mode and automatic updates.
@@ -36,7 +36,7 @@
 
 ## Good to know
 
-- Workshop maps and the item menu only work **without Anti-Cheat**. Items are only visible to you.
+- Workshop maps and the F8 menu only work **without Anti-Cheat**. Items are only visible to you.
 - Needs Windows 10/11 and Rocket League on Steam.
 - Unofficial fan project, not affiliated with Psyonix, Epic Games, Valve or Discord. Use at your own risk.
 

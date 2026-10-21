@@ -738,6 +738,30 @@
   .mdl.show .ssec{animation:secin .5s var(--ease) backwards}
   .mdl.show .ssec:nth-child(2){animation-delay:.05s} .mdl.show .ssec:nth-child(3){animation-delay:.1s} .mdl.show .ssec:nth-child(4){animation-delay:.15s}
   @keyframes secin{from{opacity:0;transform:translateY(10px)}}
+  /* ---------- Einstellungen: eigene Seite mit Navigation links ---------- */
+  #vSet{padding:4px 18px 18px}
+  .max #vSet{padding:4px 22px 22px}
+  .setpage{height:100%;display:grid;grid-template-columns:196px minmax(0,1fr);gap:22px;min-height:0}
+  .snav{position:relative;align-self:start;display:flex;flex-direction:column;gap:2px;padding:10px 8px;margin-top:6px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+  .snl{position:relative;z-index:1;border:0;background:none;text-align:left;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:9px 12px 9px 16px;border-radius:10px;cursor:pointer;transition:color .25s var(--ease)}
+  .snl:hover{color:var(--text)} .snl.on{color:#fff}
+  .snind{position:absolute;left:8px;right:8px;top:10px;height:36px;border-radius:10px;background:rgb(var(--ac-rgb) / .15);box-shadow:inset 0 0 0 1px rgb(var(--ac-rgb) / .28);
+    transition:top .5s var(--ease),height .5s var(--ease);pointer-events:none}
+  .snind::before{content:"";position:absolute;left:6px;top:10px;bottom:10px;width:3px;border-radius:2px;background:linear-gradient(rgb(var(--sp-a)),rgb(var(--sp-b)),rgb(var(--sp-c)))}
+  .scol{min-height:0;overflow-y:auto;padding:0 8px 48px 2px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .scol > *{max-width:780px}
+  .shero{padding:12px 2px 2px}
+  .shero h2{font-size:26px;font-weight:700;letter-spacing:-.4px;background:linear-gradient(90deg,#fff 55%,rgb(var(--sp-b)));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .shero p{color:var(--muted);font-size:13px;margin-top:2px}
+  .scol .ssec{padding-top:24px}
+  #vSet:not(.off) .ssec,#vSet:not(.off) .shero,#vSet:not(.off) .snav{animation:secin .55s var(--ease) backwards}
+  #vSet:not(.off) .snav{animation-delay:.04s}
+  #vSet:not(.off) .ssec:nth-of-type(2){animation-delay:.05s} #vSet:not(.off) .ssec:nth-of-type(3){animation-delay:.09s}
+  #vSet:not(.off) .ssec:nth-of-type(4){animation-delay:.13s} #vSet:not(.off) .ssec:nth-of-type(n+5){animation-delay:.17s}
+  .ssec.spot .sgrp{animation:slotglow 1.8s var(--ease)}
+  .kbd{display:inline-block;padding:0 5px;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line2);font-size:10.5px;font-weight:700;color:var(--text);line-height:16px}
+  .sbtn[disabled]{opacity:.45;pointer-events:none}
+  @media (max-width:760px){.setpage{grid-template-columns:1fr}.snav{display:none}}
   .ssec h4{font-size:10.5px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--faint);margin:0 0 8px 2px}
   .sgrp{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .srow{display:flex;align-items:center;gap:13px;padding:10px 14px;transition:background .15s}
@@ -1263,11 +1287,11 @@
   .blist small{font-size:11.5px;color:var(--faint);line-height:1.45;margin-top:2px}
   .dcst{display:flex!important;align-items:center;gap:7px}
   .dcwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch}
-  #setDlg .dccard{margin:0;display:flex;flex-direction:column}
-  #setDlg .dccard .dcrow{margin-bottom:12px}
-  #setDlg .dccard .dcbtn{margin-top:auto}
-  #setDlg .dctx span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-  #setDlg .dctx span:empty{display:none}
+  #vSet .dccard{margin:0;display:flex;flex-direction:column}
+  #vSet .dccard .dcrow{margin-bottom:12px}
+  #vSet .dccard .dcbtn{margin-top:auto}
+  #vSet .dctx span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  #vSet .dctx span:empty{display:none}
   .dccard .dcrow{gap:10px}
   .dccard .dcimg{width:52px;height:52px}
   .dccard .dcimg svg{width:36px;height:36px}
@@ -1352,11 +1376,10 @@
         <div class="tabs" id="tabs">
       <span class="ink"></span>
       <button class="tab on" data-tab="vHome">Home</button>
-      <button class="tab" data-tab="vDl">Swap Maps</button>
       <button class="tab" data-tab="vBrowse">Browse Maps <span class="badge" id="dlBadge"></span></button>
+      <button class="tab" data-tab="vSet">Settings</button>
     </div>
     <button class="upill" id="updPill" title="A new version of Prism is available"><span class="gi" data-ic="down"></span>Update<i></i></button>
-    <button class="wbtn gear" id="setBtn" title="Settings"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
     <button class="wbtn" id="minBtn" title="Minimize"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button class="wbtn" id="maxBtn" title="Maximize"><svg width="12" height="12" viewBox="0 0 12 12"><rect class="sq" x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><g class="rs"><rect x="2" y="4" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 2.5h4a1 1 0 0 1 1 1v4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></g></svg></button>
     <button class="wbtn close" id="closeBtn" title="Close"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
@@ -1375,7 +1398,7 @@
           <svg id="heroBrand" class="plogo" viewBox="0 0 200 200" aria-hidden="true"></svg>
           <div class="hbt"><b>Prism</b><small id="hVer">Rocket League Launcher</small></div>
         </div>
-        <button class="hchip" id="hSwap" title="Show in Swap Maps"><span class="gi" data-ic="swap"></span><span id="hSwapTx"></span>
+        <button class="hchip" id="hSwap" title="Swapped arenas"><span class="gi" data-ic="swap"></span><span id="hSwapTx"></span>
           <svg class="hcgo" width="11" height="11" viewBox="0 0 16 16"><path d="M6 3.5l4.5 4.5L6 12.5" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="hcontent">
           <img class="rllogo" id="rlLogo" alt="Rocket League" draggable="false">
@@ -1396,80 +1419,6 @@
       <div class="fhint" id="fHint"></div>
     </aside>
   </section>
-  <main id="vDl" class="pane off" style="--dir:24px">
-    <!-- Linke Spalte: Maps -->
-    <div class="leftcol">
-    <section class="card side in" style="--d:.04s">
-      <div class="side-h"><b>Workshop Maps</b><small id="count"></small></div>
-      <div class="search">
-        <svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="#fff" stroke-width="1.6" fill="none"/><path d="M11 11l3.5 3.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
-        <input id="search" placeholder="Search maps …">
-      </div>
-      <div class="list" id="list"></div>
-    </section>
-
-    <section class="card swaps in" style="--d:.1s" id="status">
-      <div class="sw-h"><span class="dot"></span><b id="swTitle">Active swaps</b><span class="sw-n" id="swCount"></span>
-        <button class="link gone" id="restoreBtn">Restore all</button></div>
-      <div class="sw-empty" id="stxt"><b>No map swapped</b><small>Pick a map, choose an arena and hit Swap.</small></div>
-      <div class="slots" id="slots"></div>
-      <div class="keepnote" id="keepNote"></div>
-      <div class="sw-hint" id="hint"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M8 7.2v4M8 4.9v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Launch Rocket League without Anti-Cheat</div>
-    </section>
-    </div>
-
-    <!-- Rechte Spalte -->
-    <section class="right">
-      <div class="preview in" style="--d:.07s" id="preview">
-        <div class="layer" id="l1"></div><div class="layer" id="l2"></div>
-        <div class="ph-art" id="ph"><div>
-          <svg width="56" height="56" viewBox="0 0 64 64"><path d="M10 46C18 28 34 15 56 10C46 20 35 31 24 49Z" fill="#fff"/><path d="M16 51C25 38 38 29 57 26C48 33 38 41 29 54Z" fill="#fff" opacity=".7"/><path d="M23 56C32 47 43 42 57 41C49 46 42 51 35 58Z" fill="#fff" opacity=".45"/></svg>
-          <div>No preview available</div></div></div>
-        <div class="shade"></div>
-        <div class="ptitle" id="ptitle"><span class="tag">Workshop</span><h2 id="pname">–</h2><small id="pmeta"></small></div>
-
-        <!-- kurze Anleitung -->
-        <div class="guide" id="guide">
-          <button class="gbtn" id="guideBtn" aria-expanded="false"><span class="gi" data-ic="help"></span>How it works</button>
-          <div class="gpan" id="guidePan" role="dialog" aria-label="How swapping works">
-            <div class="gh"><span class="gi" data-ic="swap"></span><b>How swapping works</b>
-              <button class="gx" id="guideX" title="Close"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button></div>
-            <p class="gin">Rocket League can't load workshop maps on its own. Swapping puts a workshop map in place of a normal arena, so you can play it in Freeplay.</p>
-            <ol class="gst">
-              <li style="--i:0"><span class="gn">1</span><div><b>Pick a map</b><small>From the list on the left. Find more in <a id="guideBrowse">Browse Maps</a>.</small></div></li>
-              <li style="--i:1"><span class="gn">2</span><div><b>Choose an arena and hit Swap</b><small>The map takes that arena's place. Rocket League can stay open in the main menu.</small></div></li>
-              <li style="--i:2"><span class="gn">3</span><div><b>Play without Anti-Cheat</b><small>Start Freeplay on that arena and you're on the workshop map.</small></div></li>
-            </ol>
-            <div class="gft"><span><b>Restore</b> brings the original arena back.</span><button class="btn" id="guideOk"><span class="lbl">Got it</span></button></div>
-          </div>
-        </div>
-
-        <!-- Sonderansichten -->
-        <div class="center hidden" id="vEmpty" style="background:var(--panel)"><div>
-          <h3>No workshop maps yet</h3>
-          <p>Subscribe to a map in the Rocket League Steam Workshop.<br>It will show up here automatically.</p>
-          <div class="rowb"><button class="btn ghost" id="workshopBtn"><span class="lbl">Open Workshop</span></button>
-          <button class="btn ghost" id="ownBtn"><span class="lbl">My Maps</span></button></div>
-        </div></div>
-        <div class="center hidden" id="vSetup" style="background:var(--panel)"><div>
-          <h3>Rocket League not found</h3>
-          <p>Enter the folder where Rocket League is installed.</p>
-          <input id="folder" placeholder="e.g. D:\Steam\steamapps\common\rocketleague"><br>
-          <button class="btn" id="saveFolder" style="width:200px"><span class="lbl">Apply</span></button>
-        </div></div>
-      </div>
-
-      <div class="controls in" style="--d:.12s">
-        <div class="dd" id="ddArena"></div>
-        <button class="btn" id="swapBtn">
-          <span class="lbl">Swap</span>
-          <span class="spin"><i></i></span>
-          <span class="check"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        </button>
-      </div>
-
-    </section>
-  </main>
   <section id="vBrowse" class="pane off" style="--dir:24px">
     <div class="bscroll" id="bscroll"><div class="bwrap">
       <div class="bbar" id="bbar">
@@ -1490,6 +1439,91 @@
       <div class="grid" id="grid"></div>
       <div class="bend" id="bend">That's all of them</div>
     </div></div>
+  </section>
+  <section id="vSet" class="pane off" style="--dir:24px">
+    <div class="setpage">
+      <nav class="snav" id="snav" aria-label="Settings sections"></nav>
+      <div class="scol" id="scol">
+        <div class="shero"><h2>Settings</h2><p>Everything Prism does, in one place.</p></div>
+      <div class="ssec"><h4>General</h4><div class="sgrp">
+        <div class="srow" id="setMute" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" id="muteIc"></span>
+          <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in Prism.</small></div><span class="tg" id="tgMute"></span></div>
+        <div class="srow" id="setPlayTray" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="tray"></span>
+          <div class="tx"><b>Hide while playing</b><small>Prism goes to the tray when you start Rocket League and comes back when you close the game.</small></div><span class="tg" id="tgPlayTray"></span></div>
+        <div class="srow" id="setAuto" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="sun"></span>
+          <div class="tx"><b>Start with Windows</b><small>Prism starts quietly in the tray when you log in.</small></div><span class="tg" id="tgAuto"></span></div>
+        <div class="srow nohov"><span class="sic gi" data-ic="tray"></span>
+          <div class="tx"><b>Close button</b><small>What the X in the top right does.</small></div>
+          <div class="seg" id="closeSeg"><button data-v="ask">Ask</button><button data-v="tray">Tray</button><button data-v="quit">Quit</button></div></div>
+      </div></div>
+      <div class="ssec" id="secGame"><h4>In game</h4><div class="sgrp">
+        <div class="srow" id="setItemMod" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="spark"></span>
+          <div class="tx"><b>F8 menu <span class="spill" style="color:rgb(var(--ac3-rgb));background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .35)">Beta</span></b><small>Press F8 in Rocket League to use any item and swap maps. Items are only visible to you. Works when you play without Anti-Cheat.</small></div><span class="tg" id="tgItemMod"></span></div>
+        <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
+          <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit Prism. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
+        <div class="srow nohov"><span class="sic gi" data-ic="swap"></span>
+          <div class="tx"><b>Swapped arenas</b><small id="swList">No arena swapped. Press <b class="kbd">F8</b> in Rocket League → Maps.</small></div>
+          <button class="sbtn" id="swRestore" disabled>Restore all</button></div>
+      </div></div>
+      <div class="ssec"><h4>Performance</h4><div class="sgrp">
+        <div class="srow" id="setBoost" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="bolt"></span>
+          <div class="tx"><b>Game Boost <span class="spill" id="boostPill"></span></b><small>More performance while you play. Everything goes back to normal when the game closes.</small></div><span class="tg" id="tgBoost"></span></div>
+        <button class="sexp" id="boostExp" aria-expanded="false"><span>What it does</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="sfold"><div><div class="sfin blist">
+          <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> and stays on the <em>fast CPU cores</em> (only without Anti-Cheat)</span></span>
+          <span class="bl"><i></i><span>Windows switches to <em>best performance</em> mode while you play</span></span>
+          <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
+          <span class="bl"><i></i><span><em>Fullscreen optimizations off</em> for Rocket League, for less input lag in fullscreen</span></span>
+          <span class="bl"><i></i><span>Skips the <em>intro videos</em>, so the game starts faster</span></span>
+          <span class="bl"><i></i><span>Prism <em>steps back</em> while you play: lower priority and power saving</span></span>
+          <small>Your in-game settings are never changed. Everything is undone when you turn Boost off.</small>
+        </div></div></div>
+      </div></div>
+      <div class="ssec"><h4>Discord</h4><div class="sgrp">
+        <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
+          <div class="tx"><b>Rich Presence</b><small class="dcst"><span class="dcdot" id="dcDot"></span><span id="dcStat">Checking Discord …</span></small></div><span class="tg" id="tgRpc"></span></div>
+        <button class="sexp" id="rpcExp" aria-expanded="false"><span>Customize</span><span class="sm" id="rpcSum"></span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="sfold"><div><div class="sfin dsub" id="rpcOpts">
+          <div class="dcwrap">
+          <div class="dccard" id="dcCard">
+            <small class="dclbl">Preview</small>
+            <div class="dcrow">
+              <div class="dcimg"><svg id="dcLogo" class="plogo" viewBox="0 0 200 200" aria-hidden="true"></svg></div>
+              <div class="dctx"><b>Prism</b><span id="dcDet">–</span><span id="dcState"></span><span id="dcTime" class="dctime"></span></div>
+            </div>
+            <div class="dcbtn" id="dcBtn">Get Prism</div>
+          </div>
+          <div class="rchips">
+            <button class="rchip" id="rcMatch" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Match score</b><small>2s Ranked · 2 : 1</small></span></button>
+            <button class="rchip" id="rcMaps" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Workshop maps</b><small>Map name in Freeplay</small></span></button>
+            <button class="rchip" id="rcLauncher" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Launcher status</b><small>Idle, Browsing maps …</small></span></button>
+            <button class="rchip" id="rcTime" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Elapsed time</b><small>12:34 elapsed</small></span></button>
+            <button class="rchip" id="rcTray" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>While in tray</b><small>Shows "Idle"</small></span></button>
+            <button class="rchip" id="rcButton" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Download button</b><small>“Get Prism”</small></span></button>
+          </div>
+          </div>
+          <div class="dcfoot" id="dcStats"></div>
+        </div></div></div>
+      </div></div>
+      <div class="ssec"><h4>Steam</h4><div class="sgrp">
+        <div class="srow"><span class="sic gi" data-ic="key"></span>
+          <div class="tx"><b>Steam API key</b><small>Optional. Shows your friends' status more reliably. <a id="lnkKey">Get your key</a></small></div>
+          <div class="keyrow"><input id="steamKey" type="password" placeholder="Paste key …" maxlength="64" spellcheck="false" autocomplete="off"></div></div>
+      </div></div>
+      <div class="ssec"><h4>Look</h4><div class="sgrp"><div class="swatches" id="swatches"></div></div></div>
+      <div class="ssec"><h4>Folders</h4><div class="sgrp">
+        <div class="srow"><span class="sic gi" data-ic="folder"></span>
+          <div class="tx"><b>Rocket League workshop folder</b><small>Where Steam stores your downloaded maps.</small></div>
+          <button class="sbtn" id="openWsDir">Open<span class="gi" data-ic="ext"></span></button></div>
+      </div></div>
+      <div class="ssec"><h4>About</h4><div class="sgrp">
+        <div class="about"><svg id="setLogo" class="plogo" viewBox="0 0 200 200" aria-hidden="true"></svg>
+          <div class="tx"><b>Prism</b><small id="verLbl">Version –</small></div>
+          <button class="sbtn" id="verCheck"><span class="gi" data-ic="year"></span><span class="vtx">Check for updates</span></button></div>
+        <div class="alinks"><a id="lnkGit">GitHub</a><span>·</span><a id="lnkRel">Release notes</a><span>·</span><span>Support on Discord: <b>zusmori</b></span></div>
+      </div></div>
+      </div>
+    </div>
   </section>
   </div>
 </div>
@@ -1612,86 +1646,6 @@
     <button class="cancel" id="itemEacCancel">Cancel</button>
   </div>
 </div>
-<div class="mdl" id="setDlg">
-  <div class="box sbox">
-    <div class="shead"><span class="gi" data-ic="gear"></span><h3>Settings</h3>
-      <button class="dx sx" id="setClose" title="Close"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
-    <div class="sbody">
-      <div class="ssec"><h4>General</h4><div class="sgrp">
-        <div class="srow" id="setMute" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" id="muteIc"></span>
-          <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in Prism.</small></div><span class="tg" id="tgMute"></span></div>
-        <div class="srow" id="setPlayTray" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="tray"></span>
-          <div class="tx"><b>Hide while playing</b><small>Prism goes to the tray when you start Rocket League and comes back when you close the game.</small></div><span class="tg" id="tgPlayTray"></span></div>
-        <div class="srow" id="setAuto" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="sun"></span>
-          <div class="tx"><b>Start with Windows</b><small>Prism starts quietly in the tray when you log in.</small></div><span class="tg" id="tgAuto"></span></div>
-        <div class="srow nohov"><span class="sic gi" data-ic="tray"></span>
-          <div class="tx"><b>Close button</b><small>What the X in the top right does.</small></div>
-          <div class="seg" id="closeSeg"><button data-v="ask">Ask</button><button data-v="tray">Tray</button><button data-v="quit">Quit</button></div></div>
-        <div class="srow" id="setItemMod" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="spark"></span>
-          <div class="tx"><b>Item menu <span class="spill" style="color:rgb(var(--ac3-rgb));background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .35)">Beta</span></b><small>Press F8 in Rocket League to use any item. Only you can see them. Works when you play without Anti-Cheat.</small></div><span class="tg" id="tgItemMod"></span></div>
-        <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
-          <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit Prism. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
-      </div></div>
-      <div class="ssec"><h4>Performance</h4><div class="sgrp">
-        <div class="srow" id="setBoost" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="bolt"></span>
-          <div class="tx"><b>Game Boost <span class="spill" id="boostPill"></span></b><small>More performance while you play. Everything goes back to normal when the game closes.</small></div><span class="tg" id="tgBoost"></span></div>
-        <button class="sexp" id="boostExp" aria-expanded="false"><span>What it does</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <div class="sfold"><div><div class="sfin blist">
-          <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> and stays on the <em>fast CPU cores</em> (only without Anti-Cheat)</span></span>
-          <span class="bl"><i></i><span>Windows switches to <em>best performance</em> mode while you play</span></span>
-          <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
-          <span class="bl"><i></i><span><em>Fullscreen optimizations off</em> for Rocket League, for less input lag in fullscreen</span></span>
-          <span class="bl"><i></i><span>Skips the <em>intro videos</em>, so the game starts faster</span></span>
-          <span class="bl"><i></i><span>Prism <em>steps back</em> while you play: lower priority and power saving</span></span>
-          <small>Your in-game settings are never changed. Everything is undone when you turn Boost off.</small>
-        </div></div></div>
-      </div></div>
-      <div class="ssec"><h4>Discord</h4><div class="sgrp">
-        <div class="srow" id="setRpc" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="discord"></span>
-          <div class="tx"><b>Rich Presence</b><small class="dcst"><span class="dcdot" id="dcDot"></span><span id="dcStat">Checking Discord …</span></small></div><span class="tg" id="tgRpc"></span></div>
-        <button class="sexp" id="rpcExp" aria-expanded="false"><span>Customize</span><span class="sm" id="rpcSum"></span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <div class="sfold"><div><div class="sfin dsub" id="rpcOpts">
-          <div class="dcwrap">
-          <div class="dccard" id="dcCard">
-            <small class="dclbl">Preview</small>
-            <div class="dcrow">
-              <div class="dcimg"><svg id="dcLogo" class="plogo" viewBox="0 0 200 200" aria-hidden="true"></svg></div>
-              <div class="dctx"><b>Prism</b><span id="dcDet">–</span><span id="dcState"></span><span id="dcTime" class="dctime"></span></div>
-            </div>
-            <div class="dcbtn" id="dcBtn">Get Prism</div>
-          </div>
-          <div class="rchips">
-            <button class="rchip" id="rcMatch" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Match score</b><small>2s Ranked · 2 : 1</small></span></button>
-            <button class="rchip" id="rcMaps" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Workshop maps</b><small>Map name in Freeplay</small></span></button>
-            <button class="rchip" id="rcLauncher" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Launcher status</b><small>Idle, Browsing maps …</small></span></button>
-            <button class="rchip" id="rcTime" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Elapsed time</b><small>12:34 elapsed</small></span></button>
-            <button class="rchip" id="rcTray" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>While in tray</b><small>Shows "Idle"</small></span></button>
-            <button class="rchip" id="rcButton" role="switch" aria-checked="true"><span class="ck"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span><span class="rt"><b>Download button</b><small>“Get Prism”</small></span></button>
-          </div>
-          </div>
-          <div class="dcfoot" id="dcStats"></div>
-        </div></div></div>
-      </div></div>
-      <div class="ssec"><h4>Steam</h4><div class="sgrp">
-        <div class="srow"><span class="sic gi" data-ic="key"></span>
-          <div class="tx"><b>Steam API key</b><small>Optional. Shows your friends' status more reliably. <a id="lnkKey">Get your key</a></small></div>
-          <div class="keyrow"><input id="steamKey" type="password" placeholder="Paste key …" maxlength="64" spellcheck="false" autocomplete="off"></div></div>
-      </div></div>
-      <div class="ssec"><h4>Color</h4><div class="sgrp"><div class="swatches" id="swatches"></div></div></div>
-      <div class="ssec"><h4>Folders</h4><div class="sgrp">
-        <div class="srow"><span class="sic gi" data-ic="folder"></span>
-          <div class="tx"><b>Rocket League workshop folder</b><small>Where Steam stores your downloaded maps.</small></div>
-          <button class="sbtn" id="openWsDir">Open<span class="gi" data-ic="ext"></span></button></div>
-      </div></div>
-      <div class="ssec"><h4>About</h4><div class="sgrp">
-        <div class="about"><svg id="setLogo" class="plogo" viewBox="0 0 200 200" aria-hidden="true"></svg>
-          <div class="tx"><b>Prism</b><small id="verLbl">Version –</small></div>
-          <button class="sbtn" id="verCheck"><span class="gi" data-ic="year"></span><span class="vtx">Check for updates</span></button></div>
-        <div class="alinks"><a id="lnkGit">GitHub</a><span>·</span><a id="lnkRel">Release notes</a><span>·</span><span>Support on Discord: <b>zusmori</b></span></div>
-      </div></div>
-    </div>
-  </div>
-</div>
 <div class="mdl" id="keyDlg">
   <div class="box kbox" role="dialog" aria-labelledby="kTitle">
     <button class="kx" id="kaLater" title="Close"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
@@ -1750,149 +1704,9 @@ async function preview(m){
 }
 window.__metaReady = all => { for (const k in previews) if (all || !previews[k]) delete previews[k]; refresh(true); };
 
-/* ---------- Map-Liste ---------- */
-let maps = [], selected = null, firstList = true;
-
-let favs = {}, curState = {}, listActive = null;
-const favKey = m => m.id || m.path;
-function renderList(){
-  const q = $('search').value.trim().toLowerCase();
-  let shown = maps.filter(m => m.title.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
-  if (q) shown.sort((a, b) => b.title.toLowerCase().startsWith(q) - a.title.toLowerCase().startsWith(q));
-  const pinned = shown.filter(m => favs[favKey(m)]), rest = shown.filter(m => !favs[favKey(m)]);
-  // in welcher Arena steckt welche Map gerade?
-  const activeIn = {};
-  for (const f in (curState.swaps || {})) (activeIn[curState.swaps[f]] ||= []).push(curState.swapNames?.[f] || f);
-  const list = $('list');
-  list.innerHTML = shown.length ? '' : '<div class="none">No maps found</div>';
-  const prevActive = listActive; listActive = new Set(Object.keys(activeIn));
-  const section = (label, star) => {
-    const d = document.createElement('div'); d.className = 'sect';
-    d.innerHTML = (star ? '<svg width="11" height="11" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8z" fill="currentColor"/></svg>' : '') + `<span>${label}</span><i></i>`;
-    list.appendChild(d);
-  };
-  let n = 0;
-  const addRow = m => {
-    const i = n++;
-    const r = document.createElement('div');
-    r.className = 'row' + (m.path === selected ? ' sel' : '') + (firstList ? ' enter' : '');
-    if (firstList) r.style.animationDelay = (0.3 + Math.min(i, 10) * 0.04) + 's';
-    const on = !!favs[favKey(m)];
-    r.innerHTML = `<div class="thumb ph"></div><div class="rt"><b></b><div class="sub"></div></div>
-      <button class="star${on ? ' on' : ''}" title="${on ? 'Remove from favorites' : 'Add to favorites'}"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-    r.querySelector('b').textContent = m.title;
-    if (activeIn[m.name]){ const c = document.createElement('span'); c.className = 'chip' + (prevActive && !prevActive.has(m.name) ? ' pop' : ''); c.textContent = 'In ' + activeIn[m.name].join(', '); r.querySelector('.sub').appendChild(c); }
-    r.onclick = () => select(m.path);
-    r.querySelector('.star').onclick = async e => {
-      e.stopPropagation();
-      const k = favKey(m);
-      favs[k] = has('toggleFav') ? await toggleFav(k) : !favs[k];
-      Sfx.ui(favs[k] ? 'fav' : 'unfav');
-      if (!favs[k]) delete favs[k];
-      const y0 = {}; [...list.querySelectorAll('.row')].forEach(x => y0[x.__path] = x.getBoundingClientRect().top);
-      renderList();
-      [...list.querySelectorAll('.row')].forEach(x => {
-        const dy = (y0[x.__path] ?? 0) - x.getBoundingClientRect().top;
-        if (dy) x.animate([{transform:`translateY(${dy}px)`}, {transform:'none'}], {duration:450, easing:'cubic-bezier(.22,1,.36,1)'});
-        if (x.__path === m.path) x.querySelector('.star').classList.add('pop');
-      });
-    };
-    list.appendChild(r);
-    preview(m).then(u => { if (u){ const t = r.firstChild; t.style.backgroundImage = `url("${u}")`; t.classList.remove('ph'); t.classList.add('loaded'); } });
-    r.__path = m.path;
-  };
-  if (pinned.length){ section('Favorites', true); pinned.forEach(addRow); if (rest.length) section('All Downloaded Maps'); }
-  rest.forEach(addRow);
-  firstList = false;
-  $('count').textContent = maps.length ? maps.length + (maps.length === 1 ? ' Map' : ' Maps') : '';
-}
-$('search').addEventListener('input', renderList);
-$('search').addEventListener('keydown', e => {
-  if (e.key === 'Enter'){ const r = $('list').querySelector('.row'); r && select(r.__path); }
-});
-
-let layer = 1, shownPath = null;
-async function select(path, force){
-  selected = path;
-  if (typeof updateSwapBtn === 'function') updateSwapBtn();
-  [...$('list').children].forEach(r => r.classList.toggle('sel', r.__path === path));
-  const m = maps.find(x => x.path === path);
-  if (!m || (shownPath === path && !force)) return;
-  shownPath = path;
-  const t = $('ptitle');
-  $('pname').textContent = m.title;
-  $('pmeta').textContent = m.author ? 'by ' + m.author : '';
-  t.classList.remove('anim'); void t.offsetWidth; t.classList.add('anim');
-  const url = await preview(m);
-  if (selected !== path) return;
-  const next = $(layer === 1 ? 'l2' : 'l1'), prev = $(layer === 1 ? 'l1' : 'l2');
-  if (url){
-    next.style.backgroundImage = `url("${url}")`;
-    next.classList.remove('on'); void next.offsetWidth; next.classList.add('on');
-    prev.classList.remove('on'); layer = layer === 1 ? 2 : 1;
-    $('ph').classList.remove('on');
-  } else {
-    prev.classList.remove('on'); next.classList.remove('on'); $('ph').classList.add('on');
-  }
-}
-
-/* ---------- Arena-Auswahl mit Suche ---------- */
-function Dropdown(root, opts = {}){
-  const caption = opts.caption ?? 'Replaces arena', ph = opts.placeholder || 'Search arenas …';
-  if (opts.down) root.classList.add('down');
-  root.innerHTML = `<button class="pick" type="button"><div class="cap">${caption ? `<small>${caption}</small>` : ''}<span></span></div>
-    <svg width="12" height="8" viewBox="0 0 12 8"><path d="M1 6.5l5-5 5 5" stroke="rgb(var(--ac2-rgb))" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
-    <div class="menu"><input placeholder="${ph}"><div class="mlist"></div></div>`;
-  const pick = root.querySelector('.pick'), menu = root.querySelector('.menu'), list = root.querySelector('.mlist'), input = root.querySelector('input');
-  if (opts.float) Object.assign(menu.style, {position: 'fixed', zIndex: 260});   // zaehlt nicht zur Scrollflaeche
-  let items = [], value = null, shown = [], hl = 0;
-  const render = () => {
-    const q = input.value.trim().toLowerCase();
-    shown = items.filter(i => i.label.toLowerCase().includes(q));
-    if (q) shown.sort((a, b) => b.label.toLowerCase().startsWith(q) - a.label.toLowerCase().startsWith(q));
-    hl = q ? 0 : Math.max(0, shown.findIndex(i => i.value === value));
-    list.innerHTML = shown.length ? '' : '<div class="none">Nothing found</div>';
-    shown.forEach((it, n) => {
-      const d = document.createElement('div');
-      d.className = 'opt' + (n === hl ? ' hl' : '') + (it.value === value ? ' sel' : '');
-      d.style.transitionDelay = Math.min(n, 8) * 16 + 'ms';
-      d.innerHTML = '<span class="ol"></span>' + (it.meta ? '<small class="om"></small>' : '');
-      d.firstChild.textContent = it.label; if (it.meta) d.lastChild.textContent = it.meta;
-      if (it.warn) d.classList.add('warn');
-      d.onmouseenter = () => setHl(n);
-      d.onmousedown = e => { e.preventDefault(); choose(it); };
-      list.appendChild(d);
-    });
-  };
-  const setHl = n => { hl = n; [...list.children].forEach((c, i) => c.classList.toggle('hl', i === n)); list.children[n]?.scrollIntoView({block: 'nearest'}); };
-  const place = () => {   // im Editor schwebt das Menue ueber allem, statt abgeschnitten zu werden
-    if (!opts.float) return;
-    const r = pick.getBoundingClientRect(), h = Math.min(260, window.innerHeight - r.bottom - 16);
-    Object.assign(menu.style, {position: 'fixed', left: r.left + 'px', width: Math.max(r.width, 240) + 'px', top: (r.bottom + 6) + 'px', right: 'auto', bottom: 'auto', zIndex: 260});
-    list.style.maxHeight = Math.max(120, h - 50) + 'px';
-  };
-  const open = () => { Sfx.ui('tick'); input.value = ''; render(); place(); pick.classList.add('open'); menu.classList.add('show'); setTimeout(() => input.focus({preventScroll: true}), 20); };
-  const close = () => { pick.classList.remove('open'); menu.classList.remove('show'); [...list.children].forEach(c => c.style.transitionDelay = '0ms'); };
-  const paint = anim => { const s = pick.querySelector('.cap span'); s.textContent = items.find(i => i.value === value)?.label || '–';
-    if (anim){ s.classList.remove('swapin'); void s.offsetWidth; s.classList.add('swapin'); } };
-  const choose = it => { value = it.value; close(); paint(true); pick.focus(); opts.onchange && opts.onchange(value); };
-  const key = e => {
-    if (!menu.classList.contains('show')){ if (['ArrowUp','ArrowDown','Enter',' '].includes(e.key)){ e.preventDefault(); open(); } return; }
-    if (e.key === 'ArrowDown'){ e.preventDefault(); setHl(Math.min(hl + 1, shown.length - 1)); }
-    else if (e.key === 'ArrowUp'){ e.preventDefault(); setHl(Math.max(hl - 1, 0)); }
-    else if (e.key === 'Enter'){ e.preventDefault(); shown[hl] && choose(shown[hl]); }
-    else if (e.key === 'Escape'){ close(); pick.focus(); }
-  };
-  pick.onclick = () => menu.classList.contains('show') ? close() : open();
-  pick.onkeydown = key; input.onkeydown = key; input.oninput = () => render();
-  const outside = e => { if (!root.isConnected) return document.removeEventListener('mousedown', outside); if (!root.contains(e.target)) close(); };
-  document.addEventListener('mousedown', outside);
-  return {
-    set(n, v){ items = n; if (v !== undefined) value = v; if (!items.some(i => i.value === value)) value = items[0]?.value ?? null; paint(false); },
-    get value(){ return value; }, get label(){ return items.find(i => i.value === value)?.label; }
-  };
-}
-const ddArena = Dropdown($('ddArena'), {onchange: () => updateSwapBtn()});
+/* ---------- Maps (fuer Home, Browse und das Schliessen) ---------- */
+// Getauscht wird jetzt im Spiel (F8 -> Maps); hier nur noch Anzeige und Zuruecksetzen
+let maps = [], favs = {}, curState = {};
 
 /* ---------- Status & Meldungen ---------- */
 let toastTimer;
@@ -1905,76 +1719,32 @@ function toast(msg, ok){
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 5000);
   }, 140);
 }
-let lastStatus = '';
-let prevSwapKeys = null;
-function setStatus(s){
-  const sw = Object.keys(s.swaps || {});
-  const titleOf = name => (maps.find(m => m.name === name) || {}).title || name;
-  const box = $('status');
-  box.classList.toggle('active', sw.length > 0);
-  $('restoreBtn').classList.toggle('gone', sw.length < 2);
-  const key = sw.map(f => f + '=' + s.swaps[f]).sort().join(',');
-  if (key === lastStatus) return;
-  lastStatus = key;
-  const cnt = $('swCount'), before = cnt.textContent;
-  cnt.textContent = sw.length || '';
-  if (before && before !== cnt.textContent){ cnt.classList.remove('bump'); void cnt.offsetWidth; cnt.classList.add('bump'); }
-  const fresh = new Set(prevSwapKeys ? sw.filter(f => prevSwapKeys[f] !== s.swaps[f]) : []);
-  prevSwapKeys = {...(s.swaps || {})};
-  const slots = $('slots'); slots.innerHTML = '';
-  sw.sort((x, y) => (s.swapNames[x] || x).localeCompare(s.swapNames[y] || y)).forEach((f, i) => {
-    const b = document.createElement('button');
-    b.className = 'slot' + (fresh.has(f) ? ' fresh' : '');
-    b.style.animationDelay = fresh.has(f) ? '0ms' : i * 45 + 'ms';
-    b.title = 'Show this map';
-    b.innerHTML = '<span class="th"></span><span class="tx"><span class="a"></span><span class="m"></span></span><span class="x" title="Restore this arena"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>';
-    b.querySelector('.a').textContent = s.swapNames[f] || f;
-    b.querySelector('.m').textContent = titleOf(s.swaps[f]);
-    const m = maps.find(x => x.name === s.swaps[f]);
-    if (m) preview(m).then(u => { if (u) b.querySelector('.th').style.backgroundImage = `url("${u}")`; });
-    b.onclick = () => { if (m){ setTab('vDl'); $('search').value = ''; renderList(); select(m.path); } ddArena.set(ddItems(), f); updateSwapBtn(); };
-    b.querySelector('.x').onclick = async e => {
-      e.stopPropagation();
-      if (busy) return; busy = true;
-      try {
-        await call('restoreArenaAsync', f);
-        Sfx.ui('restore');
-        // Zeile weich zusammenklappen
-        const h = b.offsetHeight;
-        await b.animate([{opacity:1, height:h + 'px', transform:'none'}, {opacity:0, height:'0px', paddingTop:'0px', paddingBottom:'0px', marginTop:'-4px', transform:'translateX(-14px)'}],
-          {duration:320, easing:'cubic-bezier(.4,0,.2,1)', fill:'forwards'}).finished;
-        toast((s.swapNames[f] || f) + ' restored.', true);
-      } catch (er) { toast(er, false); }
-      busy = false; refresh();
-    };
-    slots.appendChild(b);
-  });
-}
-
 /* ---------- Laden ---------- */
 async function refresh(force){
   const s = await getState();
-  $('vSetup').classList.toggle('hidden', s.found);
-  $('vEmpty').classList.toggle('hidden', !s.found || (s.maps && s.maps.length));
   maps = s.maps || [];
   favs = s.favs || {};
   curState = s;
   installed = new Set(maps.map(m => m.id).filter(Boolean));
   if (typeof refreshCards === 'function') refreshCards();
-  // Titel der getauschten Maps für die Statuszeile
-  s.swapTitles = {};
-  for (const f in (s.swaps || {})) { const m = maps.find(x => x.name === s.swaps[f]); if (m) s.swapTitles[f] = m.title; }
-  if (s.found) ddArena.set(ddItems());
-  updateSwapBtn();
-  if (!maps.some(m => m.path === selected)) selected = maps[0]?.path ?? null;
-  renderList();
-  if (selected) select(selected, force);
-  setStatus(s);
+  paintSwaps();
   if (typeof paintHome === 'function') paintHome();
 }
-
-
-$('slots').addEventListener('wheel', e => { const el = $('slots'); if (el.scrollWidth > el.clientWidth){ e.preventDefault(); el.scrollBy({left: e.deltaY + e.deltaX, behavior: 'smooth'}); } }, {passive: false});
+// Einstellungen -> In game: welche Arenen gerade getauscht sind
+function paintSwaps(){
+  const sw = curState.swaps || {}, keys = Object.keys(sw);
+  const titleOf = name => (maps.find(m => m.name === name) || {}).title || name;
+  $('swList').innerHTML = keys.length ? '' : 'No arena swapped. Press <b class="kbd">F8</b> in Rocket League → Maps.';
+  if (keys.length) $('swList').textContent = keys.map(f => (curState.swapNames?.[f] || f) + ': ' + titleOf(sw[f])).join('  ·  ');
+  $('swRestore').disabled = !keys.length;
+}
+$('swRestore').onclick = async () => {
+  const b = $('swRestore'); if (b.disabled) return; b.disabled = true;
+  try { await call('restoreAsync'); toast('Original arenas restored.', true); Sfx.ui('restore'); } catch (e) { toast(e, false); }
+  refresh();
+};
+window.addEventListener('focus', () => refresh());
+document.addEventListener('contextmenu', e => { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
 
 /* ---------- Einstellungen ---------- */
 const settings = {keepSwaps: false, mute: false, theme: 'prism', steamKey: '', trayOnPlay: true, itemMod: true,
@@ -2018,7 +1788,6 @@ async function saveSetting(k, v){ try { if (has('setSetting')) await setSetting(
 function paintSettings(){
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
-  $('keepNote').innerHTML = settings.keepSwaps ? '<svg width="11" height="11" viewBox="0 0 16 16"><path d="M4 7V5a4 4 0 0 1 8 0v2M3.5 7h9v7h-9z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>Swaps stay after closing' : '';
   $('tgItemMod').classList.toggle('on', settings.itemMod !== false); $('setItemMod').setAttribute('aria-checked', settings.itemMod !== false);
   $('tgPlayTray').classList.toggle('on', settings.trayOnPlay !== false); $('setPlayTray').setAttribute('aria-checked', settings.trayOnPlay !== false);
   const rpcOn = settings.rpc !== false;
@@ -2084,10 +1853,10 @@ function paintPresence(p){
 }
 async function pollPresence(){ try { if (has('getPresence')) paintPresence(await getPresence()); } catch (e) {} }
 setInterval(() => {
-  if (!$('setDlg').classList.contains('show')) return;
+  if (tab !== 'vSet') return;
   if (pres.act && pres.act.timestamps) $('dcTime').textContent = fmtElapsed(pres.act.timestamps.start);
 }, 1000);
-setInterval(() => { if ($('setDlg').classList.contains('show')){ pollPresence(); pollBoost(); } }, 2000);
+setInterval(() => { if (tab === 'vSet' && !document.hidden && !appHidden){ pollPresence(); pollBoost(); } }, 2000);
 function toggleSetting(k){
   if (k === 'mute' && settings.mute){ settings.mute = false; paintSettings(); Sfx.ui('tab'); }   // erst an, dann Klick hoeren
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
@@ -2101,25 +1870,32 @@ function toggleSetting(k){
 document.querySelectorAll('.sexp').forEach(b => b.onclick = () => {
   const open = !b.classList.contains('open');
   b.classList.toggle('open', open); b.setAttribute('aria-expanded', open); Sfx.ui('tick');
-  if (open) setTimeout(() => { const f = b.nextElementSibling, sb = $('setDlg').querySelector('.sbody');
+  if (open) setTimeout(() => { const f = b.nextElementSibling, sb = $('scol');
     const r = f.getBoundingClientRect(), br = sb.getBoundingClientRect();
     if (r.bottom > br.bottom) sb.scrollBy({top: r.bottom - br.bottom + 12, behavior: 'smooth'}); }, 380);
 });
-// Fenster auf/zu
-function openSettings(){
-  if ($('setDlg').classList.contains('show')) return closeSettings();
-  resetVerBtn();
-  $('setDlg').classList.add('show'); $('setBtn').classList.add('on'); Sfx.ui('present');
-  pollPresence(); pollBoost();
-  $('setDlg').querySelector('.sbody').scrollTop = 0;
-}
-function closeSettings(){
-  if (!$('setDlg').classList.contains('show')) return;
-  $('setDlg').classList.remove('show'); $('setBtn').classList.remove('on'); Sfx.ui('dismiss');
-}
-$('setBtn').onclick = openSettings;
-$('setClose').onclick = closeSettings;
-$('setDlg').addEventListener('mousedown', e => { if (e.target === $('setDlg')) closeSettings(); });
+// Einstellungen sind eine eigene Seite (Reiter "Settings")
+function openSettings(){ setTab('vSet'); }
+function closeSettings(){ if (tab === 'vSet') setTab('vHome'); }
+// Seitennavigation links: aus den Abschnitten gebaut, markiert den Abschnitt, der gerade zu sehen ist
+(() => {
+  const nav = $('snav'), col = $('scol'), secs = [...col.querySelectorAll('.ssec')];
+  secs.forEach((sec, i) => {
+    sec.id = sec.id || 'sec' + i;
+    const b = document.createElement('button'); b.className = 'snl'; b.textContent = sec.querySelector('h4').textContent;
+    b.onclick = () => { col.scrollTo({top: sec.offsetTop - 18, behavior: 'smooth'}); Sfx.ui('tick'); };
+    nav.appendChild(b);
+  });
+  const ind = document.createElement('i'); ind.className = 'snind'; nav.appendChild(ind);
+  const mark = () => {
+    let cur = 0; const y = col.scrollTop + 60;
+    secs.forEach((sec, i) => { if (sec.offsetTop <= y) cur = i; });
+    if (col.scrollTop + col.clientHeight >= col.scrollHeight - 4) cur = secs.length - 1;
+    [...nav.querySelectorAll('.snl')].forEach((b, i) => b.classList.toggle('on', i === cur));
+    const on = nav.querySelectorAll('.snl')[cur]; if (on){ ind.style.top = on.offsetTop + 'px'; ind.style.height = on.offsetHeight + 'px'; }
+  };
+  col.addEventListener('scroll', mark, {passive: true}); new ResizeObserver(mark).observe(col); setTimeout(mark, 50);
+})();
 $('openWsDir').onclick = async () => {
   Sfx.ui('tick');
   try { if (has('openWorkshopDir')) await openWorkshopDir(); else toast('Not available in preview', false); } catch (e) { toast(e, false); }
@@ -2186,83 +1962,9 @@ $('kaKey').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventD
 $('lnkGit').onclick = () => has('openURL') && openURL('https://github.com/zusmori/ZLauncher');
 $('lnkRel').onclick = () => has('openURL') && openURL('https://github.com/zusmori/ZLauncher/releases');
 
-/* ---------- Belegung der Arenen ---------- */
-function ddItems(){
-  const sw = curState.swaps || {};
-  return (curState.arenas || []).map(a => {
-    const m = sw[a.file] ? maps.find(x => x.name === sw[a.file]) : null;
-    if ((curState.locked || {})[a.file]) return {value: a.file, label: a.name, meta: 'In use by Rocket League', warn: true};
-    return {value: a.file, label: a.name, meta: sw[a.file] ? (m ? m.title : sw[a.file]) : ''};
-  });
-}
-function updateSwapBtn(){
-  const btn = $('swapBtn'); if (!btn || btn.classList.contains('busy') || btn.classList.contains('done')) return;
-  const sw = curState.swaps || {}, m = maps.find(x => x.path === selected), cur = sw[ddArena.value];
-  const lbl = btn.querySelector('.lbl');
-  const locked = !!(curState.locked || {})[ddArena.value];
-  const isSame = !!(cur && m && cur === m.name);
-  btn.classList.toggle('same', locked || isSame);
-  btn.classList.toggle('swapped', !locked && isSame);
-  if (locked){ lbl.textContent = 'In use'; btn.title = 'Rocket League has this arena loaded. Pick another arena or close the game.'; return; }
-  if (isSame){ lbl.innerHTML = '<span class="nrm">Swapped <small>✓</small></span><span class="hov">Restore?</span>'; btn.title = 'Click to restore ' + ddArena.label + ' to the original arena'; }
-  else if (m && Object.keys(sw).some(f => f !== ddArena.value && sw[f] === m.name)){
-    const from = Object.keys(sw).find(f => f !== ddArena.value && sw[f] === m.name);
-    const fromName = (curState.swapNames || {})[from] || from;
-    lbl.textContent = 'Move here'; btn.title = 'A map can only be in one arena. This moves it from ' + fromName + ' to ' + ddArena.label + '.';
-  }
-  else if (cur){ lbl.textContent = 'Replace'; btn.title = 'Replace the map that is in this arena right now'; }
-  else { lbl.textContent = 'Swap'; btn.title = ''; }
-}
-
-/* ---------- Aktionen ---------- */
-let busy = false;
-$('swapBtn').onclick = async () => {
-  if (busy || !selected || !ddArena.value) return;
-  const selM = maps.find(x => x.path === selected);
-  if (selM && (curState.swaps || {})[ddArena.value] === selM.name){
-    // bereits getauscht -> Klick setzt diese Arena zurueck
-    const btn = $('swapBtn'), arenaFile = ddArena.value, arenaName = ddArena.label;
-    busy = true; btn.classList.remove('swapped'); btn.classList.add('busy');
-    try { await call('restoreArenaAsync', arenaFile); Sfx.ui('restore'); toast(arenaName + ' restored.', true); }
-    catch (e) { toast(e, false); }
-    btn.classList.remove('busy'); busy = false; await refresh(); updateSwapBtn();
-    return;
-  }
-  if ((curState.locked || {})[ddArena.value]){ toast('Rocket League has ' + ddArena.label + ' loaded right now (often the main-menu background). Pick another arena, or close the game to swap this one.', false); return; }
-  busy = true;
-  const btn = $('swapBtn'), arena = ddArena.label, moving = btn.querySelector('.lbl').textContent === 'Move here';
-  btn.disabled = true; btn.classList.add('busy');
-  const t0 = Date.now();
-  try {
-    await call('swapAsync', ddArena.value, selected);
-    await sleep(Math.max(0, 450 - (Date.now() - t0)));
-    btn.classList.remove('busy'); btn.classList.add('done'); Sfx.ui('swap');
-    const st = $('status'); st.classList.remove('flash'); void st.offsetWidth; st.classList.add('flash');
-    toast((moving ? 'Moved! ' : 'Swapped! ') + 'Start Freeplay on ' + arena + '.', true);
-    await refresh(); await sleep(1400);
-  } catch (e) { btn.classList.remove('busy'); toast(e, false); }
-  btn.classList.remove('done'); btn.disabled = false; busy = false; updateSwapBtn();
-};
-$('restoreBtn').onclick = async () => {
-  if (busy) return; busy = true;
-  try { await call('restoreAsync'); toast('Original arenas restored.', true); Sfx.ui('restore'); } catch (e) { toast(e, false); }
-  busy = false; refresh();
-};
-$('saveFolder').onclick = async () => {
-  try { await setFolder($('folder').value); toast('Rocket League found.', true); } catch (e) { toast(e, false); }
-  refresh();
-};
-$('folder').onkeydown = e => { if (e.key === 'Enter') $('saveFolder').click(); };
-$('workshopBtn').onclick = () => openWorkshop();
-$('ownBtn').onclick = () => openOwn();
-window.addEventListener('focus', () => { if (!busy) refresh(); });
-document.addEventListener('contextmenu', e => { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
-
-
-
 /* ---------- Tabs ---------- */
 let tab = 'vHome', installed = new Set();
-const PANES = ['vHome', 'vDl', 'vBrowse'];
+const PANES = ['vHome', 'vBrowse', 'vSet'];
 function moveInk(wrap, btn){
   const ink = wrap.querySelector('.ink'), r = btn.getBoundingClientRect(), w = wrap.getBoundingClientRect();
   ink.style.left = (r.left - w.left - wrap.clientLeft) + 'px'; ink.style.width = r.width + 'px';
@@ -2280,25 +1982,9 @@ function setTab(t){
   heroPlay(t === 'vHome');
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
-  if (t === 'vDl') guideFirst(); else guideOpen(false, false, true);
+  if (t === 'vSet'){ resetVerBtn(); pollPresence(); pollBoost(); refresh(); }
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
-/* ---------- Swap Maps: Anleitung ---------- */
-function guideOpen(on, save, quiet){
-  const g = $('guide'); if (g.classList.contains('open') === on) return;
-  g.classList.toggle('open', on); $('guideBtn').setAttribute('aria-expanded', on);
-  if (!quiet) Sfx.ui(on ? 'present' : 'dismiss');
-  if (!on && save && !settings.guideSeen){ settings.guideSeen = true; saveSetting('guideSeen', true); }
-}
-$('guideBtn').onclick = e => { e.stopPropagation(); guideOpen(true); };
-$('guideX').onclick = () => guideOpen(false, true);
-$('guideOk').onclick = () => guideOpen(false, true);
-$('guideBrowse').onclick = () => { guideOpen(false, true); setTab('vBrowse'); };
-document.addEventListener('pointerdown', e => { if ($('guide').classList.contains('open') && !$('guide').contains(e.target)) guideOpen(false, true); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('guide').classList.contains('open')) guideOpen(false, true); });
-// beim ersten Besuch von Swap Maps einmal von selbst aufklappen
-function guideFirst(){ if (!settings.guideSeen) setTimeout(() => { if (tab === 'vDl') guideOpen(true); }, 650); }
-
 window.addEventListener('resize', () => {
   moveInk($('tabs'), document.querySelector('#tabs .tab.on'));
 });
@@ -2603,10 +2289,8 @@ function updateBadge(){
 }
 async function startDownload(it, card){
   const d = dls[it.id];
-  if (installed.has(it.id) && (!d || d.state === 'done')){ // schon da -> direkt zur Map springen
-    setTab('vDl');
-    const m = maps.find(x => x.id === it.id);
-    if (m){ $('search').value = ''; renderList(); select(m.path); }
+  if (installed.has(it.id) && (!d || d.state === 'done')){ // schon da: getauscht wird im Spiel
+    toast('Already downloaded. In Rocket League press F8 → Maps to play it.', true);
     return;
   }
   if (d && (d.state === 'queued' || d.state === 'downloading')) return;
@@ -2636,7 +2320,8 @@ window.__dl = async e => {
   dls[e.id] = {state: e.state, pct: e.pct || 0, msg: e.msg};
   if (e.state === 'error') toast(e.msg || 'Download failed.', false);
   if (e.state === 'done' && prev?.state !== 'done'){
-    toast('Downloaded "' + (titles[e.id] || 'map') + '". Find it under Downloaded Maps.', true);
+    toast('Downloaded "' + (titles[e.id] || 'map') + '". In Rocket League press F8 → Maps to play it.', true);
+    if (has('loadMeta')) loadMeta();   // Titel und Bild fuer das F8-Menue holen
     Sfx.ui('done');
     await refresh(true);
   }
@@ -2780,7 +2465,6 @@ document.addEventListener('keydown', e => {
   else if ($('eacDlg').classList.contains('show')) $('eacCancel').onclick();
   else if ($('itemEacDlg').classList.contains('show')) $('itemEacCancel').onclick();
   else if ($('playDlg').classList.contains('show')) $('playCancel').onclick();
-  else if ($('setDlg').classList.contains('show') && !$('updDlg').classList.contains('show')) closeSettings();
   else if ($('updDlg').classList.contains('show')) $('updLater').onclick();
 });
 (async () => { try { if (has('getVersion')){ const v = await getVersion(); $('verLbl').textContent = 'Version ' + v; $('hVer').textContent = 'Version ' + v; } } catch (e) {} })();
@@ -2903,11 +2587,10 @@ $('pEac').onclick = () => { closePlay(); setTimeout(() => launch(true), (Object.
 $('playCancel').onclick = () => { closePlay(); Sfx.ui('dismiss'); };
 $('playDlg').addEventListener('mousedown', e => { if (e.target === $('playDlg')){ closePlay(); Sfx.ui('dismiss'); } });
 $('hSwap').onclick = () => {
-  setTab('vDl');
-  // unten links aufleuchten lassen
-  const st = $('status'); st.classList.remove('spot'); void st.offsetWidth;
-  setTimeout(() => st.classList.add('spot'), 260);
-  setTimeout(() => st.classList.remove('spot'), 2200);
+  setTab('vSet');
+  // zu "In game" springen und den Abschnitt kurz aufleuchten lassen
+  setTimeout(() => { const sec = $('secGame'); $('scol').scrollTo({top: sec.offsetTop - 18, behavior: 'smooth'});
+    sec.classList.remove('spot'); void sec.offsetWidth; sec.classList.add('spot'); }, 380);
 };
 // Mit Anti-Cheat starten, obwohl noch Maps getauscht sind -> erst zuruecksetzen
 function askEac(){

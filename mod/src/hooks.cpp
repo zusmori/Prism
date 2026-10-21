@@ -55,6 +55,7 @@ static ID3D11RenderTargetView* rtv = nullptr;
 static HWND gameWnd = nullptr;
 static WNDPROC wndOrig = nullptr;
 static bool imguiReady = false;
+ID3D11Device* Device() { return imguiReady ? device : nullptr; }
 
 static void CreateRTV(IDXGISwapChain* sc) {
 	ID3D11Texture2D* back = nullptr;

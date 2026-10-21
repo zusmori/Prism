@@ -15,6 +15,7 @@ add_library(zlmod SHARED
     src/items.cpp
     src/hooks.cpp
     src/gui.cpp
+    src/maps.cpp
     ${IMGUI}/imgui.cpp
     ${IMGUI}/imgui_draw.cpp
     ${IMGUI}/imgui_tables.cpp
@@ -29,4 +30,4 @@ add_library(zlmod SHARED
 target_include_directories(zlmod PRIVATE src ${IMGUI} ${IMGUI}/backends ${MINHOOK}/include)
 target_compile_definitions(zlmod PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS UNICODE _UNICODE)
 target_compile_options(zlmod PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/EHa /O2 /utf-8 /W3>)
-target_link_libraries(zlmod PRIVATE d3d11 dxgi psapi)
+target_link_libraries(zlmod PRIVATE d3d11 dxgi psapi windowscodecs ole32 advapi32)
