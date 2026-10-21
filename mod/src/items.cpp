@@ -1123,6 +1123,7 @@ static int offColorPrefs = -1, offPrefsBits = -1;
 static uint32_t prefsMask = 0;
 static void* cleanPrefs = nullptr;
 static std::map<void*, void*> prefsOrig; // Modell -> urspruengliche Einstellungen
+static std::map<void*, int> colorsApplied; // Modell -> Farb-Stand, der schon drauf ist
 
 static bool EnsureColors() {
 	if (colorsTried) return fnApplyColors != nullptr;
@@ -1238,7 +1239,6 @@ static void ClearOurColors() {
 }
 
 // Farben auf ein Auto-Modell legen (merkt sich pro Modell, ob es schon die aktuellen Farben hat)
-static std::map<void*, int> colorsApplied;
 static void ApplyColorsTo(void* mesh, bool force) {
 	if (!mesh || !ue::IsAlive(mesh) || !EnsureColors() || offApplyTeam < 0 || offApplyCustom < 0) return;
 	int gen = colorGen.load();
