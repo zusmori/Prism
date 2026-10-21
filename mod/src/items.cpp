@@ -707,13 +707,16 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	unsigned long long now = GetTickCount64();
 	// Ereignisse eines Autos (z. B. beim Spawnen) -> sofort pruefen, bevor es sein Loadout baut
 	static void* lastCls = nullptr;
-	static bool lastIsCar = false;
+	static bool lastIsCar = false, lastIsPRI = false;
 	void* cls = ue::ClassOf(caller);
-	if (cls != lastCls) { lastCls = cls; lastIsCar = clsCar && ue::IsA(caller, clsCar); }
+	if (cls != lastCls) { lastCls = cls; lastIsCar = clsCar && ue::IsA(caller, clsCar); lastIsPRI = clsPRI && ue::IsA(caller, clsPRI); }
 	if (lastIsCar) try { CarEventColors(caller); } catch (...) {}
-	// Autos feuern sehr viele Ereignisse pro Bild - hoechstens alle 4 ms pruefen
+	// Beim Laden (noch kein Auto unterwegs) bei jedem Auto-/PRI-Ereignis pruefen: das Loadout kommt per
+	// Replikation und das Auto wird direkt danach gebaut - hier zaehlt jede Millisekunde.
+	// Danach feuern Autos sehr viele Ereignisse pro Bild -> hoechstens alle 4 ms.
 	static unsigned long long nextCarCheck = 0;
-	if ((lastIsCar && now >= nextCarCheck) || now >= nextCheck) {
+	bool loading = now - lastPlayerTick.load() > 1500;
+	if (((lastIsCar || lastIsPRI) && (loading || now >= nextCarCheck)) || now >= nextCheck) {
 		nextCheck = now + 40;
 		nextCarCheck = now + 4;
 		try { EnsureLocalLoadout(); } catch (...) {}
@@ -755,7 +758,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			// Neues Spiel: pruefen, ob das Auto schon unsere Items hat - sonst einmal neu spawnen
 			applyAt = 0;
 			verifyTries = 0;
-			verifyAt = GetTickCount64() + 1500; // und kurz danach am fertigen Auto nachsehen
+			verifyAt = GetTickCount64() + 800; // und kurz danach am fertigen Auto nachsehen
 			bool hasOv;
 			{
 				std::lock_guard<std::mutex> lk(mu);
@@ -777,9 +780,9 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			verifyAt = 0;
 			int miss = -1;
 			try { miss = CarMissesItems(pawn); } catch (...) {}
-			if (miss < 0 && verifyTries < 8) { verifyTries++; verifyAt = GetTickCount64() + 500; } // noch nicht fertig geladen
-			else if (miss == 1 && verifyTries < 10) {
-				verifyTries = 10;
+			if (miss < 0 && verifyTries < 12) { verifyTries++; verifyAt = GetTickCount64() + 300; } // noch nicht fertig geladen
+			else if (miss == 1 && verifyTries < 20) {
+				verifyTries = 20;
 				zl::Log("verify: car was built without your items -> respawn");
 				applyAt = GetTickCount64();
 			} else if (miss == 0) {
@@ -952,6 +955,19 @@ static void SyncPreview(void* actor, bool main) {
 	}
 	PreviewState& st = previews[actor];
 	if (st.gen != userGen.load()) { st.until.clear(); st.gen = userGen.load(); } // du hast gerade etwas geaendert: sofort
+	// Hast du im Spiel (Garage) inzwischen ein anderes eigenes Item ausgeruestet? Dann das als "deins" merken
+	for (auto& [slot, own] : st.orig) {
+		if (slot >= prods->count) continue;
+		int nowv = prods->data[slot];
+		auto tg = st.target.find(slot);
+		int ours = tg != st.target.end() ? int(tg->second / 1000) : -1;
+		if (nowv > 0 && nowv != ours && nowv != own.id) {
+			zl::Log("menu car: your own item in slot %d is now %d (was %d)", slot, nowv, own.id);
+			own = OwnPart{nowv, onlineAt(slot)};
+			st.target.erase(slot);
+			st.lastSeen.erase(slot);
+		}
+	}
 	// Was soll im Slot sein? Gewaehltes Item - oder dein eigenes Item, wenn du es lackieren willst
 	std::map<int, int> desired = ov;
 	for (auto& [slot, paint] : pt) {
@@ -974,7 +990,7 @@ static void SyncPreview(void* actor, bool main) {
 		if (ls != st.lastSeen.end() && ls->second == now && tg != st.target.end() && tg->second == tgt) continue; // schon gesetzt
 		unsigned long long t = GetTickCount64();
 		if (t < st.until[slot]) continue; // nicht staendig neu laden (z. B. beim Durchscrollen in der Garage)
-		st.until[slot] = t + 2500;
+		st.until[slot] = t + 1200;
 		if (!st.orig.count(slot)) st.orig[slot] = OwnPart{now, onlineAt(slot)}; // dein eigenes Item
 		ChangePart(actor, slot, id, wantId);
 		st.lastSeen[slot] = prods->data[slot];
@@ -1012,7 +1028,7 @@ void TickPreview() {
 	if (!ready || !clsPreview || offPrevLoadout < 0 || !fnChangePart) return;
 	unsigned long long t = GetTickCount64();
 	if (t < nextPreviewCheck) return;
-	nextPreviewCheck = t + 500;
+	nextPreviewCheck = t + 120; // schnell reagieren, wenn das Spiel das Menue-Auto neu aufbaut
 	// Im Spiel (Freeplay/Match) gibt es kein Vorschau-Auto: nicht suchen, damit nichts ruckelt
 	if (t - lastPlayerTick.load() < 1500) return;
 	// Nach einer Pause (Ladebildschirm, Spiel) die Liste neu aufbauen: alte Autos koennen schon geloescht sein
