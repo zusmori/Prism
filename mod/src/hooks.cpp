@@ -99,8 +99,16 @@ static void HookCursor() {
 // Mausrad: kommt im Spiel weder als normale Nachricht noch zuverlaessig als Raw Input an.
 // Ein Low-Level-Maus-Hook (eigener Thread) sieht es immer.
 static HHOOK llHook = nullptr;
+// Hauptmenue: neben dem F8-Menue darf man das Spiel normal bedienen, nur nicht durch das Menue hindurch
+static bool MouseForGame() {
+	if (items::InMatch()) return false;
+	POINT pt{};
+	if (!GetCursorPos(&pt) || !ScreenToClient(gameWnd, &pt)) return false;
+	return !gui::OverMenu(float(pt.x), float(pt.y));
+}
+
 static LRESULT CALLBACK LowLevelMouse(int code, WPARAM wp, LPARAM lp) {
-	if (code == HC_ACTION && wp == WM_MOUSEWHEEL && menuOpen && GetForegroundWindow() == gameWnd) {
+	if (code == HC_ACTION && wp == WM_MOUSEWHEEL && menuOpen && GetForegroundWindow() == gameWnd && !MouseForGame()) {
 		auto* m = reinterpret_cast<MSLLHOOKSTRUCT*>(lp);
 		rawWheel += short(HIWORD(m->mouseData));
 		return 1; // Spiel bekommt das Rad nicht, solange das Menue offen ist
@@ -239,16 +247,18 @@ static void PollKeys() {
 	}
 }
 
-static void ReadRawMouse(LPARAM lp) {
+// Raw Input lesen: Mausbewegung merken; liefert den Typ (Maus/Tastatur), -1 = unbekannt
+static int ReadRawMouse(LPARAM lp, bool count) {
 	RAWINPUT ri{};
 	UINT size = sizeof ri;
-	if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lp), RID_INPUT, &ri, &size, sizeof(RAWINPUTHEADER)) == UINT(-1)) return;
-	if (ri.header.dwType != RIM_TYPEMOUSE) return;
+	if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lp), RID_INPUT, &ri, &size, sizeof(RAWINPUTHEADER)) == UINT(-1)) return -1;
+	if (ri.header.dwType != RIM_TYPEMOUSE) return int(ri.header.dwType);
 	const RAWMOUSE& m = ri.data.mouse;
-	if (!(m.usFlags & MOUSE_MOVE_ABSOLUTE)) {
+	if (count && !(m.usFlags & MOUSE_MOVE_ABSOLUTE)) {
 		rawDX += m.lLastX;
 		rawDY += m.lLastY;
 	}
+	return RIM_TYPEMOUSE;
 }
 
 static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
@@ -258,19 +268,25 @@ static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 		return 0;
 	}
 	if (menuOpen && imguiReady) {
-		if (msg == WM_INPUT) ReadRawMouse(lp);
-		// Maustasten und -position kommen aus PollMouse, nur Tastatur/Rad hier
-		bool mouseMsg = (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) || msg == WM_SETCURSOR; // alles aus PollMouse
-		bool keyMsg = (msg >= WM_KEYFIRST && msg <= WM_KEYLAST);
-		// Nichts an ImGui weitergeben: Maus und Tastatur fragen wir selbst ab. Fokus-Nachrichten des Spiels
-		// (z. B. in der Garage) wuerden sonst das Suchfeld sofort wieder deaktivieren.
-		(void)mouseMsg; (void)keyMsg;
-		// Eingaben nicht ans Spiel weitergeben, solange das Menue offen ist
+		// Im Hauptmenue gehen Maus-Eingaben neben dem Menue ans Spiel, Tasten nur, wenn kein Textfeld aktiv ist
+		bool mouseGame = MouseForGame();
+		bool keysGame = !items::InMatch() && !gui::FieldFocused();
 		switch (msg) {
-		case WM_MOUSEMOVE: case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_RBUTTONDOWN: case WM_RBUTTONUP:
-		case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MOUSEWHEEL: case WM_LBUTTONDBLCLK: case WM_RBUTTONDBLCLK:
-		case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR: case WM_SYSKEYDOWN: case WM_SYSKEYUP: case WM_INPUT:
-			return msg == WM_INPUT ? DefWindowProcW(h, msg, wp, lp) : 0;
+		case WM_INPUT: {
+			int type = ReadRawMouse(lp, true);
+			if (type == RIM_TYPEMOUSE ? mouseGame : (type == RIM_TYPEKEYBOARD && keysGame)) break;
+			return DefWindowProcW(h, msg, wp, lp);
+		}
+		case WM_LBUTTONUP: case WM_RBUTTONUP: case WM_MBUTTONUP:
+			if (!items::InMatch()) break; // Loslassen immer durchlassen, sonst "klemmt" die Taste im Spiel
+			return 0;
+		case WM_MOUSEMOVE: case WM_LBUTTONDOWN: case WM_RBUTTONDOWN: case WM_MBUTTONDOWN: case WM_MOUSEWHEEL:
+		case WM_LBUTTONDBLCLK: case WM_RBUTTONDBLCLK: case WM_MBUTTONDBLCLK:
+			if (mouseGame) break;
+			return 0;
+		case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR: case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+			if (keysGame && wp != VK_ESCAPE && wp != VK_F8) break; // Esc schliesst nur das Menue
+			return 0;
 		}
 	}
 	return CallWindowProcW(wndOrig, h, msg, wp, lp);

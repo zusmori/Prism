@@ -287,6 +287,18 @@ int PropOffset(void* cls, const char* name) {
 	}
 }
 
+// Bit einer bool-Eigenschaft (UBoolProperty::BitMask); 0 = nicht gefunden/unplausibel
+uint32_t BoolMask(void* cls, const char* name) {
+	try {
+		void* p = FindChild(cls, name, false);
+		if (!p || Name(ClassOf(p)) != "BoolProperty") return 0;
+		uint32_t m = Read<uint32_t>(p, 0xC8);
+		return (m && !(m & (m - 1))) ? m : 0; // genau ein Bit
+	} catch (...) {
+		return 0;
+	}
+}
+
 void* FindFunction(void* cls, const char* name) {
 	try {
 		return FindChild(cls, name, true);

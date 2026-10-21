@@ -57,6 +57,7 @@ void* FindClass(const char* fullName) ;
 std::vector<void*> Instances(void* cls); // ohne "Default__"-Objekte
 bool IsA(const void* obj, const void* cls);
 int PropOffset(void* cls, const char* name); // -1 = nicht gefunden
+uint32_t BoolMask(void* cls, const char* name); // Bit einer bool-Eigenschaft, 0 = unbekannt
 void* FindFunction(void* cls, const char* name);
 int StructSize(void* strct);
 

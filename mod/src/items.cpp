@@ -1,6 +1,7 @@
 #include "items.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <atomic>
 #include <cstring>
@@ -51,6 +52,8 @@ void RunQueue() {
 }
 
 static void TickColors(void* previewActor, void* car);
+static void CarEventColors(void* car);
+static std::atomic<void*> localPRIForColors{nullptr}; // PRI deines Autos (fuer die Farben)
 static void PatchColorEvent(void* mesh, void* params);
 static void *clsCarMesh = nullptr, *fnApplyColors = nullptr;
 // ---------- Engine-Infos ----------
@@ -259,7 +262,15 @@ void LoadProducts() {
 			out.push_back(std::move(it));
 		} catch (...) {}
 	}
-	std::sort(out.begin(), out.end(), [](const Item& a, const Item& b) { return a.name < b.name; });
+	// Seltenste zuerst (Black Market, Exotic, Limited, Premium, Import, Very Rare, Rare, Uncommon, Common, Legacy), dann nach Namen
+	auto rank = [](int q) {
+		static const int r[] = {8, 7, 6, 5, 4, 1, 0, 3, 2, 9};
+		return (q >= 0 && q < 10) ? r[q] : 10;
+	};
+	std::sort(out.begin(), out.end(), [&](const Item& a, const Item& b) {
+		int ra = rank(a.quality), rb = rank(b.quality);
+		return ra != rb ? ra < rb : a.name < b.name;
+	});
 	int np = 0;
 	for (auto& it : out) { np += it.paintable; paintableById[it.id] = it.paintable; }
 	zl::Log("items loaded: %d (%d paintable)", (int)out.size(), np);
@@ -661,8 +672,12 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	static bool lastIsCar = false;
 	void* cls = ue::ClassOf(caller);
 	if (cls != lastCls) { lastCls = cls; lastIsCar = clsCar && ue::IsA(caller, clsCar); }
-	if (lastIsCar || now >= nextCheck) {
+	if (lastIsCar) try { CarEventColors(caller); } catch (...) {}
+	// Autos feuern sehr viele Ereignisse pro Bild - hoechstens alle 4 ms pruefen
+	static unsigned long long nextCarCheck = 0;
+	if ((lastIsCar && now >= nextCarCheck) || now >= nextCheck) {
 		nextCheck = now + 40;
+		nextCarCheck = now + 4;
 		try { EnsureLocalLoadout(); } catch (...) {}
 	}
 	if (tickFns.count(fn)) { // lokaler Spieler
@@ -713,6 +728,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		}
 		inGame = true;
 		lastPlayerTick = GetTickCount64();
+		try { localPRIForColors = offPRI >= 0 ? ue::Read<void*>(caller, offPRI) : nullptr; } catch (...) {}
 		try { TickColors(nullptr, pawn); } catch (...) {}
 		// Gebuendeltes Anwenden hier im PlayerTick: sicherer Moment, um das Auto neu zu spawnen
 		if (unsigned long long t = applyAt.load(); t && GetTickCount64() >= t) {
@@ -1045,6 +1061,13 @@ static std::atomic<int> colorGen{1};
 static int offApplyTeam = -1, offApplyCustom = -1, offTeamOverride = -1, offCustomOverride = -1, offPreviewMesh = -1, offCarMesh = -1, offMeshTeam = -1;
 static std::atomic<void*> ourMeshes[2]; // [0] Menue-Auto, [1] dein Auto im Spiel
 static bool colorsTried = false;
+// "Use Default Team Colors" (bzw. Standard-Teamfarben im Freeplay) steckt in TeamColorPreferences_TA, auf das
+// jedes Auto-Modell zeigt. Ist es an, nimmt das Spiel statt deiner Farben immer blau/orange.
+// Dein Auto bekommt deshalb saubere Einstellungen (die Standardwerte der Klasse), alle anderen Autos nicht.
+static int offColorPrefs = -1, offPrefsBits = -1;
+static uint32_t prefsMask = 0;
+static void* cleanPrefs = nullptr;
+static std::map<void*, void*> prefsOrig; // Modell -> urspruengliche Einstellungen
 
 static bool EnsureColors() {
 	if (colorsTried) return fnApplyColors != nullptr;
@@ -1056,9 +1079,22 @@ static bool EnsureColors() {
 		offTeamOverride = ue::PropOffset(clsCarMesh, "TeamColorOverride");
 		offCustomOverride = ue::PropOffset(clsCarMesh, "CustomColorOverride");
 		offMeshTeam = ue::PropOffset(clsCarMesh, "Team");
+		offColorPrefs = ue::PropOffset(clsCarMesh, "ColorPrefs");
 	}
 	if (clsPreview) offPreviewMesh = ue::PropOffset(clsPreview, "CarMesh");
 	if (clsCar) offCarMesh = ue::PropOffset(clsCar, "CarMesh");
+	if (void* clsPrefs = ue::FindClass("Class TAGame.TeamColorPreferences_TA")) {
+		offPrefsBits = ue::PropOffset(clsPrefs, "bForceDefaultColors");
+		int off2 = ue::PropOffset(clsPrefs, "bFreeplayDefaultTeamColors");
+		uint32_t m1 = ue::BoolMask(clsPrefs, "bForceDefaultColors"), m2 = ue::BoolMask(clsPrefs, "bFreeplayDefaultTeamColors");
+		if (!m1) m1 = 0x2;
+		if (!m2) m2 = 0x4;
+		if (offPrefsBits >= 0) prefsMask = m1 | (off2 == offPrefsBits ? m2 : 0);
+		void* cdo = ue::FindObject("TeamColorPreferences_TA TAGame.Default__TeamColorPreferences_TA");
+		uint32_t bits = (cdo && offPrefsBits >= 0) ? ue::Read<uint32_t>(cdo, offPrefsBits) : 0xFFFFFFFF;
+		if (cdo && prefsMask && !(bits & prefsMask)) cleanPrefs = cdo;
+		zl::Log("colors: prefs=%x bits=%x mask=%x (%x/%x) clean=%p (default bits %x)", offColorPrefs, offPrefsBits, prefsMask, m1, m2, cleanPrefs, bits);
+	}
 	zl::Log("colors: mesh=%p apply=%p (team=%x custom=%x) overrides=%x/%x previewMesh=%x carMesh=%x", clsCarMesh, fnApplyColors, offApplyTeam, offApplyCustom,
 		offTeamOverride, offCustomOverride, offPreviewMesh, offCarMesh);
 	return fnApplyColors != nullptr;
@@ -1069,7 +1105,7 @@ static void LinearColors(void* mesh, float lin[2][4]) {
 	int team = 0;
 	if (!colorsBoth && offMeshTeam >= 0) team = std::clamp(ue::Read<int32_t>(mesh, offMeshTeam), 0, 1);
 	for (int c = 0; c < 2; c++) {
-		for (int k = 0; k < 3; k++) lin[c][k] = powf(std::clamp(colors[team][c][k], 0.0f, 1.0f), 2.2f);
+		for (int k = 0; k < 3; k++) lin[c][k] = std::max(powf(std::clamp(colors[team][c][k], 0.0f, 1.0f), 2.2f), 0.0004f); // nie ganz 0 (reines Schwarz)
 		lin[c][3] = 1.0f;
 	}
 }
@@ -1086,33 +1122,108 @@ static void PatchColorEvent(void* mesh, void* params) {
 	if (n++ < 6) zl::Log("colors: game applied colors on %s -> replaced", ue::Name(mesh).c_str());
 }
 
+// Dein Modell: Standard-Teamfarben aus, unsere Farben als Override eintragen (nur Speicher, kein Aufruf -
+// geht auch mitten im Aufbau des Autos, damit es gar nicht erst in der normalen Farbe erscheint)
+static void MarkOurs(void* mesh) {
+	if (offColorPrefs >= 0 && cleanPrefs) {
+		void* cur = ue::Read<void*>(mesh, offColorPrefs);
+		if (cur != cleanPrefs) {
+			if (!prefsOrig.count(mesh)) prefsOrig[mesh] = cur;
+			*ue::Ptr<void*>(mesh, offColorPrefs) = cleanPrefs;
+			static int n = 0;
+			if (n++ < 4) zl::Log("colors: %s uses its own color settings (was %p, bits %x)", ue::Name(mesh).c_str(), cur,
+				(cur && offPrefsBits >= 0) ? ue::Read<uint32_t>(cur, offPrefsBits) : 0);
+		}
+	}
+	float lin[2][4];
+	LinearColors(mesh, lin);
+	if (offTeamOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(mesh) + offTeamOverride, lin[0], 16);
+	if (offCustomOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(mesh) + offCustomOverride, lin[1], 16);
+}
+
+// Stimmt bei deinem Modell noch alles (Override + Einstellungen)?
+static bool ColorsIntact(void* mesh) {
+	if (offColorPrefs >= 0 && cleanPrefs && ue::Read<void*>(mesh, offColorPrefs) != cleanPrefs) return false;
+	float lin[2][4];
+	LinearColors(mesh, lin);
+	if (offTeamOverride >= 0 && memcmp(reinterpret_cast<uint8_t*>(mesh) + offTeamOverride, lin[0], 16) != 0) return false;
+	if (offCustomOverride >= 0 && memcmp(reinterpret_cast<uint8_t*>(mesh) + offCustomOverride, lin[1], 16) != 0) return false;
+	return true;
+}
+
+static void RestorePrefs() {
+	if (offColorPrefs < 0) return;
+	for (auto& [m, p] : prefsOrig)
+		if (ue::IsAlive(m) && ue::Read<void*>(m, offColorPrefs) == cleanPrefs) *ue::Ptr<void*>(m, offColorPrefs) = p;
+	prefsOrig.clear();
+}
+
 // Farben auf ein Auto-Modell legen (merkt sich pro Modell, ob es schon die aktuellen Farben hat)
 static std::map<void*, int> colorsApplied;
 static void ApplyColorsTo(void* mesh, bool force) {
 	if (!mesh || !ue::IsAlive(mesh) || !EnsureColors() || offApplyTeam < 0 || offApplyCustom < 0) return;
 	int gen = colorGen.load();
 	if (!force && colorsApplied[mesh] == gen) return;
+	MarkOurs(mesh);
 	float lin[2][4];
 	LinearColors(mesh, lin);
-	if (offTeamOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(mesh) + offTeamOverride, lin[0], 16);
-	if (offCustomOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(mesh) + offCustomOverride, lin[1], 16);
+	// Falls das Spiel die Einstellung trotzdem liest: waehrend unseres Aufrufs "Standard-Teamfarben" aus
+	void* pr = offColorPrefs >= 0 ? ue::Read<void*>(mesh, offColorPrefs) : nullptr;
+	uint32_t* bits = (pr && offPrefsBits >= 0 && prefsMask && ue::IsValid(pr)) ? ue::Ptr<uint32_t>(pr, offPrefsBits) : nullptr;
+	uint32_t saved = bits ? *bits : 0;
+	if (bits) *bits &= ~prefsMask;
 	std::vector<uint8_t> p(size_t(ue::StructSize(fnApplyColors)) + 16, 0);
 	memcpy(p.data() + offApplyTeam, lin[0], 16);
 	memcpy(p.data() + offApplyCustom, lin[1], 16);
 	ue::Call(mesh, fnApplyColors, p.data());
+	if (bits) *bits = saved;
 	colorsApplied[mesh] = gen;
+	if (colorsApplied.size() > 48) // alte Modelle (z. B. nach vielen Resets) vergessen
+		for (auto it = colorsApplied.begin(); it != colorsApplied.end();) it = ue::IsAlive(it->first) ? std::next(it) : colorsApplied.erase(it);
+	if (prefsOrig.size() > 48)
+		for (auto it = prefsOrig.begin(); it != prefsOrig.end();) it = ue::IsAlive(it->first) ? std::next(it) : prefsOrig.erase(it);
 }
 
-// Regelmaessig aufrufen: das Spiel setzt die Farben z. B. beim Teilewechsel wieder zurueck
+// Ereignis eines Autos: ist es deins und hat es ein neues Modell (Reset/Respawn), sofort markieren.
+// So baut das Spiel das neue Auto direkt in deinen Farben auf.
+static void CarEventColors(void* car) {
+	if (!colorsOn || offCarMesh < 0 || offPawnPRI < 0 || !clsCarMesh) return;
+	void* pri = localPRIForColors.load();
+	if (!pri || ue::Read<void*>(car, offPawnPRI) != pri) return;
+	void* m = ue::Read<void*>(car, offCarMesh);
+	if (!m || m == ourMeshes[1].load() || !ue::IsAlive(m) || !ue::IsA(m, clsCarMesh)) return;
+	MarkOurs(m);
+}
+
+// Dein Auto im Spiel: nicht mehr jedes Bild (das war teuer und hat bei Resets kurz eingefroren), sondern
+// sofort bei einem neuen Modell, danach kurz oefter (Teile laden nach) und dann nur noch zur Kontrolle.
+static void TickCarColors(void* car) {
+	if (!car || offCarMesh < 0 || !EnsureColors()) return;
+	void* m = ue::Read<void*>(car, offCarMesh);
+	if (!m || !ue::IsAlive(m)) return;
+	static unsigned long long seenAt = 0, next = 0, lastFull = 0;
+	static int lastGen = -1;
+	unsigned long long now = GetTickCount64();
+	bool fresh = m != ourMeshes[1].load();
+	if (fresh) {
+		zl::Log("colors: your car's model %p (%s)", m, ue::Name(m).c_str());
+		ourMeshes[1] = m;
+		seenAt = now;
+	}
+	int gen = colorGen.load();
+	if (!fresh && gen == lastGen && now < next) return;
+	bool early = now - seenAt < 1500;
+	next = now + (early ? 100 : 1000);
+	if (!fresh && gen == lastGen && !early && ColorsIntact(m) && now - lastFull < 5000) return;
+	lastGen = gen;
+	lastFull = now;
+	ApplyColorsTo(m, true);
+}
+
 static void TickColors(void* previewActor, void* car) {
 	if (!colorsOn) return;
-	// Im Spiel jedes Bild: das Spiel setzt die Farben beim Zuruecksetzen (neues Auto) und mit
-	// "Use standard team colors" selbst wieder - so sieht man die normale Farbe nie, auch nicht kurz
-	if (car && offCarMesh >= 0 && EnsureColors()) {
-		void* m = ue::Read<void*>(car, offCarMesh);
-		if (m != ourMeshes[1].load()) zl::Log("colors: your car's model %p (%s)", m, m ? ue::Name(m).c_str() : "-");
-		ourMeshes[1] = m;
-		ApplyColorsTo(m, true);
+	if (car) {
+		TickCarColors(car);
 		if (!previewActor) return;
 	}
 	static unsigned long long next = 0;
@@ -1124,12 +1235,6 @@ static void TickColors(void* previewActor, void* car) {
 	if (previewActor && offPreviewMesh >= 0) {
 		void* m = ue::Read<void*>(previewActor, offPreviewMesh);
 		ourMeshes[0] = m;
-		ApplyColorsTo(m, beat);
-	}
-	if (car && offCarMesh >= 0) {
-		void* m = ue::Read<void*>(car, offCarMesh);
-		if (m != ourMeshes[1].load()) zl::Log("colors: your car's model %p (%s)", m, m ? ue::Name(m).c_str() : "-");
-		ourMeshes[1] = m;
 		ApplyColorsTo(m, beat);
 	}
 }
@@ -1216,20 +1321,66 @@ void LoadPresets() {
 	zl::Log("presets: %d", (int)presets.size());
 }
 
-void AddPreset(const std::string& rawName) {
+static std::string CleanName(const std::string& raw) {
 	std::string name;
-	for (char c : rawName)
+	for (char c : raw)
 		if (c != '\t' && c != '\n' && c != '\r') name += c;
 	while (!name.empty() && name.back() == ' ') name.pop_back();
+	while (!name.empty() && name.front() == ' ') name.erase(name.begin());
+	return name;
+}
+static bool SameName(const std::string& a, const std::string& b) {
+	if (a.size() != b.size()) return false;
+	for (size_t i = 0; i < a.size(); i++)
+		if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i])) return false;
+	return true;
+}
+// aktuelle Items in ein Preset schreiben (mu muss gesperrt sein)
+static void FillPreset(Preset& p) {
+	p.items = overrides;
+	p.paints.clear();
+	for (auto& [slot, pid] : paints)
+		if (overrides.count(slot)) p.paints[slot] = pid;
+}
+
+int FindPreset(const std::string& rawName) {
+	std::string name = CleanName(rawName);
+	if (name.empty()) return -1;
+	std::lock_guard<std::mutex> lk(mu);
+	for (int i = 0; i < (int)presets.size(); i++)
+		if (SameName(presets[i].name, name)) return i;
+	return -1;
+}
+
+void AddPreset(const std::string& rawName) {
+	std::string name = CleanName(rawName);
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		if (name.empty()) name = "Preset " + std::to_string(presets.size() + 1);
-		Preset p;
-		p.name = name;
-		p.items = overrides;
-		for (auto& [slot, pid] : paints)
-			if (overrides.count(slot)) p.paints[slot] = pid;
-		presets.insert(presets.begin(), std::move(p)); // neuestes oben
+		bool found = false;
+		for (auto& p : presets) // gleicher Name: dieses Preset ueberschreiben statt doppelt anlegen
+			if (!found && SameName(p.name, name)) {
+				p.name = name;
+				FillPreset(p);
+				found = true;
+			}
+		if (!found) {
+			Preset p;
+			p.name = name;
+			FillPreset(p);
+			presets.insert(presets.begin(), std::move(p)); // neuestes oben
+		}
+	}
+	SavePresets();
+}
+
+void UpdatePreset(int i, const std::string& rawName) {
+	std::string name = CleanName(rawName);
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		if (i < 0 || i >= (int)presets.size()) return;
+		if (!name.empty()) presets[i].name = name;
+		FillPreset(presets[i]);
 	}
 	SavePresets();
 }
@@ -1262,6 +1413,27 @@ void ApplyPreset(int i) {
 	nextPreviewCheck = 0;
 	applyAt = GetTickCount64() + 400;
 	Save();
+}
+
+// Alles zurueck auf deine echten Items (Lackierungen, Finishes und eigene Farben aus)
+void ResetAll() {
+	std::map<int, int> before;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		before = overrides;
+		overrides.clear();
+		paints.clear();
+	}
+	userGen++;
+	Queue([before] {
+		for (auto& [slot, id] : before) restore.insert(slot);
+		paintFailed.clear();
+	});
+	SetColors(false, colorsBoth, nullptr, false);
+	nextPreviewCheck = 0;
+	applyAt = GetTickCount64() + 400;
+	Save();
+	zl::Log("reset: everything back to your own items");
 }
 
 void LoadSaved() {

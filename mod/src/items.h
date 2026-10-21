@@ -50,7 +50,7 @@ void OnProcessEvent(void* caller, void* fn, void* params); // vor dem Original a
 
 // GUI-Thread (mit Sperre)
 extern std::mutex mu;
-extern std::vector<Item> list;        // alle Items, nach Namen sortiert
+extern std::vector<Item> list;        // alle Items, seltenste zuerst, dann nach Namen
 extern std::map<int, int> overrides;  // Slot -> Produkt-ID
 extern std::map<int, int> paints;     // Slot -> Farb-ID (nur bei lackierbaren Items)
 extern std::vector<PaintInfo> paintList;
@@ -77,7 +77,10 @@ struct Preset {
 extern std::vector<Preset> presets; // mit mu sperren
 void LoadPresets();
 void SavePresets();
-void AddPreset(const std::string& name); // aktuelle Items speichern
+void AddPreset(const std::string& name); // aktuelle Items speichern (gleicher Name = ueberschreiben)
+void UpdatePreset(int i, const std::string& name); // Preset mit den aktuellen Items ueberschreiben (Name leer = bleibt)
+int FindPreset(const std::string& name); // -1 = gibt es nicht
+void ResetAll(); // alles auf deine echten Items, eigene Farben aus
 void DeletePreset(int i);
 void ApplyPreset(int i);
 void Save();
