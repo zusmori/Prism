@@ -858,6 +858,15 @@ static int TintTemplate(void* ps, const float* target) {
 				if (!mod) continue;
 				const char* prop = nullptr;
 				bool grayToo = true;
+				if (!grModLogged && l == 0) {
+					std::string extra;
+					// Partikel-Parameter (vom Spiel pro Boost setzbar) und Materialien der Module
+					for (const char* pn : {"ColorParam", "ParameterName", "MeshMaterials", "Mesh"}) {
+						int po = ue::PropOffset(ue::ClassOf(mod), pn);
+						if (po >= 0) extra += std::string(" ") + pn;
+					}
+					zl::Log("gold rush:   emitter %d module %s%s", e, ue::FullName(mod).c_str(), extra.c_str());
+				}
 				if (mCol && ue::IsA(mod, mCol)) prop = "ColorOverLife";
 				else if (mScale && ue::IsA(mod, mScale)) { prop = "ColorScaleOverLife"; grayToo = false; }
 				else if (mColor && ue::IsA(mod, mColor)) prop = "StartColor";
@@ -900,8 +909,14 @@ static int TintTemplate(void* ps, const float* target) {
 						snprintf(b, sizeof b, " now=(%.2f %.2f %.2f)", tab->data[2], tab->data[3], tab->data[4]);
 						vals = b;
 					}
+					std::string dname;
+					if (dist && ue::IsValid(dist)) {
+						dname = ue::Name(ue::ClassOf(dist));
+						int pn = ue::PropOffset(ue::ClassOf(dist), "ParameterName");
+						if (pn >= 0) dname += " param '" + ue::NameOf(ue::Read<int32_t>(dist, pn)) + "'";
+					}
 					zl::Log("gold rush:   emitter %d lod %d %s.%s table=%d chunk=%d dist=%s -> %d colors changed%s", e, l, ue::Name(ue::ClassOf(mod)).c_str(), prop,
-						tab->data ? tab->count : 0, chunk, dist ? ue::Name(ue::ClassOf(dist)).c_str() : "-", changed - before, vals.c_str());
+						tab->data ? tab->count : 0, chunk, dname.empty() ? "-" : dname.c_str(), changed - before, vals.c_str());
 				}
 			}
 		}
@@ -1005,7 +1020,17 @@ static void CollectTemplateMics(void* ps, std::vector<void*>& out) {
 		for (int l = 0; lods->data && l < lods->count && l < 8; l++) {
 			void* lod = lods->data[l];
 			if (!lod) continue;
-			if (oReq >= 0 && oMat >= 0) if (void* rq = ue::Read<void*>(lod, oReq)) add(ue::Read<void*>(rq, oMat));
+			if (oReq >= 0 && oMat >= 0)
+				if (void* rq = ue::Read<void*>(lod, oReq)) {
+					void* mat = ue::Read<void*>(rq, oMat);
+					if (!grDumped && l == 0) {
+						std::string chain;
+						for (void* mm = mat; mm && chain.size() < 300; mm = (oMicParent >= 0 && ue::IsA(mm, clsMIC)) ? ue::Read<void*>(mm, oMicParent) : nullptr)
+							chain += " -> " + ue::FullName(mm);
+						zl::Log("gold rush:   %s emitter %d material%s", ue::Name(ps).c_str(), e, chain.empty() ? " none" : chain.c_str());
+					}
+					add(mat);
+				}
 			if (oMods >= 0 && oMeshMats >= 0) {
 				auto* mods = ue::Ptr<ue::TArray<void*>>(lod, oMods);
 				for (int m = 0; mods->data && m < mods->count && m < 64; m++) {
@@ -1021,8 +1046,7 @@ static void CollectTemplateMics(void* ps, std::vector<void*>& out) {
 
 // Einmalig ins Log: was steckt im Paket des Boosts (zum Nachbessern)
 static void DumpGoldRush(const std::vector<void*>& all) {
-	if (grDumped) return;
-	grDumped = true;
+	if (grDumped || grTemplates.empty()) return;
 	std::map<std::string, int> byClass;
 	for (void* o : all) byClass[ue::Name(ue::ClassOf(o))]++;
 	std::string cls;
@@ -1050,6 +1074,31 @@ static void DumpGoldRush(const std::vector<void*>& all) {
 		if (c == "Material" || c.find("Texture") != std::string::npos || c.find("StaticMesh") != std::string::npos || c.find("FXActor") != std::string::npos)
 			if (lines++ < 120) zl::Log("gold rush: %s", ue::FullName(o).c_str());
 	}
+}
+
+// Welche Partikel zeigt das Spiel gerade am Boost? (einmal pro Spielstart ins Log)
+static void DiagBoostComponents() {
+	static int runs = 0;
+	if (runs >= 3) return;
+	void* clsPSC = ue::FindClass("Class Engine.ParticleSystemComponent");
+	void* clsAC = ue::FindClass("Class Engine.ActorComponent");
+	if (!clsPSC) return;
+	int oTpl = ue::PropOffset(clsPSC, "Template"), oOwner = clsAC ? ue::PropOffset(clsAC, "Owner") : -1;
+	if (oTpl < 0) return;
+	runs++;
+	int lines = 0;
+	for (void* c : ue::Instances(clsPSC)) {
+		if (!ue::IsValid(c)) continue;
+		void* t = ue::Read<void*>(c, oTpl);
+		void* ow = oOwner >= 0 ? ue::Read<void*>(c, oOwner) : nullptr;
+		std::string on = ow ? ue::Name(ue::ClassOf(ow)) : "";
+		bool ours = t && std::find(grTemplates.begin(), grTemplates.end(), t) != grTemplates.end();
+		if (!ours && LowerS(on).find("boost") == std::string::npos) continue;
+		if (lines++ < 40)
+			zl::Log("gold rush: psc %s owner=%s %s template=%s%s", ue::Name(c).c_str(), on.c_str(), ow ? ue::Name(ow).c_str() : "-",
+				t ? ue::FullName(t).c_str() : "-", ours ? " (ours)" : "");
+	}
+	zl::Log("gold rush: %d boost particle components (run %d)", lines, runs);
 }
 
 static bool FindGoldRushFx() {
@@ -1091,6 +1140,7 @@ static bool FindGoldRushFx() {
 	}
 	if (clsMIC) for (void* t : grTemplates) CollectTemplateMics(t, grMics);
 	DumpGoldRush(all);
+	if (!grTemplates.empty()) grDumped = true;
 	return !all.empty();
 }
 
@@ -1141,11 +1191,12 @@ static void TickBoostPaint() {
 	refresh = now + 2000;
 	int n = 0, m = 0;
 	for (void* t : grTemplates) n += TintTemplate(t, target);
-	grModLogged = true;
+	if (!grTemplates.empty()) grModLogged = true;
 	if (fnSetVec) for (void* mic : grMics) TintMic(mic, target, m);
 	if (grApplied != want)
 		zl::Log("gold rush: paint %d -> %d particle colors, %d material colors (%d fx, %d materials, target %.2f %.2f %.2f)", want, n, m,
 			(int)grTemplates.size(), (int)grMics.size(), target[0], target[1], target[2]);
+	if (grApplied != want) DiagBoostComponents();
 	grApplied = want;
 }
 
