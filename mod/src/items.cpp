@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstdio>
 #include <set>
+#include <unordered_map>
 
 #include "log.h"
 #include "ue.h"
@@ -779,6 +780,211 @@ static int CarMissesItems(void* car) {
 	return 0;
 }
 
+// ---------- Lackierter Gold Rush ----------
+// Der Alpha-Boost "Gold Rush" hat im Spiel keine Lackierungen: seine Partikel ignorieren das Lack-Attribut.
+// Deshalb werden hier die Farben in seinen Partikel-Vorlagen direkt umgefaerbt (nur auf deinem PC sichtbar)
+// und beim Abwaehlen wieder auf die Originalwerte gesetzt.
+static const int kGoldRush = 32;
+struct FloatPatch { void* owner; float* p; float orig; };
+static std::unordered_map<float*, FloatPatch> grPatches; // Originalwerte aller geaenderten Farben
+static std::vector<void*> grTemplates;        // gefundene Partikel-Vorlagen des Gold Rush
+static int grApplied = 0;                     // aktuell angewendete Lackierung (0 = original)
+static unsigned long long grNext = 0, grScanAt = 0;
+static bool grLogged = false;
+
+static std::string LowerS(std::string v) { for (auto& c : v) c = (char)tolower((unsigned char)c); return v; }
+static std::string Outermost(void* o) {
+	void* last = o;
+	for (int i = 0; i < 16 && o; i++) { last = o; o = ue::OuterOf(o); }
+	return ue::Name(last);
+}
+
+static bool FindGoldRushFx() {
+	grTemplates.clear();
+	void* clsPS = ue::FindClass("Class Engine.ParticleSystem");
+	if (!clsPS) return false;
+	// Paketname des Boosts aus den Produktdaten (z. B. "Boost_...")
+	std::string pkg;
+	auto dbs = ue::Instances(clsDB);
+	if (!dbs.empty()) {
+		auto* arr = ue::Ptr<ue::TArray<void*>>(dbs[0], offProducts);
+		void* prod = (arr->data && kGoldRush < arr->count) ? arr->data[kGoldRush] : nullptr;
+		int offPkg = ue::PropOffset(clsProduct, "AssetPackageName");
+		if (prod && offPkg >= 0) pkg = ue::NameOf(ue::Read<int32_t>(prod, offPkg));
+		if (!grLogged) zl::Log("gold rush: product %p asset package '%s'", prod, pkg.c_str());
+	}
+	std::string lp = LowerS(pkg);
+	std::vector<std::string> boosty;
+	for (void* ps : ue::Instances(clsPS)) {
+		if (!ue::IsAlive(ps)) continue;
+		std::string outer = LowerS(Outermost(ps)), full = LowerS(ue::FullName(ps));
+		bool hit = (!lp.empty() && outer == lp) || full.find("goldrush") != std::string::npos || full.find("gold_rush") != std::string::npos;
+		if (hit) grTemplates.push_back(ps);
+		else if (!grLogged && boosty.size() < 25 && full.find("boost") != std::string::npos) boosty.push_back(ue::FullName(ps) + " [" + Outermost(ps) + "]");
+	}
+	if (!grLogged) {
+		for (void* t : grTemplates) zl::Log("gold rush: fx %s [%s]", ue::FullName(t).c_str(), Outermost(t).c_str());
+		if (grTemplates.empty()) for (auto& b : boosty) zl::Log("gold rush: (not it) %s", b.c_str());
+	}
+	return !grTemplates.empty();
+}
+
+// Farbe aendern: Helligkeit des Originals bleibt, Farbton kommt von der Lackierung
+static void Tint(float* rgb, const float* target, bool grayToo) {
+	float r = rgb[0], g = rgb[1], b = rgb[2];
+	float mx = std::max({r, g, b}), mn = std::min({r, g, b});
+	if (mx <= 0.0001f) return;
+	bool colored = (mx - mn) > 0.15f * mx;
+	if (!colored && !grayToo) return; // neutrale Skalierung (weiss) nicht anfassen
+	for (int k = 0; k < 3; k++) rgb[k] = target[k] * mx;
+}
+
+static void PatchTriples(void* owner, float* f, int n, const float* target, bool grayToo, int& changed) {
+	for (int i = 0; i + 2 < n; i += 3) {
+		for (int k = 0; k < 3; k++) {
+			float* q = f + i + k;
+			auto it = grPatches.find(q);
+			if (it != grPatches.end()) *q = it->second.orig; // immer vom Original aus
+			else grPatches[q] = {owner, q, *q};
+		}
+		float before[3] = {f[i], f[i + 1], f[i + 2]};
+		Tint(f + i, target, grayToo);
+		if (before[0] != f[i] || before[1] != f[i + 1] || before[2] != f[i + 2]) changed++;
+	}
+}
+
+static void RestoreGoldRush() {
+	for (auto& [q, pt] : grPatches)
+		if (ue::IsAlive(pt.owner)) *pt.p = pt.orig;
+	grPatches.clear();
+}
+
+// Alle Farb-Module einer Vorlage umfaerben (target = lineare Farbe 0..1)
+static int TintTemplate(void* ps, const float* target) {
+	static void *clsEm = ue::FindClass("Class Engine.ParticleEmitter"), *clsLod = ue::FindClass("Class Engine.ParticleLODLevel");
+	static void *mColor = ue::FindClass("Class Engine.ParticleModuleColor"), *mCol = ue::FindClass("Class Engine.ParticleModuleColorOverLife"),
+				*mScale = ue::FindClass("Class Engine.ParticleModuleColorScaleOverLife");
+	static void* raw = ue::FindObject("ScriptStruct Core.DistributionVector.RawDistributionVector");
+	static int oTable = raw ? ue::PropOffset(raw, "LookupTable") : 8, oChunk = raw ? ue::PropOffset(raw, "LookupTableChunkSize") : 3,
+			   oDist = raw ? ue::PropOffset(raw, "Distribution") : 32;
+	static void* curvePt = ue::FindObject("ScriptStruct Core.Object.InterpCurvePointVector");
+	static int curveStride = curvePt ? ue::StructSize(curvePt) : 44, curveOut = curvePt ? ue::PropOffset(curvePt, "OutVal") : 4;
+	static void* clsPS = ue::FindClass("Class Engine.ParticleSystem");
+	int oEmitters = ue::PropOffset(clsPS, "Emitters");
+	int oLods = clsEm ? ue::PropOffset(clsEm, "LODLevels") : -1, oMods = clsLod ? ue::PropOffset(clsLod, "Modules") : -1;
+	if (oEmitters < 0 || oLods < 0 || oMods < 0) return 0;
+	int changed = 0;
+	auto* ems = ue::Ptr<ue::TArray<void*>>(ps, oEmitters);
+	for (int e = 0; ems->data && e < ems->count && e < 64; e++) {
+		void* em = ems->data[e];
+		if (!em) continue;
+		auto* lods = ue::Ptr<ue::TArray<void*>>(em, oLods);
+		for (int l = 0; lods->data && l < lods->count && l < 8; l++) {
+			void* lod = lods->data[l];
+			if (!lod) continue;
+			auto* mods = ue::Ptr<ue::TArray<void*>>(lod, oMods);
+			for (int m = 0; mods->data && m < mods->count && m < 64; m++) {
+				void* mod = mods->data[m];
+				if (!mod) continue;
+				const char* prop = nullptr;
+				bool grayToo = true;
+				if (mCol && ue::IsA(mod, mCol)) prop = "ColorOverLife";
+				else if (mScale && ue::IsA(mod, mScale)) { prop = "ColorScaleOverLife"; grayToo = false; }
+				else if (mColor && ue::IsA(mod, mColor)) prop = "StartColor";
+				if (!prop) continue;
+				int o = ue::PropOffset(ue::ClassOf(mod), prop);
+				if (o < 0) continue;
+				uint8_t* rd = reinterpret_cast<uint8_t*>(mod) + o;
+				int before = changed;
+				// 1) vorberechnete Tabelle (wird im fertigen Spiel benutzt): [Min, Max, dann Werte]
+				auto* tab = reinterpret_cast<ue::TArray<float>*>(rd + oTable);
+				uint8_t chunk = rd[oChunk];
+				if (tab->data && tab->count > 2 && tab->count < 4096 && (chunk == 3 || chunk == 6))
+					PatchTriples(ps, tab->data + 2, tab->count - 2, target, grayToo, changed);
+				// 2) die Verteilung selbst (falls ohne Tabelle)
+				void* dist = *reinterpret_cast<void**>(rd + oDist);
+				if (dist && ue::IsAlive(dist)) {
+					void* dc = ue::ClassOf(dist);
+					std::string dn = ue::Name(dc);
+					if (dn == "DistributionVectorConstant") {
+						int oc = ue::PropOffset(dc, "Constant");
+						if (oc >= 0) PatchTriples(ps, reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(dist) + oc), 3, target, grayToo, changed);
+					} else if (dn == "DistributionVectorUniform") {
+						for (const char* nm : {"Min", "Max"}) {
+							int oc = ue::PropOffset(dc, nm);
+							if (oc >= 0) PatchTriples(ps, reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(dist) + oc), 3, target, grayToo, changed);
+						}
+					} else if (dn == "DistributionVectorConstantCurve") {
+						int oc = ue::PropOffset(dc, "ConstantCurve");
+						if (oc >= 0) {
+							auto* pts = reinterpret_cast<ue::TArray<uint8_t>*>(reinterpret_cast<uint8_t*>(dist) + oc);
+							for (int i = 0; pts->data && i < pts->count && i < 256; i++)
+								PatchTriples(ps, reinterpret_cast<float*>(pts->data + i * curveStride + curveOut), 3, target, grayToo, changed);
+						}
+					}
+				}
+				if (!grLogged) {
+					std::string vals;
+					if (tab->data && tab->count > 4) {
+						char b[96];
+						snprintf(b, sizeof b, " now=(%.2f %.2f %.2f)", tab->data[2], tab->data[3], tab->data[4]);
+						vals = b;
+					}
+					zl::Log("gold rush:   emitter %d lod %d %s.%s table=%d chunk=%d dist=%s -> %d colors changed%s", e, l, ue::Name(ue::ClassOf(mod)).c_str(), prop,
+						tab->data ? tab->count : 0, chunk, dist ? ue::Name(ue::ClassOf(dist)).c_str() : "-", changed - before, vals.c_str());
+				}
+			}
+		}
+	}
+	return changed;
+}
+
+static void TickBoostPaint() {
+	unsigned long long now = GetTickCount64();
+	if (now < grNext || !loaded) return;
+	grNext = now + 500;
+	// gewuenschte Lackierung fuer den Gold Rush (nur wenn er gerade ausgewaehlt ist)
+	int want = 0;
+	float target[3] = {1, 1, 1};
+	{
+		std::unique_lock<std::mutex> lk(mu, std::try_to_lock);
+		if (!lk.owns_lock()) return;
+		auto ov = overrides.find(3);
+		int boost = ov != overrides.end() && ov->second > 0 ? ov->second : (ownItems.count(3) ? ownItems[3] : 0);
+		auto pp = paints.find(3);
+		if (boost == kGoldRush && pp != paints.end() && pp->second > 0) {
+			want = pp->second;
+			for (auto& pi : paintList)
+				if (pi.id == want)
+					for (int k = 0; k < 3; k++) target[k] = powf(std::clamp(pi.rgb[k], 0.0f, 1.0f), 2.2f); // sRGB -> linear
+		}
+	}
+	// Lackierungen leuchten bei Partikeln nicht von selbst: Farbton auf volle Helligkeit, dunkle Farben (Schwarz) bleiben sichtbar dunkel
+	float mx = std::max({target[0], target[1], target[2]});
+	float val = 0.12f + 0.88f * std::min(1.0f, mx * 1.6f);
+	for (int k = 0; k < 3; k++) target[k] = (mx > 0.0001f ? target[k] / mx : 1.0f) * val;
+	if (want == 0) {
+		if (grApplied) { RestoreGoldRush(); grApplied = 0; zl::Log("gold rush: original colors back"); }
+		return;
+	}
+	// Vorlagen noch da? (werden beim Wechsel der Map neu geladen)
+	bool alive = !grTemplates.empty();
+	for (void* t : grTemplates) if (!ue::IsAlive(t)) alive = false;
+	if (!alive) {
+		if (now < grScanAt) return;
+		grScanAt = now + 3000;
+		grPatches.clear(); // alte Vorlagen sind weg, ihre Werte auch
+		grApplied = 0;
+		if (!FindGoldRushFx()) { if (!grLogged) zl::Log("gold rush: no particle templates found yet"); grLogged = true; return; }
+	}
+	if (grApplied == want) return;
+	int n = 0;
+	for (void* t : grTemplates) n += TintTemplate(t, target);
+	zl::Log("gold rush: paint %d -> %d colors in %d templates (target %.2f %.2f %.2f)", want, n, (int)grTemplates.size(), target[0], target[1], target[2]);
+	grLogged = true;
+	grApplied = want;
+}
+
 void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
 	if (fn == fnApplyColors && fnApplyColors) { try { PatchColorEvent(caller, params); } catch (...) {} }
@@ -801,6 +1007,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		try { EnsureLocalLoadout(); } catch (...) {}
 	}
 	if (tickFns.count(fn)) { // lokaler Spieler
+		try { TickBoostPaint(); } catch (...) {}
 		// LocalPlayer merken (gibt es auch schon im Hauptmenue)
 		try {
 			void* lp = ue::Read<void*>(caller, offPlayer);
