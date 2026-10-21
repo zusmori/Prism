@@ -33,7 +33,7 @@ import (
 const appVersion = "1.4.0"
 
 const (
-	releaseAPI = "https://api.github.com/repos/zusmori/ZLauncher/releases/latest"
+	releaseAPI = "https://api.github.com/repos/zusmori/Prism/releases/latest"
 	assetName  = "Prism.exe"
 	zlLauncher = "ZLauncher.exe" // Name v1.2.8 bis v1.3.4
 	zlAsset    = "ZL.exe"        // Name v1.2.3 bis v1.2.7
