@@ -817,8 +817,9 @@ static std::string grPaintName;
 // So bleiben Verlauf, Glanz und Leuchten des Originals erhalten, nur der Farbton wechselt.
 static void Recolor(const float* o, float* out) {
 	float mx = std::max({o[0], o[1], o[2]}), mn = std::min({o[0], o[1], o[2]});
-	float chroma = mx - mn;
-	for (int k = 0; k < 3; k++) out[k] = (mn + chroma * grTn[k]) * grV;
+	// kraeftig statt verwaschen: nur ein kleiner Teil bleibt weiss, der Rest bekommt die volle Lackfarbe
+	float white = mn * 0.12f;
+	for (int k = 0; k < 3; k++) out[k] = (white + (mx - white) * grTn[k]) * grV;
 }
 
 static void Tint(float* rgb, const float* target, bool grayToo) {
@@ -1348,9 +1349,10 @@ static void TickBoostPaint() {
 	for (int k = 0; k < 3; k++) target[k] = (mx > 0.0001f ? paint[k] / mx : 1.0f) * std::max(val, 0.02f);
 	memcpy(grTarget, target, sizeof grTarget);
 	// Farbton und Helligkeit: Schwarz ist wirklich (fast) schwarz, Grau gedaempft, kraeftige Farben leuchten wie das Gold
-	for (int k = 0; k < 3; k++) grTn[k] = mx > 0.0001f ? paint[k] / mx : 1.0f;
+	// Farbton satter machen (Lackfarben aus dem Spiel sind eher pastellig)
+	for (int k = 0; k < 3; k++) grTn[k] = mx > 0.0001f ? powf(paint[k] / mx, 1.8f) : 1.0f;
 	bool blackish = mx < 0.06f || grPaintName == "Black" || grPaintName == "Onyx";
-	grV = blackish ? 0.012f : std::min(1.0f, powf(mx, 0.55f) * 1.15f);
+	grV = blackish ? 0.0f : std::min(1.25f, powf(mx, 0.45f) * 1.3f);
 	grCoreOn = true;
 	// Partikel-Komponenten des Boosts (Garage und Spiel) regelmaessig neu suchen
 	if (now >= grCompsAt && !grTemplates.empty()) {
