@@ -344,6 +344,11 @@ func bindWindow(w webview2.WebView, hwnd uintptr) {
 	show := func() {
 		once.Do(func() {
 			shown = true
+			if startTray { // mit Windows gestartet: still im Tray bleiben
+				startTray = false
+				hideToTray(hwnd)
+				return
+			}
 			pShow.Call(hwnd, 5)
 		})
 	}
@@ -379,6 +384,8 @@ func bindWindow(w webview2.WebView, hwnd uintptr) {
 	w.Bind("closeWindow", func() { allowClose = true; pPost.Call(hwnd, 0x0010, 0, 0) })
 	// X / Alt+F4: in den Tray statt beenden
 	w.Bind("hideToTray", func() { hideToTray(hwnd) })
+	w.Bind("getAutostart", func() bool { return autostartOn() })
+	w.Bind("setAutostart", func(on bool) error { return setAutostart(on) })
 	w.Bind("showWindow", func() { showFromTray(hwnd) })
 	w.Bind("autoTray", func() { autoTrayWatch(hwnd) })
 	trayAdd(hwnd)

@@ -545,6 +545,8 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--after-update" {
 		wait = 20 * time.Second
 	}
+	startTray = hasArg("--tray")
+	go autostartRefresh()
 	if !singleInstance(wait) {
 		wakeOtherInstance()
 		// ist unsere exe neuer, macht die alte Platz: kurz warten und dann selbst starten

@@ -678,7 +678,14 @@
   .mdl.show .ico{animation:icopop .6s .08s var(--spring) backwards}
   @keyframes icopop{from{transform:scale(.6);opacity:0}}
   .mdl .ico .gi svg{width:26px;height:26px}
-  .mdl .ico #updLogo{width:30px;height:30px}
+  .mdl .ico #updLogo,.mdl .ico #closeLogo{width:30px;height:30px}
+  #closeDlg .kchk{display:flex;justify-content:center;margin-top:16px}
+  /* Auswahl in einer Einstellungszeile (z. B. Ask / Tray / Quit) */
+  .seg{display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--bg);border:1px solid var(--line);flex:none}
+  .seg button{border:0;background:none;color:var(--muted);font:inherit;font-size:12px;font-weight:600;height:28px;padding:0 11px;border-radius:7px;cursor:pointer;
+    transition:background .2s,color .2s}
+  .seg button:hover{color:var(--text)}
+  .seg button.on{background:rgb(var(--ac-rgb) / .2);color:#fff;box-shadow:inset 0 0 0 1px rgb(var(--ac-rgb) / .35)}
   .mdl h3{font-size:18px;font-weight:600;margin-bottom:6px}
   .mdl p{color:var(--muted);line-height:1.55}
   .mdl .btns{display:flex;gap:10px;margin-top:20px}
@@ -735,6 +742,7 @@
   .sgrp{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .srow{display:flex;align-items:center;gap:13px;padding:10px 14px;transition:background .15s}
   .srow + .srow{border-top:1px solid var(--line)}
+  .srow.nohov{cursor:default} .srow.nohov:hover{background:none}
   .srow[role=switch]{cursor:pointer}
   .srow[role=switch]:hover{background:var(--hover)}
   .srow[role=switch]:focus-visible{outline:none;box-shadow:inset 0 0 0 2px rgb(var(--ac-rgb) / .45)}
@@ -1529,6 +1537,19 @@
     </div>
   </div>
 </div>
+<div class="mdl" id="closeDlg">
+  <div class="box">
+    <div class="ico"><svg id="closeLogo" class="plogo" viewBox="0 0 200 200" aria-hidden="true"></svg></div>
+    <h3>Close Prism?</h3>
+    <p>In the tray Prism keeps showing your friends and comes back with one click. Or quit it completely.</p>
+    <div class="btns">
+      <button class="btn ghost" id="closeQuit"><span class="lbl">Quit Prism</span></button>
+      <button class="btn" id="closeTray"><span class="lbl">Keep in tray</span></button>
+    </div>
+    <label class="kchk" id="closeRememberL"><input type="checkbox" id="closeRemember"><span class="kbx"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>Remember my choice</label>
+    <button class="cancel" id="closeCancel">Cancel</button>
+  </div>
+</div>
 <div class="mdl" id="updDlg">
   <div class="box">
     <div class="ico"><svg id="updLogo" class="plogo" viewBox="0 0 200 200" aria-hidden="true"></svg></div>
@@ -1601,6 +1622,11 @@
           <div class="tx"><b>Mute sounds</b><small>Turn off all sound effects in Prism.</small></div><span class="tg" id="tgMute"></span></div>
         <div class="srow" id="setPlayTray" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="tray"></span>
           <div class="tx"><b>Hide while playing</b><small>Prism goes to the tray when you start Rocket League and comes back when you close the game.</small></div><span class="tg" id="tgPlayTray"></span></div>
+        <div class="srow" id="setAuto" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="sun"></span>
+          <div class="tx"><b>Start with Windows</b><small>Prism starts quietly in the tray when you log in.</small></div><span class="tg" id="tgAuto"></span></div>
+        <div class="srow nohov"><span class="sic gi" data-ic="tray"></span>
+          <div class="tx"><b>Close button</b><small>What the X in the top right does.</small></div>
+          <div class="seg" id="closeSeg"><button data-v="ask">Ask</button><button data-v="tray">Tray</button><button data-v="quit">Quit</button></div></div>
         <div class="srow" id="setItemMod" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="spark"></span>
           <div class="tx"><b>Item menu <span class="spill" style="color:rgb(var(--ac3-rgb));background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .35)">Beta</span></b><small>Press F8 in Rocket League to use any item. Only you can see them. Works when you play without Anti-Cheat.</small></div><span class="tg" id="tgItemMod"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
@@ -2011,7 +2037,20 @@ function paintSettings(){
   applyTheme(settings.theme, false);
   if (document.activeElement !== $('steamKey')) $('steamKey').value = settings.steamKey || '';
   $('vHome').classList.toggle('fcollapsed', !!settings.friendsHidden);
+  $('closeSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === (settings.closeAction || 'ask')));
+  $('tgAuto').classList.toggle('on', !!settings.autostart); $('setAuto').setAttribute('aria-checked', !!settings.autostart);
 }
+$('closeSeg').querySelectorAll('button').forEach(b => b.onclick = () => {
+  settings.closeAction = b.dataset.v; saveSetting('closeAction', b.dataset.v); paintSettings(); Sfx.ui('tab');
+});
+async function toggleAuto(){
+  const on = !settings.autostart;
+  try { if (has('setAutostart')) await setAutostart(on); settings.autostart = on; paintSettings(); Sfx.ui('tab');
+    toast(on ? 'Prism starts with Windows (in the tray).' : 'Prism no longer starts with Windows.', true); }
+  catch (e) { toast(String(e), false); }
+}
+$('setAuto').onclick = toggleAuto;
+$('setAuto').onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleAuto(); } };
 function syncPresenceCfg(){
   if (!has('setPresenceCfg')) return;
   const m = {}; RPC_KEYS.forEach(k => m[k] = k === 'rpcHideTray' ? !!settings[k] : settings[k] !== false);
@@ -2736,7 +2775,8 @@ $('updGo').onclick = async () => {
 };
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if ($('steamDlg').classList.contains('show')) $('steamCancel').onclick();
+  if ($('closeDlg').classList.contains('show')) closeDlgDone('cancel');
+  else if ($('steamDlg').classList.contains('show')) $('steamCancel').onclick();
   else if ($('eacDlg').classList.contains('show')) $('eacCancel').onclick();
   else if ($('itemEacDlg').classList.contains('show')) $('itemEacCancel').onclick();
   else if ($('playDlg').classList.contains('show')) $('playCancel').onclick();
@@ -3342,7 +3382,7 @@ async function outro(){
 window.__requestClose = () => requestClose();
 
 /* ---------- Beim Schliessen nachfragen, wenn noch eine Map getauscht ist ---------- */
-drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('setLogo')); drawLogo($('dcLogo'));
+drawLogo($('askLogo')); drawLogo($('updLogo')); drawLogo($('closeLogo')); drawLogo($('setLogo')); drawLogo($('dcLogo'));
 const tbLogo = drawLogo($('heroBrand'));
 let asking = false;
 function askKeep(s){
@@ -3389,15 +3429,34 @@ async function requestClose(){
   outro();
 }
 window.__requestClose = () => closeOrTray();   // auch bei Alt+F4 / Taskleiste
-// X: in den Tray legen (Einstellung), sonst richtig schliessen
+// X: fragen (Standard), in den Tray legen oder ganz schliessen - je nach Einstellung
 let quitting = false;
-function closeOrTray(){
-  if (!quitting && has('hideToTray')){
-    document.querySelectorAll('.menu.show,.cpop.show').forEach(m => m.classList.remove('show'));
-    Sfx.ui('dismiss'); hideToTray(); return;
-  }
-  requestClose();
+function toTray(){
+  document.querySelectorAll('.menu.show,.cpop.show').forEach(m => m.classList.remove('show'));
+  Sfx.ui('dismiss'); hideToTray();
 }
+function closeOrTray(){
+  if (quitting || !has('hideToTray')) return requestClose();
+  const act = settings.closeAction || 'ask';
+  if (act === 'tray') return toTray();
+  if (act === 'quit') { quitting = true; return requestClose(); }
+  if (has('closeAck')) closeAck();          // Fenster bleibt offen, solange gefragt wird
+  if ($('closeDlg').classList.contains('show')) return;
+  $('closeRemember').checked = false;
+  $('closeDlg').classList.add('show'); Sfx.ui('present');
+  setTimeout(() => $('closeTray').focus(), 50);
+}
+function closeDlgDone(choice){
+  $('closeDlg').classList.remove('show');
+  if (choice !== 'cancel' && $('closeRemember').checked){ settings.closeAction = choice; saveSetting('closeAction', choice); paintSettings(); }
+  if (choice === 'tray') setTimeout(toTray, 180);
+  else if (choice === 'quit') { quitting = true; setTimeout(requestClose, 180); }
+  else { Sfx.ui('dismiss'); if (has('cancelClose')) cancelClose(); }
+}
+$('closeTray').onclick = () => closeDlgDone('tray');
+$('closeQuit').onclick = () => closeDlgDone('quit');
+$('closeCancel').onclick = () => closeDlgDone('cancel');
+$('closeDlg').addEventListener('mousedown', e => { if (e.target === $('closeDlg')) closeDlgDone('cancel'); });
 // "Quit" im Tray-Menue
 window.__quit = async () => {
   quitting = true;
@@ -3422,6 +3481,7 @@ window.__trayPlay = () => { setTab('vHome'); setTimeout(openPlay, 350); };
   try { await refresh(); } catch (e) {}
   try { if (has('isMaximized')) window.__max(await isMaximized()); } catch (e) {}
   try { if (has('getSettings')) Object.assign(settings, await getSettings()); } catch (e) {}
+  try { if (has('getAutostart')) settings.autostart = !!(await getAutostart()); } catch (e) {}
   if (!settings.prismLook){ settings.prismLook = true; settings.theme = 'prism'; saveSetting('prismLook', true); saveSetting('theme', 'prism'); } // Rebrand: neuer Standard-Look
   paintSettings();
   homeEnter();
