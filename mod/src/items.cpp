@@ -809,13 +809,29 @@ static std::string Outermost(void* o) {
 }
 
 // Farbe aendern: Helligkeit des Originals bleibt, Farbton kommt von der Lackierung
+// Lackfarbe: Farbton (hoechster Anteil = 1) und Helligkeit der Lackierung
+static float grTn[3] = {1, 1, 1}, grV = 1.0f;
+static std::string grPaintName;
+
+// Umfaerben wie beim Original: jede Farbe = weisser Anteil (heisser Kern, bleibt weiss) + Farbanteil (Gold -> Lackfarbe).
+// So bleiben Verlauf, Glanz und Leuchten des Originals erhalten, nur der Farbton wechselt.
+static void Recolor(const float* o, float* out) {
+	float mx = std::max({o[0], o[1], o[2]}), mn = std::min({o[0], o[1], o[2]});
+	float chroma = mx - mn;
+	for (int k = 0; k < 3; k++) out[k] = (mn + chroma * grTn[k]) * grV;
+}
+
 static void Tint(float* rgb, const float* target, bool grayToo) {
-	float r = rgb[0], g = rgb[1], b = rgb[2];
-	float mx = std::max({r, g, b}), mn = std::min({r, g, b});
+	(void)target;
+	float mx = std::max({rgb[0], rgb[1], rgb[2]}), mn = std::min({rgb[0], rgb[1], rgb[2]});
 	if (mx <= 0.0001f) return;
-	bool colored = (mx - mn) > 0.15f * mx;
-	if (!colored && !grayToo) return; // neutrale Skalierung (weiss) nicht anfassen
-	for (int k = 0; k < 3; k++) rgb[k] = target[k] * mx;
+	bool colored = (mx - mn) > 0.05f * mx;
+	if (!grayToo) { // Helligkeits-Verlauf (Skalierung): goldenen Stich entfernen, Helligkeit behalten
+		if (colored) rgb[0] = rgb[1] = rgb[2] = mx;
+		return;
+	}
+	float o[3] = {rgb[0], rgb[1], rgb[2]};
+	Recolor(o, rgb);
 }
 
 static void PatchTriples(void* owner, float* f, int n, const float* target, bool grayToo, int& changed) {
@@ -1011,7 +1027,9 @@ static void TintMic(void* mic, const float* target, int& changed) {
 			nm.find("emis") != std::string::npos || nm.find("glow") != std::string::npos;
 		if (!colored && !colorName) continue;
 		if (mx <= 0.0001f) mx = 1.0f;
-		todo.push_back({n, {target[0] * mx, target[1] * mx, target[2] * mx, orig[3]}});
+		float rc[3];
+		Recolor(orig, rc);
+		todo.push_back({n, {rc[0], rc[1], rc[2], orig[3]}});
 	}
 	for (auto& [n, c] : todo) { MicSet(mic, n, c.data()); changed++; }
 }
@@ -1273,8 +1291,7 @@ static void ApplyCoreColor(const float* target, bool restore) {
 			float mine[3];
 			bool isMine = false;
 			if (o != grParamOrig.end()) {
-				float mx0 = std::max({o->second[0], o->second[1], o->second[2], 0.0001f});
-				for (int k = 0; k < 3; k++) mine[k] = target[k] * mx0;
+				Recolor(o->second.data(), mine);
 				isMine = has && fabsf(cur[0] - mine[0]) < 0.02f && fabsf(cur[1] - mine[1]) < 0.02f && fabsf(cur[2] - mine[2]) < 0.02f;
 			}
 			if (has && !isMine && (o == grParamOrig.end() || std::max({cur[0], cur[1], cur[2]}) > 0.0001f)) {
@@ -1282,9 +1299,9 @@ static void ApplyCoreColor(const float* target, bool restore) {
 				o = grParamOrig.find(pname);
 				if (logged++ < 6) zl::Log("gold rush: %s on %s was (%.2f %.2f %.2f) type %d", pname.c_str(), ue::Name(c).c_str(), cur[0], cur[1], cur[2], type);
 			}
-			float base = o != grParamOrig.end() ? std::max({o->second[0], o->second[1], o->second[2]}) : 1.5f;
-			if (base < 0.0001f) base = 1.5f;
-			float v[3] = {target[0] * base, target[1] * base, target[2] * base};
+			if (o == grParamOrig.end()) continue;
+			float v[3];
+			Recolor(o->second.data(), v);
 			int32_t ni = NameIndex(pname);
 			if (ni >= 0 && has) PscSetParam(c, ni, v, type); // nur Parameter, die der Boost wirklich benutzt
 		}
@@ -1310,7 +1327,7 @@ static void TickBoostPaint() {
 		if (boost == kGoldRush && pp != paints.end() && pp->second > 0) {
 			want = pp->second;
 			for (auto& pi : paintList)
-				if (pi.id == want)
+				if (pi.id == want && (grPaintName = pi.name, true))
 					for (int k = 0; k < 3; k++) paint[k] = powf(std::clamp(pi.rgb[k], 0.0f, 1.0f), 2.2f); // sRGB -> linear
 		}
 	}
@@ -1330,6 +1347,10 @@ static void TickBoostPaint() {
 	float target[3];
 	for (int k = 0; k < 3; k++) target[k] = (mx > 0.0001f ? paint[k] / mx : 1.0f) * std::max(val, 0.02f);
 	memcpy(grTarget, target, sizeof grTarget);
+	// Farbton und Helligkeit: Schwarz ist wirklich (fast) schwarz, Grau gedaempft, kraeftige Farben leuchten wie das Gold
+	for (int k = 0; k < 3; k++) grTn[k] = mx > 0.0001f ? paint[k] / mx : 1.0f;
+	bool blackish = mx < 0.06f || grPaintName == "Black" || grPaintName == "Onyx";
+	grV = blackish ? 0.012f : std::min(1.0f, powf(mx, 0.55f) * 1.15f);
 	grCoreOn = true;
 	// Partikel-Komponenten des Boosts (Garage und Spiel) regelmaessig neu suchen
 	if (now >= grCompsAt && !grTemplates.empty()) {
