@@ -286,6 +286,7 @@
   .views{flex:1;min-height:0;position:relative}
   .views > .pane{position:absolute;inset:0;transition:opacity .4s var(--ease),transform .5s var(--ease)}
   .views > .pane.off{opacity:0;pointer-events:none;transform:translateX(var(--dir,-24px))}
+  .views > .pane.off *{pointer-events:none!important} /* versteckte Reiter fangen keine Klicks ab */
   #vDl{display:grid}
 
   /* ================= Favoriten ================= */
@@ -772,7 +773,23 @@
   .alinks b{color:var(--muted);font-weight:600}
 
   /* ================= Home ================= */
-  #vHome{display:grid;grid-template-columns:1fr clamp(270px,30vw,360px);gap:16px;padding:4px 18px 18px}
+  #vHome{display:grid;grid-template-columns:1fr clamp(270px,30vw,360px);gap:16px;padding:4px 18px 18px;
+    transition:grid-template-columns .6s var(--ease),column-gap .6s var(--ease)}
+  /* Freundesliste eingeklappt: Video wird breiter */
+  #vHome.fcollapsed{grid-template-columns:1fr 0px;column-gap:0}
+  #vHome > .friends{min-width:0;transition:opacity .3s var(--ease),transform .6s var(--ease),filter .4s var(--ease)}
+  #vHome.fcollapsed > .friends{opacity:0;transform:translateX(30px);filter:blur(4px);pointer-events:none}
+  .fexp{position:absolute;right:16px;top:50%;z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 8px;border-radius:14px;cursor:pointer;
+    font:inherit;color:var(--muted);background:rgb(12 12 16 / .45);border:1px solid rgba(255,255,255,.09);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 14px 30px -16px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.05);
+    opacity:0;pointer-events:none;transform:translate(14px,-50%);transition:opacity .3s var(--ease),transform .5s var(--spring),color .2s,background .2s,border-color .25s}
+  #vHome.fcollapsed .fexp{opacity:1;pointer-events:auto;transform:translate(0,-50%);transition-delay:.18s,.18s,0s,0s,0s}
+  .fexp:hover{color:var(--text);background:rgb(16 16 22 / .62);border-color:rgb(var(--ac-rgb) / .4)}
+  .fexp .gi svg{width:15px;height:15px}
+  .fexp b{font-size:11px;font-weight:700;color:var(--ok)}
+  .fexp b:empty{display:none}
+  .fexp .fx-ch{transition:transform .3s var(--ease)}
+  .fexp:hover .fx-ch{transform:translateX(-2px)}
   .max #vHome{padding:4px 22px 22px}
   .hleft{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
   .hero{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--panel);isolation:isolate}
@@ -1302,6 +1319,7 @@
   .kin input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
   .kin input.bad{border-color:var(--err)}
   .kft{display:flex;align-items:center;margin-top:16px;padding-left:2px}
+  .knote{font-size:12.5px;color:var(--faint)}
   .kchk{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:var(--muted);user-select:none;transition:color .2s}
   .kchk:hover{color:var(--text)}
   .kchk input{position:absolute;opacity:0;pointer-events:none}
@@ -1350,6 +1368,7 @@
         <video class="hv" id="hv1" muted loop playsinline preload="auto" disablepictureinpicture></video>
         <video class="hv" id="hv2" muted loop playsinline preload="auto" disablepictureinpicture></video>
         <div class="hshade"></div>
+        <button class="fexp" id="fExpand" title="Show friends"><svg class="fx-ch" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L7.5 8l4.5 4.5M7.5 3.5L3 8l4.5 4.5"/></svg><span class="gi" data-ic="users"></span><b id="fExpN"></b></button>
         <div class="hbrand">
           <svg id="heroBrand" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"></svg>
           <div class="hbt"><b>ZLauncher</b><small id="hVer">Rocket League Launcher</small></div>
@@ -1371,6 +1390,7 @@
     </div>
     <aside class="card friends in" style="--d:.07s">
       <div class="fh"><span class="gi" data-ic="users"></span><b>Steam friends</b><span class="fon" id="fOn"></span>
+        <button class="ib2" id="fCollapse" title="Hide friends"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5L8.5 8 4 12.5M8.5 3.5L13 8l-4.5 4.5"/></svg></button>
 </div>
       <div class="fme" id="fMe"></div>
       <div class="fsearch"><span class="gi" data-ic="search"></span><input id="fSearch" placeholder="Search friends …" spellcheck="false"></div>
@@ -1606,7 +1626,7 @@
           <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
           <span class="bl"><i></i><span><em>Fullscreen optimizations off</em> for Rocket League, for less input lag in fullscreen</span></span>
           <span class="bl"><i></i><span>Skips the <em>intro videos</em>, so the game starts faster</span></span>
-          <span class="bl"><i></i><span>ZLauncher <em>steps back</em> while you play: lower priority, power saving, background video paused</span></span>
+          <span class="bl"><i></i><span>ZLauncher <em>steps back</em> while you play: lower priority and power saving</span></span>
           <small>Your in-game settings are never changed. Everything is undone when you turn Boost off.</small>
         </div></div></div>
       </div></div>
@@ -1671,7 +1691,7 @@
         <div class="kstep"><span class="kn">2</span><div class="kin"><input id="kaKey" type="password" placeholder="Paste your key here" maxlength="64" spellcheck="false" autocomplete="off"><button class="sbtn go" id="kaSave">Save</button></div></div>
       </div>
       <div class="kft">
-        <label class="kchk" id="kaNeverL"><input type="checkbox" id="kaNever"><span class="kbx"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>Don't remind me again</label>
+        <span class="knote">Not now? ZLauncher asks again tomorrow.</span>
       </div>
     </div>
   </div>
@@ -2000,6 +2020,7 @@ function paintSettings(){
   Sfx.mute(settings.mute);
   applyTheme(settings.theme, false);
   if (document.activeElement !== $('steamKey')) $('steamKey').value = settings.steamKey || '';
+  $('vHome').classList.toggle('fcollapsed', !!settings.friendsHidden);
 }
 function syncPresenceCfg(){
   if (!has('setPresenceCfg')) return;
@@ -2097,18 +2118,20 @@ function keyOrbit(){
     return `<i class="kav" style="--x:${x}px;--y:${y}px;--s:${sz}px;--c:${c};--i:${i};${bg}"></i>`;
   }).join('');
 }
+// heutiges Datum (lokal), z. B. "2026-10-21": hoechstens einmal pro Tag erinnern
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 function openKeyDlg(){
   keyNag.done = true; keyOrbit();
-  $('kaNever').checked = false; $('kaKey').value = ''; $('kaKey').classList.remove('bad');
+  settings.keyNagDay = today(); saveSetting('keyNagDay', settings.keyNagDay);
+  $('kaKey').value = ''; $('kaKey').classList.remove('bad');
   $('keyDlg').classList.add('show'); Sfx.ui('present');
 }
 function closeKeyDlg(){
   if (!$('keyDlg').classList.contains('show')) return;
   $('keyDlg').classList.remove('show');
-  if ($('kaNever').checked){ settings.keyNagOff = true; saveSetting('keyNagOff', true); }
 }
 function keyNagCheck(){
-  if (keyNag.done || settings.steamKey || settings.keyNagOff) return;
+  if (keyNag.done || settings.steamKey || settings.keyNagDay === today()) return;
   const here = tab === 'vHome' && !appHidden && !document.hidden && !document.querySelector('.mdl.show');
   const ready = home.friends && !home.fErr;                      // erst wenn die Freundesliste geladen hat
   if (!here || !ready){ clearTimeout(keyNag.timer); keyNag.timer = null; return; }
@@ -2118,7 +2141,6 @@ setTimeout(() => setInterval(keyNagCheck, 1000), 3000);
 $('kaLater').onclick = () => { closeKeyDlg(); Sfx.ui('dismiss'); };
 $('keyDlg').addEventListener('mousedown', e => { if (e.target === $('keyDlg')){ closeKeyDlg(); Sfx.ui('dismiss'); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('keyDlg').classList.contains('show')){ closeKeyDlg(); Sfx.ui('dismiss'); } });
-$('kaNever').addEventListener('change', () => Sfx.ui('tab'));
 $('kaGet').onclick = () => has('openURL') && openURL('https://steamcommunity.com/dev/apikey');
 $('kaSave').onclick = () => {
   const v = $('kaKey').value.trim();
@@ -2127,7 +2149,7 @@ $('kaSave').onclick = () => {
     $('kaKey').classList.add('bad'); Sfx.ui('error');
     toast(v ? 'That doesn\'t look like a Steam API key (32 characters).' : 'Paste your key first.', false); return;
   }
-  $('kaNever').checked = false; $('keyDlg').classList.remove('show');
+  $('keyDlg').classList.remove('show');
   $('steamKey').value = v; saveKey(); Sfx.ui('done');
 };
 $('kaKey').addEventListener('input', () => $('kaKey').classList.remove('bad'));
@@ -2787,13 +2809,10 @@ async function heroVideo(id){
   next.addEventListener('playing', show, {once: true});
   if (tab === 'vHome') next.play().catch(() => {}); else next.addEventListener('loadeddata', show, {once: true});
 }
-// nur abspielen, wenn Home sichtbar ist (spart Leistung)
-// Game Boost: waehrend Rocket League laeuft und ZLauncher im Hintergrund ist, Video anhalten (spart GPU)
-function gameQuiet(){ try { return !!(home.st && home.st.running) && !document.hasFocus() && boost.st.enabled !== false; } catch (e) { return false; } }
-function heroPlay(on){ const v = hero.front; if (!v) return; (on && !gameQuiet()) ? v.play().catch(() => {}) : v.pause(); }
-window.addEventListener('blur', () => heroPlay(!document.hidden && !appHidden && tab === 'vHome'));
-window.addEventListener('focus', () => heroPlay(!document.hidden && !appHidden && tab === 'vHome'));
-document.addEventListener('visibilitychange', () => heroPlay(!document.hidden && tab === 'vHome'));
+// nur abspielen, wenn Home sichtbar ist; laeuft auch weiter, wenn ZLauncher im Hintergrund ist
+// (angehalten wird nur, wenn das Fenster minimiert bzw. im Tray ist)
+function heroPlay(on){ const v = hero.front; if (!v) return; on ? v.play().catch(() => {}) : v.pause(); }
+document.addEventListener('visibilitychange', () => heroPlay(!document.hidden && !appHidden && tab === 'vHome'));
 function paintRL(st){
   const wasRun = !!(home.st && home.st.running);
   home.st = st;
@@ -2962,7 +2981,7 @@ function renderFriends(animate){
   $('fHint').innerHTML = '';
   const plain = html => { home.rows.clear(); L.innerHTML = html; };
   if (!r){
-    $('fOn').textContent = ''; $('fMe').textContent = '';
+    $('fOn').textContent = ''; $('fMe').textContent = ''; $('fExpN').textContent = '';
     const steamOff = /Steam isn't running/.test(home.fErr || '');
     plain(`<div class="fmsg"><b>${steamOff ? "Steam isn't running" : "Couldn't load friends"}</b><span></span>${steamOff ? '<br><button class="sbtn" id="fOpenSteam">Open Steam</button>' : '<br><button class="sbtn" id="fRetry">Try again</button>'}</div>`);
     L.querySelector('span').textContent = steamOff ? 'Open Steam to see who is online.' : (home.fErr || '');
@@ -2973,6 +2992,7 @@ function renderFriends(animate){
   $('fMe').textContent = r.meName ? 'Signed in as ' + r.meName : '';
   const all = r.friends || [], on = all.filter(f => f.state !== 'offline' && f.state !== 'unknown').length;
   const onTx = on ? on + ' online' : '';
+  $('fExpN').textContent = on ? String(on) : '';
   if ($('fOn').textContent !== onTx){ $('fOn').textContent = onTx; if (animate){ const o = $('fOn'); o.classList.remove('bump'); void o.offsetWidth; o.classList.add('bump'); } }
   if (r.hint) $('fHint').innerHTML = esc(r.hint).replace('Settings', '<a id="fHintSet">Settings</a>');
   const h = $('fHintSet'); if (h) h.onclick = openSettings;
@@ -3059,6 +3079,14 @@ function friendChanges(all){
   return out;
 }
 $('fSearch').addEventListener('input', () => home.friends && renderFriends());
+// Freundesliste ein-/ausklappen (wird gespeichert)
+function setFriendsHidden(h){
+  settings.friendsHidden = h;
+  $('vHome').classList.toggle('fcollapsed', h);
+  saveSetting('friendsHidden', h); Sfx.ui('tab');
+}
+$('fCollapse').onclick = () => setFriendsHidden(true);
+$('fExpand').onclick = () => setFriendsHidden(false);
 // immer automatisch aktuell halten (ohne oeffentliche Liste seltener, das sind viele Einzelabfragen)
 function friendsDue(){
   if (home.fBusy) return false;

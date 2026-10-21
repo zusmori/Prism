@@ -6,7 +6,7 @@ package main
 //   - hohe CPU-Prioritaet fuer RocketLeague.exe (nur ohne Anti-Cheat, ZLauncher greift nie in den EAC-Prozess ein)
 //   - Windows-Energiemodus "Hoechstleistung" bzw. "Beste Leistung"
 //   - keine Energiespar-Drosselung (EcoQoS) fuer Rocket League, damit es auf den schnellen Kernen bleibt (nur ohne Anti-Cheat)
-//   - ZLauncher selbst tritt in den Hintergrund (niedrige Prioritaet, Energiesparmodus, Video pausiert)
+//   - ZLauncher selbst tritt in den Hintergrund (niedrige Prioritaet, Energiesparmodus)
 // dauerhaft (solange Boost an ist):
 //   - Windows-Grafikeinstellung "Hohe Leistung" fuer Rocket League (Laptops mit 2 Grafikchips)
 //   - Vollbildoptimierungen fuer RocketLeague.exe aus (echtes Vollbild, weniger Eingabeverzoegerung)

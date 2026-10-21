@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unsafe"
 
 	webview2 "github.com/jchv/go-webview2"
@@ -539,6 +540,15 @@ func main() {
 		return
 	}
 	afterUpdate(os.Args)
+	// nur eine Instanz: nach einem Update kurz warten, bis die alte Version zu ist
+	wait := time.Duration(0)
+	if len(os.Args) > 1 && os.Args[1] == "--after-update" {
+		wait = 20 * time.Second
+	}
+	if !singleInstance(wait) {
+		wakeOtherInstance()
+		return
+	}
 	_ = os.MkdirAll(backupDir, 0755)
 	_ = os.MkdirAll(ownDir, 0755)
 	loadMeta()

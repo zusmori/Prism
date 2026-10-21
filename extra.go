@@ -245,6 +245,10 @@ func subclassProc(hwnd, msg, wp, lp uintptr) uintptr {
 	if trayMessage(hwnd, msg, lp) {
 		return 0
 	}
+	if showMsg != 0 && msg == showMsg { // ZLauncher wurde ein zweites Mal gestartet: dieses Fenster zeigen
+		showFromTray(hwnd)
+		return 0
+	}
 	switch msg {
 	case 0x0083: // WM_NCCALCSIZE
 		if wp != 0 {
