@@ -3143,8 +3143,7 @@ async function intro(){
 let closing = false;
 async function outro(){
   if (closing) return; closing = true;
-  // aus dem Tray beenden: still, ohne Sound und Animation
-  if (!appHidden){ try { if (await Sfx.ready()) Sfx.close(); } catch (e) {} }
+  // beim Schliessen kein Sound mehr; aus dem Tray ausserdem ohne Animation
   document.querySelectorAll('.menu.show,.cpop.show').forEach(m => m.classList.remove('show'));
   document.body.classList.add('closing');
   if (!appHidden) await sleep(250);

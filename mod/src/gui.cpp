@@ -1109,7 +1109,7 @@ static float arenaIndY = -1.0f;
 static float mListFade = 1.0f;
 
 struct MapAction {
-	int kind = 0; // 1 tauschen, 2 Arena zuruecksetzen, 3 alle zuruecksetzen, 4 spielen
+	int kind = 0; // 1 tauschen, 2 Arena zuruecksetzen, 3 alle zuruecksetzen, 4 spielen, 5 Favorit an/aus
 	std::wstring arena, path;
 	std::string arenaU8;
 };
@@ -1120,6 +1120,16 @@ static void SwapIcon(ImDrawList* d, ImVec2 c, float s, ImU32 col, float th = 1.5
 	d->AddLine(ImVec2(c.x + s, c.y - s * 0.45f), ImVec2(c.x + s * 0.45f, c.y - s), col, th);
 	d->AddLine(ImVec2(c.x + s, c.y + s * 0.45f), ImVec2(c.x - s, c.y + s * 0.45f), col, th);
 	d->AddLine(ImVec2(c.x - s, c.y + s * 0.45f), ImVec2(c.x - s * 0.45f, c.y + s), col, th);
+}
+// Stern (gefuellt = Favorit)
+static void Star(ImDrawList* d, ImVec2 c, float r, ImU32 col, bool filled, float th = 1.4f) {
+	ImVec2 pts[10];
+	for (int i = 0; i < 10; i++) {
+		float a = -1.5707963f + i * 0.6283185f, rr = (i & 1) ? r * 0.45f : r;
+		pts[i] = ImVec2(c.x + cosf(a) * rr, c.y + sinf(a) * rr);
+	}
+	if (filled) d->AddConcavePolyFilled(pts, 10, col);
+	else d->AddPolyline(pts, 10, col, ImDrawFlags_Closed, th);
 }
 static void PlayIcon(ImDrawList* d, ImVec2 c, float s, ImU32 col) {
 	d->AddTriangleFilled(ImVec2(c.x - s * 0.55f, c.y - s), ImVec2(c.x - s * 0.55f, c.y + s), ImVec2(c.x + s * 0.85f, c.y), col);
@@ -1384,13 +1394,23 @@ static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, M
 			const maps::Map& m = *shown[r];
 			ImGui::PushID(r + 20000);
 			ImVec2 p = ImGui::GetCursorScreenPos();
+			// Stern zuerst (hat Vorrang vor der Zeile)
+			ImVec2 stc(p.x + rw - 26, p.y + rh / 2);
+			ImGui::SetCursorScreenPos(ImVec2(stc.x - 15, stc.y - 15));
+			bool starClick = ImGui::InvisibleButton("##fav", ImVec2(30, 30));
+			bool starHov = ImGui::IsItemHovered();
+			ImGui::SetCursorScreenPos(p);
 			bool click = ImGui::InvisibleButton("##m", ImVec2(rw, rh));
+			bool rowHov = ImGui::IsItemHovered() || starHov;
+			if (starClick) { act.kind = 5; act.path = m.path; }
 			int in = whereIs(m.name);
 			bool here = in == mapArena;
 			bool working = busy && Lower(maps::busyMap) == Lower(m.name);
 			bool canSwap = !busy && !here && !cur.locked;
-			float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
+			float h = Anim(ImGui::GetID("h"), rowHov ? 1.0f : 0.0f, 22.0f);
 			float s = Anim(ImGui::GetID("s"), here ? 1.0f : 0.0f, 16.0f);
+			float fs = Anim(ImGui::GetID("fs"), m.fav ? 1.0f : 0.0f, 14.0f);
+			float sh2 = Anim(ImGui::GetID("sh"), starHov ? 1.0f : 0.0f, 22.0f);
 			ImGui::PopID();
 			if (click && canSwap) {
 				act.kind = 1;
@@ -1414,7 +1434,18 @@ static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, M
 			}
 			cd->AddRect(ta, tb, U(Rgb(255, 255, 255, 0.07f)), 8);
 			// Text
-			float tx = tb.x + 14, right = q.x - 16;
+			// Stern: Favorit gold, sonst nur beim Drueberfahren
+			{
+				ImVec4 gold = Rgb(255, 196, 77);
+				float vis = std::max(fs, h * 0.9f);
+				if (vis > 0.01f) {
+					if (sh2 > 0.01f) cd->AddCircleFilled(stc, 14, U(Rgb(255, 255, 255, 0.07f * sh2)), 24);
+					float pop = 1.0f + 0.25f * sinf(std::clamp(fs, 0.0f, 1.0f) * 3.14159f) * (m.fav ? 1.0f : 0.0f);
+					if (fs > 0.01f) Star(cd, stc, 7.5f * pop, U(Alpha(gold, fs)), true);
+					if (fs < 0.99f) Star(cd, stc, 7.5f, U(Alpha(Mix(cFaint, cText, sh2), vis * (1.0f - fs))), false);
+				}
+			}
+			float tx = tb.x + 14, right = q.x - 46;
 			float badgeW = 0;
 			const char* badge = nullptr;
 			std::string inName;
@@ -1635,6 +1666,7 @@ void Render(bool* open) {
 		if (ma.kind == 2) maps::Restore(ma.arena);
 		if (ma.kind == 3) maps::RestoreAll();
 		if (ma.kind == 4) { maps::Play(ma.arenaU8); *open = false; }
+		if (ma.kind == 5) maps::ToggleFav(ma.path);
 		return;
 	}
 

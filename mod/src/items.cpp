@@ -325,6 +325,12 @@ void LoadProducts() {
 	// Besondere (Rose Gold, White Gold, Onyx, Platinum, Glow) nur, wenn die Item-Daten sie ausdruecklich haben
 	int logged = 0;
 	for (auto& it : out) {
+		// Alpha-Boost "Gold Rush": im Spiel nie lackiert, hier mit allen normalen Lackierungen (nur fuer dich sichtbar)
+		if (it.slot == 3 && !it.paintable && it.name.find("Gold Rush") != std::string::npos) {
+			it.paintable = true;
+			paintableById[it.id] = true;
+			zl::Log("paints unlocked for %s (%d)", it.name.c_str(), it.id);
+		}
 		if (!it.paintable) continue;
 		it.paintMask = (defMask & ~it.paintExclude) | it.paintShop;
 		paintMaskById[it.id] = it.paintMask;

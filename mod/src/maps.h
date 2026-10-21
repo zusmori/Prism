@@ -17,6 +17,7 @@ struct Map {
 	std::string lower;   // fuer die Suche: Titel + Autor klein
 	std::wstring path;
 	float mb = 0;
+	bool fav = false;    // Favorit: steht oben
 };
 
 struct Arena {
@@ -45,6 +46,7 @@ void Refresh();                                           // im Hintergrund neu 
 void Swap(const std::wstring& arenaFile, const std::wstring& mapPath);
 void Restore(const std::wstring& arenaFile);
 void RestoreAll();
+void ToggleFav(const std::wstring& mapPath);           // Favorit an/aus (favorites.json, wie im Launcher)
 void Play(const std::string& arenaFileU8);                // Freeplay in dieser Arena starten (Spiel-Thread)
 unsigned long long Thumb(const std::string& id);          // Vorschaubild als ImTextureID, 0 = (noch) keins
 

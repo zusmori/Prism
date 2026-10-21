@@ -17,6 +17,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <set>
 #include <thread>
 #include <unordered_map>
 
@@ -359,6 +360,38 @@ static std::string StateKey(const std::map<std::string, std::string>& m, const s
 
 // ---------- Einlesen ----------
 
+static std::string FavKey(const Map& m) { return m.id.empty() ? U8(m.path) : m.id; }
+// Favoriten oben, dann nach Titel
+static void SortMaps(std::vector<Map>& ms) {
+	std::stable_sort(ms.begin(), ms.end(), [](const Map& a, const Map& b) {
+		if (a.fav != b.fav) return a.fav;
+		return LowerA(a.title) < LowerA(b.title);
+	});
+}
+
+void ToggleFav(const std::wstring& path) {
+	std::lock_guard<std::mutex> lk(mu);
+	std::string key;
+	bool on = false;
+	for (auto& m : list)
+		if (m.path == path) { m.fav = !m.fav; on = m.fav; key = FavKey(m); }
+	if (key.empty()) return;
+	// Datei lesen und nur diesen Eintrag aendern (andere Favoriten bleiben)
+	std::map<std::string, bool> fv;
+	std::string t;
+	J fj;
+	if (ReadFileU8(DataDir() + L"\\favorites.json", t) && ParseJson(t, fj) && fj.obj)
+		for (auto& [k, v] : fj.kids) if (v.str == "true") fv[k] = true;
+	if (on) fv[key] = true;
+	else fv.erase(key);
+	std::string o = "{";
+	bool first = true;
+	for (auto& [k, v] : fv) { o += (first ? "\n  " : ",\n  ") + Quote(k) + ": true"; first = false; }
+	o += fv.empty() ? "}" : "\n}";
+	WriteFileU8(DataDir() + L"\\favorites.json", o);
+	SortMaps(list);
+}
+
 static void ScanNow() {
 	std::wstring c = FindCooked();
 	std::vector<Arena> ar;
@@ -387,6 +420,14 @@ static void ScanNow() {
 	}
 
 	// Titel aus dem Launcher (meta.json: id -> {title, author})
+	// Favoriten (gleiche Datei wie frueher im Launcher: id oder Pfad -> true)
+	std::set<std::string> fv;
+	{
+		std::string t;
+		J fj;
+		if (ReadFileU8(DataDir() + L"\\favorites.json", t) && ParseJson(t, fj) && fj.obj)
+			for (auto& [k, v] : fj.kids) if (v.str == "true") fv.insert(k);
+	}
 	J meta;
 	{
 		std::string t;
@@ -435,12 +476,13 @@ static void ScanNow() {
 					if (const J* a = e->get("author"); a) m.author = a->str;
 				}
 				m.lower = LowerA(m.title + " " + m.author + " " + m.name);
+				m.fav = fv.count(FavKey(m)) > 0;
 				ms.push_back(std::move(m));
 			} while (FindNextFileW(h, &fd));
 			FindClose(h);
 		};
 	for (auto& r : roots) if (IsDir(r)) walk(r, r, "", 0);
-	std::sort(ms.begin(), ms.end(), [](const Map& a, const Map& b) { return LowerA(a.title) < LowerA(b.title); });
+	SortMaps(ms);
 
 	for (auto& a : ar) {
 		if (a.swap.empty()) continue;
@@ -648,15 +690,29 @@ void Play(const std::string& arenaFileU8) {
 	size_t d = stem.find_last_of('.');
 	if (d != std::string::npos) stem = stem.substr(0, d);
 	std::wstring cmd = L"start " + W(stem) + L"?Game=TAGame.GameInfo_Tutorial_TA?GameTags=Freeplay";
-	items::Queue([cmd] {
+	items::Queue([cmd, stem] {
 		void* pcCls = ue::FindClass("Class Engine.PlayerController");
 		void* fn = pcCls ? ue::FindFunction(pcCls, "ConsoleCommand") : nullptr;
 		int offCmd = fn ? ue::PropOffset(fn, "Command") : -1;
-		if (!fn || offCmd < 0) { Say("Couldn't start Freeplay. Start it from the game menu.", true); return; }
+		int offRet = fn ? ue::PropOffset(fn, "ReturnValue") : -1;
+		if (!fn || offCmd < 0) { zl::Log("maps: ConsoleCommand not found"); Say("Couldn't start Freeplay. Start it from the game menu.", true); return; }
+		// der eigene Spieler: LocalPlayer.Actor (nur dieser Controller fuehrt Befehle aus)
 		void* pc = nullptr;
-		for (void* o : ue::Instances(pcCls))
-			if (ue::IsAlive(o)) { pc = o; break; }
-		if (!pc) { Say("Couldn't start Freeplay. Start it from the game menu.", true); return; }
+		if (void* lpCls = ue::FindClass("Class Engine.LocalPlayer")) {
+			int offActor = ue::PropOffset(lpCls, "Actor");
+			if (offActor >= 0)
+				for (void* lp : ue::Instances(lpCls)) {
+					if (!ue::IsAlive(lp)) continue;
+					void* a = ue::Read<void*>(lp, offActor);
+					if (a && ue::IsAlive(a)) { pc = a; break; }
+				}
+		}
+		if (!pc) { // sonst ein Controller mit Spieler
+			int offPlayer = ue::PropOffset(pcCls, "Player");
+			for (void* o : ue::Instances(pcCls))
+				if (ue::IsAlive(o) && (offPlayer < 0 || ue::Read<void*>(o, offPlayer))) { pc = o; break; }
+		}
+		if (!pc) { zl::Log("maps: no local player controller"); Say("Couldn't start Freeplay. Start it from the game menu.", true); return; }
 		std::vector<uint8_t> prm(size_t(ue::StructSize(fn)) + 16, 0);
 		std::wstring c = cmd;
 		auto* s = reinterpret_cast<ue::FString*>(prm.data() + offCmd);
@@ -664,8 +720,10 @@ void Play(const std::string& arenaFileU8) {
 		s->count = int32_t(c.size() + 1);
 		s->max = s->count;
 		ue::Call(pc, fn, prm.data());
+		std::string ret = offRet >= 0 ? ue::Narrow(*reinterpret_cast<ue::FString*>(prm.data() + offRet)) : "";
+		zl::Log("maps: console '%s' via %s -> '%s'", U8(cmd).c_str(), ue::Name(pc).c_str(), ret.c_str());
 		// Rueckgabetext gehoert der Engine; unser Befehlstext bleibt unser (nicht freigeben lassen)
-		zl::Log("maps: console '%s'", U8(cmd).c_str());
+		Say("Loading " + ArenaName(stem + ".upk") + " …", false);
 	});
 }
 
