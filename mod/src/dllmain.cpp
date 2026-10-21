@@ -1,4 +1,4 @@
-// ZLauncher-Mod: wird von ZLauncher in Rocket League geladen (nur ohne Anti-Cheat).
+// Prism-Mod: wird vom Prism-Launcher in Rocket League geladen (nur ohne Anti-Cheat).
 // F8 oeffnet das Item-Menue.
 #include <windows.h>
 
@@ -9,7 +9,7 @@
 #include "ue.h"
 
 static DWORD WINAPI Start(LPVOID) {
-	zl::Log("ZLauncher mod loaded");
+	zl::Log("Prism mod loaded");
 	// warten, bis die Engine ihre Objekte angelegt hat
 	bool ok = false;
 	for (int i = 0; i < 180 && !ok; i++) {

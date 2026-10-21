@@ -529,7 +529,7 @@ func open(target string) {
 func msgBox(text string) {
 	user32 := windows.NewLazySystemDLL("user32.dll")
 	t, _ := windows.UTF16PtrFromString(text)
-	c, _ := windows.UTF16PtrFromString("ZLauncher")
+	c, _ := windows.UTF16PtrFromString("Prism")
 	user32.NewProc("MessageBoxW").Call(0, uintptr(unsafe.Pointer(t)), uintptr(unsafe.Pointer(c)), 0x40)
 }
 
@@ -563,7 +563,7 @@ func main() {
 		AutoFocus: true,
 		DataPath:  filepath.Join(dataDir, "webview"),
 		WindowOptions: webview2.WindowOptions{
-			Title:  "ZLauncher",
+			Title:  "Prism",
 			Width:  winW,
 			Height: winH,
 			IconId: 1,
@@ -571,7 +571,7 @@ func main() {
 		},
 	})
 	if w == nil {
-		msgBox("ZLauncher needs the Microsoft Edge WebView2 Runtime.\n\nDownload it for free from Microsoft (search: \"WebView2 Runtime\") and start the app again.")
+		msgBox("Prism needs the Microsoft Edge WebView2 Runtime.\n\nDownload it for free from Microsoft (search: \"WebView2 Runtime\") and start the app again.")
 		return
 	}
 	defer w.Destroy()

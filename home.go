@@ -183,7 +183,7 @@ var friendsClient = &http.Client{Timeout: 12 * time.Second}
 
 func steamGet(u string) ([]byte, int, error) {
 	req, _ := http.NewRequest("GET", u, nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZLauncher")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Prism")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.8")
 	resp, err := friendsClient.Do(req)
 	if err != nil {

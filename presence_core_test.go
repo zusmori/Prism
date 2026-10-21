@@ -59,7 +59,7 @@ func TestStatsAndActivity(t *testing.T) {
 	}
 	// Launcher offen, Spiel zu
 	a = BuildActivity(cfg, PresenceInput{Tab: "vBrowse", LaunchOpen: now})
-	if a.Details != "Browsing workshop maps" || a.Buttons[0].Label != "Get ZLauncher" {
+	if a.Details != "Browsing workshop maps" || a.Buttons[0].Label != "Get Prism" {
 		t.Fatalf("launcher got %+v", a)
 	}
 	if a = BuildActivity(cfg, PresenceInput{Tab: "vDl", MapCount: 12}); a.State != "12 maps ready to play" {

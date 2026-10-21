@@ -98,7 +98,7 @@ func trayAdd(hwnd uintptr) {
 	d.UFlags = nifMessage | nifIcon | nifTip
 	d.UCallbackMessage = wmTray
 	d.HIcon = trayIcon
-	setUTF16(d.SzTip[:], "ZLauncher")
+	setUTF16(d.SzTip[:], "Prism")
 	r, _, _ := pNotify.Call(nimAdd, uintptr(unsafe.Pointer(&d)))
 	trayOn = r != 0
 }
@@ -121,8 +121,8 @@ func trayBalloonOnce() {
 	_ = os.WriteFile(flag, []byte("1"), 0644)
 	d := trayData()
 	d.UFlags = nifInfo
-	setUTF16(d.SzInfoTitle[:], "ZLauncher is still running")
-	setUTF16(d.SzInfo[:], "ZLauncher keeps running here. Right-click the icon to quit.")
+	setUTF16(d.SzInfoTitle[:], "Prism is still running")
+	setUTF16(d.SzInfo[:], "Prism keeps running here. Right-click the icon to quit.")
 	d.DwInfoFlags = 0x4 // NIIF_USER (App-Icon)
 	pNotify.Call(nimModify, uintptr(unsafe.Pointer(&d)))
 }
@@ -168,7 +168,7 @@ func trayMenu(hwnd uintptr) {
 		t, _ := windows.UTF16PtrFromString(text)
 		pAppendMenu.Call(m, 0, id, uintptr(unsafe.Pointer(t)))
 	}
-	add(trayCmdOpen, "Open ZLauncher")
+	add(trayCmdOpen, "Open Prism")
 	add(trayCmdPlay, "Play Rocket League")
 	pAppendMenu.Call(m, 0x800, 0, 0) // MF_SEPARATOR
 	add(trayCmdQuit, "Quit")

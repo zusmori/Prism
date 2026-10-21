@@ -34,8 +34,9 @@ const appVersion = "1.3.4"
 
 const (
 	releaseAPI = "https://api.github.com/repos/zusmori/ZLauncher/releases/latest"
-	assetName  = "ZLauncher.exe"
-	zlAsset    = "ZL.exe"  // Name v1.2.3 bis v1.2.7
+	assetName  = "Prism.exe"
+	zlLauncher = "ZLauncher.exe" // Name v1.2.8 bis v1.3.4
+	zlAsset    = "ZL.exe"        // Name v1.2.3 bis v1.2.7
 	oldAsset   = "ZMS.exe" // Name bis v1.2.2
 )
 
@@ -55,7 +56,7 @@ func checkUpdate() (UpdateInfo, error) {
 	info := UpdateInfo{Current: appVersion}
 	req, _ := http.NewRequest("GET", releaseAPI, nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "ZLauncher/"+appVersion)
+	req.Header.Set("User-Agent", "Prism/"+appVersion)
 	c := &http.Client{Timeout: 12 * time.Second}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -89,8 +90,8 @@ func checkUpdate() (UpdateInfo, error) {
 	if info.Version == "" {
 		return info, nil
 	}
-	// bevorzugt ZLauncher.exe, dann die alten Namen, sonst irgendeine .exe im Release
-	for _, want := range []string{assetName, zlAsset, oldAsset, "*.exe"} {
+	// bevorzugt Prism.exe, dann die alten Namen, sonst irgendeine .exe im Release
+	for _, want := range []string{assetName, zlLauncher, zlAsset, oldAsset, "*.exe"} {
 		for _, a := range rel.Assets {
 			ok := strings.EqualFold(a.Name, want) || (want == "*.exe" && strings.HasSuffix(strings.ToLower(a.Name), ".exe"))
 			if info.URL == "" && ok && strings.HasPrefix(a.URL, "https://github.com/") {
@@ -137,16 +138,16 @@ func installUpdate(progress func(pct float64)) error {
 	}
 	exe, err := os.Executable()
 	if err != nil {
-		return errors.New("Couldn't find the ZLauncher program file.")
+		return errors.New("Couldn't find the Prism program file.")
 	}
 	// Download nicht neben die exe (sonst springen Desktop-Symbole), sondern in den App-Ordner
 	upDir := filepath.Join(dataDir, "update")
 	_ = os.MkdirAll(upDir, 0755)
-	tmp := filepath.Join(upDir, "ZLauncher.part")
+	tmp := filepath.Join(upDir, "Prism.part")
 	_ = os.Remove(tmp)
 
 	req, _ := http.NewRequest("GET", info.URL, nil)
-	req.Header.Set("User-Agent", "ZLauncher/"+appVersion)
+	req.Header.Set("User-Agent", "Prism/"+appVersion)
 	c := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -231,7 +232,7 @@ func hide(p string) {
 //  1. ReplaceFile: Windows ersetzt die Datei an Ort und Stelle (Symbol bleibt, wo es ist)
 //  2. sonst zwei schnelle Umbenennungen; die alte Datei kommt in den App-Ordner oder versteckt daneben
 func swapExe(exe, newFile, upDir string) (string, error) {
-	backup := filepath.Join(upDir, "ZLauncher.old")
+	backup := filepath.Join(upDir, "Prism.old")
 	_ = os.Remove(backup)
 	// neue Datei muss auf demselben Laufwerk liegen wie die exe
 	src := newFile
@@ -239,7 +240,7 @@ func swapExe(exe, newFile, upDir string) (string, error) {
 		src = exe + ".update"
 		_ = os.Remove(src)
 		if err := copyFile(newFile, src); err != nil {
-			return "", errors.New("Couldn't save the update next to ZLauncher.exe.")
+			return "", errors.New("Couldn't save the update next to Prism.")
 		}
 		hide(src)
 		backup = exe + ".old"
@@ -267,13 +268,13 @@ func swapExe(exe, newFile, upDir string) (string, error) {
 		backup = exe + ".old"
 		_ = os.Remove(backup)
 		if err := os.Rename(exe, backup); err != nil {
-			return "", errors.New("Couldn't replace ZLauncher.exe. Close other copies of ZLauncher and try again.")
+			return "", errors.New("Couldn't replace Prism. Close other copies of Prism and try again.")
 		}
 		hide(backup)
 	}
 	if err := os.Rename(src, exe); err != nil {
 		_ = os.Rename(backup, exe) // zurueckrollen
-		return "", errors.New("Couldn't replace ZLauncher.exe.")
+		return "", errors.New("Couldn't replace Prism.")
 	}
 	return backup, nil
 }

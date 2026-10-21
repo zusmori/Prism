@@ -309,9 +309,9 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 	if !cfg.On {
 		return nil
 	}
-	a := &Activity{Assets: ActivityAssets{LargeImage: "logo", LargeText: "ZLauncher " + strings.TrimSpace("v"+in.Version)}}
+	a := &Activity{Assets: ActivityAssets{LargeImage: "logo", LargeText: "Prism " + strings.TrimSpace("v"+in.Version)}}
 	if cfg.Button {
-		a.Buttons = []ActivityButton{{Label: "Get ZLauncher", URL: zlReleaseURL}}
+		a.Buttons = []ActivityButton{{Label: "Get Prism", URL: zlReleaseURL}}
 	}
 	start := time.Time{}
 	switch {

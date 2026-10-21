@@ -105,7 +105,7 @@ func browseWorkshop(sort, period, query string, page int) (BrowsePage, error) {
 		q.Set("created_date_range_filter_end", "0")
 	}
 	req, _ := http.NewRequest("GET", "https://steamcommunity.com/workshop/browse/?"+q.Encode(), nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZLauncher")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Prism")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.8")
 	resp, err := webClient.Do(req)
 	if err != nil {

@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="assets/logo.png" width="96" alt="ZLauncher logo">
+  <img src="assets/logo.png" width="96" alt="Prism logo">
 </p>
 
-<h1 align="center">ZLauncher</h1>
-<p align="center">A Rocket League launcher for Windows</p>
+<h1 align="center">Prism</h1>
+<p align="center">A Rocket League launcher for Windows<br><sub>formerly ZLauncher</sub></p>
 
 <p align="center">
   <a href="../../releases/latest"><b>⬇ Download the latest version</b></a>
 </p>
 
 <p align="center">
-  <img src="assets/home.jpg" width="880" alt="ZLauncher Home">
+  <img src="assets/home.jpg" width="880" alt="Prism Home">
 </p>
 
 ## Features
@@ -25,12 +25,12 @@
 - Themes, tray mode and automatic updates.
 
 <p align="center">
-  <img src="assets/items.jpg" width="880" alt="ZLauncher item menu in Rocket League">
+  <img src="assets/items.jpg" width="880" alt="Prism item menu in Rocket League">
 </p>
 
 ## Getting started
 
-1. [Download](../../releases/latest) `ZLauncher.exe` and run it. No install needed.
+1. [Download](../../releases/latest) `Prism.exe` and run it. No install needed.
 2. If Windows warns you, click **More info → Run anyway**.
 3. Make sure Steam is running and hit **Play**.
 

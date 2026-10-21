@@ -2,7 +2,7 @@
 
 namespace gui {
 void Fonts();          // Segoe UI laden
-void Style();          // Farben im ZLauncher-Stil
+void Style();          // Farben im Prism-Stil
 void Render(bool* open);
 void SetOpen(bool open); // F8: oeffnen/schliessen (animiert)
 bool Visible();

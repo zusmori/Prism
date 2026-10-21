@@ -1,4 +1,4 @@
-// F8-Menue im ZLauncher-Stil: links die Slots, rechts die Auswahl fuer den Slot.
+// F8-Menue im Prism-Stil: links die Slots, rechts die Auswahl fuer den Slot.
 // Alles selbst gezeichnet, mit weichen Uebergaengen (Oeffnen/Schliessen, Hover, Auswahl, Scrollen).
 #include "gui.h"
 
@@ -17,8 +17,9 @@
 
 namespace gui {
 
-// ---------- Farben (wie im ZLauncher) ----------
-static ImVec4 accent(0.545f, 0.361f, 0.965f, 1.0f);
+// ---------- Farben (wie im Launcher) ----------
+static ImVec4 accent(124 / 255.0f, 108 / 255.0f, 252 / 255.0f, 1.0f);
+static ImVec4 spec[3] = {ImVec4(167 / 255.0f, 139 / 255.0f, 250 / 255.0f, 1), ImVec4(96 / 255.0f, 165 / 255.0f, 250 / 255.0f, 1), ImVec4(34 / 255.0f, 211 / 255.0f, 238 / 255.0f, 1)}; // Prisma-Spektrum
 static ImFont *fRegular = nullptr, *fSmall = nullptr, *fBold = nullptr, *fTitle = nullptr, *fTiny = nullptr;
 
 static ImVec4 Rgb(int r, int g, int b, float a = 1.0f) { return ImVec4(r / 255.0f, g / 255.0f, b / 255.0f, a); }
@@ -86,15 +87,22 @@ static ImVec4 QualityColor(int q) {
 }
 
 static void ReadTheme() {
+	// Standard: Prism-Look (wie im Launcher); andere Farbthemen mit eigenem Spektrum
+	auto set = [](int r, int g, int b, int a0, int a1, int a2, int b0, int b1, int b2, int c0, int c1, int c2) {
+		accent = Rgb(r, g, b);
+		spec[0] = Rgb(a0, a1, a2); spec[1] = Rgb(b0, b1, b2); spec[2] = Rgb(c0, c1, c2);
+	};
+	set(124, 108, 252, 167, 139, 250, 96, 165, 250, 34, 211, 238);
 	FILE* f = _wfopen((zl::DataDir() + L"\\settings.json").c_str(), L"r");
 	if (!f) return;
 	char buf[16384] = {0};
 	fread(buf, 1, sizeof buf - 1, f);
 	fclose(f);
 	std::string s(buf);
-	if (s.find("\"theme\":\"blue\"") != std::string::npos) accent = Rgb(59, 130, 246);
-	else if (s.find("\"theme\":\"cyan\"") != std::string::npos) accent = Rgb(6, 182, 212);
-	else if (s.find("\"theme\":\"green\"") != std::string::npos) accent = Rgb(16, 185, 129);
+	if (s.find("\"theme\":\"purple\"") != std::string::npos) set(139, 92, 246, 129, 140, 248, 167, 139, 250, 232, 121, 249);
+	else if (s.find("\"theme\":\"blue\"") != std::string::npos) set(59, 130, 246, 129, 140, 248, 96, 165, 250, 56, 189, 248);
+	else if (s.find("\"theme\":\"cyan\"") != std::string::npos) set(6, 182, 212, 96, 165, 250, 34, 211, 238, 45, 212, 191);
+	else if (s.find("\"theme\":\"green\"") != std::string::npos) set(16, 185, 129, 34, 211, 238, 52, 211, 153, 163, 230, 53);
 }
 
 void Fonts() {
@@ -262,7 +270,7 @@ static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cu
 	ImGui::PopID();
 }
 
-// Eingabefeld im ZLauncher-Stil, komplett selbst gebaut (ohne ImGui-InputText): Zeichen kommen direkt aus
+// Eingabefeld im Prism-Stil, komplett selbst gebaut (ohne ImGui-InputText): Zeichen kommen direkt aus
 // der Tastatur-Abfrage. So kann das Spiel den Fokus nicht mehr "wegnehmen". true = Enter gedrueckt
 static ImGuiID focusedField = 0;
 static double caretT = 0;
@@ -644,30 +652,57 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 	ImGui::EndChild();
 }
 
-// ---------- ZLauncher-Logo (Pixel wie im Launcher, Farben folgen der Akzentfarbe) ----------
-struct LogoPx { unsigned char x, y, k; };
-static const LogoPx kLogo[] = {{11,2,0},{12,2,0},{13,2,1},{9,3,0},{10,3,0},{11,3,1},{12,3,3},{7,4,0},{8,4,0},{9,4,1},{10,4,1},{11,4,3},{6,5,0},{7,5,1},{8,5,1},{9,5,1},{10,5,3},{5,6,0},{6,6,1},{7,6,1},{8,6,1},{9,6,3},{12,6,2},{13,6,4},{4,7,0},{5,7,1},{6,7,1},{7,7,1},{8,7,3},{10,7,2},{11,7,2},{12,7,6},{3,8,0},{4,8,1},{5,8,1},{6,8,1},{7,8,3},{8,8,2},{9,8,2},{10,8,4},{11,8,6},{3,9,0},{4,9,1},{5,9,1},{6,9,1},{7,9,3},{8,9,2},{9,9,4},{10,9,6},{2,10,0},{3,10,1},{4,10,1},{5,10,1},{6,10,3},{7,10,2},{8,10,4},{9,10,6},{12,10,5},{13,10,7},{2,11,1},{3,11,3},{4,11,3},{5,11,3},{6,11,2},{7,11,4},{8,11,6},{9,11,5},{10,11,5},{11,11,7},{12,11,8},{4,12,4},{5,12,2},{6,12,4},{7,12,6},{8,12,5},{9,12,7},{10,12,8},{5,13,4},{6,13,6},{7,13,5},{8,13,7},{9,13,8},{6,14,7},{7,14,8},{8,14,8}};
-static ImVec4 LogoColor(int k) {
-	static const float mixW[] = {0.0f, 0.12f, 0.28f, 0.40f, 0.58f, 0.75f, 0.92f, 1.0f};
-	if (k == 8) return Mix(accent, Rgb(0, 0, 0), 0.32f);
-	return Mix(Rgb(255, 255, 255), accent, mixW[k]);
+// ---------- Prism-Logo: Dreieck + Lichtstrahl im Spektrum (wie im Launcher) ----------
+// feine Linie im Spektrum (links -> rechts)
+static void SpecLine(ImDrawList* dl, float x0, float x1, float y, float h, float a) {
+	float xm = x0 + (x1 - x0) * 0.52f;
+	dl->AddRectFilledMultiColor(ImVec2(x0, y), ImVec2(xm, y + h), U(Alpha(spec[0], a)), U(Alpha(spec[1], a)), U(Alpha(spec[1], a)), U(Alpha(spec[0], a)));
+	dl->AddRectFilledMultiColor(ImVec2(xm, y), ImVec2(x1, y + h), U(Alpha(spec[1], a)), U(Alpha(spec[2], a)), U(Alpha(spec[2], a)), U(Alpha(spec[1], a)));
 }
-// Hover wie im Launcher: Logo dreht sich leicht, wird groesser und leuchtet (mit Feder-Bewegung)
+
+static ImVec4 SpecAt(float t) {
+	t = std::clamp(t, 0.0f, 1.0f);
+	return t < 0.55f ? Mix(spec[0], spec[1], t / 0.55f) : Mix(spec[1], spec[2], (t - 0.55f) / 0.45f);
+}
+// Hover: Logo kippt leicht und waechst mit Feder-Bewegung, ein Lichtfunke laeuft den Strahl hinunter
 static void Logo(ImDrawList* dl, ImVec2 c, float size, float hover) {
 	static float x = 0, v = 0;
+	static double hoverAt = -10;
+	static bool was = false;
 	float dt = Dt();
 	v += (hover - x) * 220.0f * dt; // Feder
 	v *= expf(-14.0f * dt);         // Daempfung
 	x += v * dt;
-	float rot = -0.21f * x, sc = 1.0f + 0.16f * x;
-	float glow = 0.22f + 0.30f * std::clamp(x, 0.0f, 1.2f);
-	for (int i = 3; i >= 1; i--) dl->AddCircleFilled(c, size * (0.30f + 0.14f * i), U(Acc(glow * 0.18f)), 32);
-	float px = size * sc / 16.0f, cs = cosf(rot), sn = sinf(rot);
-	ImVec2 off(c.x + 1.0f * x, c.y - 1.0f * x);
-	auto P = [&](float lx, float ly) { lx -= 8.0f; ly -= 8.0f; return ImVec2(off.x + (lx * cs - ly * sn) * px, off.y + (lx * sn + ly * cs) * px); };
-	for (auto& p : kLogo) {
-		ImU32 col = U(LogoColor(p.k));
-		dl->AddQuadFilled(P(p.x, p.y), P(p.x + 1.04f, p.y), P(p.x + 1.04f, p.y + 1.04f), P(p.x, p.y + 1.04f), col);
+	if (hover > 0.5f && !was) hoverAt = ImGui::GetTime();
+	was = hover > 0.5f;
+	float rot = -0.14f * x, sc = 1.0f + 0.14f * x;
+	float glow = 0.20f + 0.30f * std::clamp(x, 0.0f, 1.2f);
+	for (int i = 3; i >= 1; i--) dl->AddCircleFilled(ImVec2(c.x, c.y + size * 0.08f), size * (0.28f + 0.13f * i), U(Alpha(spec[1], glow * 0.16f)), 32);
+	float u = size * sc / 200.0f, cs = cosf(rot), sn = sinf(rot);
+	auto P = [&](float lx, float ly) { lx -= 100.0f; ly -= 96.0f; return ImVec2(c.x + (lx * cs - ly * sn) * u, c.y + (lx * sn + ly * cs) * u); };
+	ImVec2 t0 = P(100, 34), t1 = P(164, 152), t2 = P(36, 152);
+	float lw = std::max(1.6f, 15.0f * u);
+	ImU32 white = U(Rgb(244, 244, 250));
+	dl->AddTriangle(t0, t1, t2, white, lw);
+	for (ImVec2 p : {t0, t1, t2}) dl->AddCircleFilled(p, lw * 0.5f, white, 12); // runde Ecken
+	// Strahl: viele kurze Stuecke mit fliessender Farbe
+	ImVec2 b0 = P(100, 34), b1 = P(120, 152);
+	float bw = std::max(1.4f, 12.0f * u);
+	const int n = 14;
+	for (int i = 0; i < n; i++) {
+		float a = float(i) / n, b = float(i + 1) / n;
+		ImVec2 p0(b0.x + (b1.x - b0.x) * a, b0.y + (b1.y - b0.y) * a), p1(b0.x + (b1.x - b0.x) * b, b0.y + (b1.y - b0.y) * b);
+		dl->AddLine(p0, p1, U(SpecAt((a + b) * 0.5f)), bw);
+	}
+	dl->AddCircleFilled(b0, bw * 0.5f, U(spec[0]), 12);
+	dl->AddCircleFilled(b1, bw * 0.5f, U(spec[2]), 12);
+	// Lichtfunke beim Drueberfahren
+	float g = float(ImGui::GetTime() - hoverAt) / 0.6f;
+	if (g > 0.0f && g < 1.0f) {
+		float e = 1.0f - powf(1.0f - g, 2.0f), a = sinf(g * 3.14159f);
+		float s0 = std::max(0.0f, e - 0.18f), s1 = e;
+		ImVec2 p0(b0.x + (b1.x - b0.x) * s0, b0.y + (b1.y - b0.y) * s0), p1(b0.x + (b1.x - b0.x) * s1, b0.y + (b1.y - b0.y) * s1);
+		dl->AddLine(p0, p1, U(Rgb(255, 255, 255, 0.9f * a)), bw);
 	}
 }
 
@@ -1034,16 +1069,16 @@ void Render(bool* open) {
 	const float pad = 22;
 	{
 		ImVec2 lc(o.x + pad + 8, o.y + 33);
-		float tw = TextW(fTitle, "ZLauncher");
+		float tw = TextW(fTitle, "Prism");
 		bool hov = wantOpen && ImGui::IsMouseHoveringRect(ImVec2(lc.x - 16, lc.y - 18), ImVec2(o.x + pad + 34 + tw, lc.y + 18), false);
 		Logo(dl, lc, 26.0f, hov ? 1.0f : 0.0f);
 	}
-	Text(dl, fTitle, ImVec2(o.x + pad + 34, o.y + 21), cText, "ZLauncher");
+	Text(dl, fTitle, ImVec2(o.x + pad + 34, o.y + 21), cText, "Prism");
 	// Reiter "Items" / "Presets" mit gleitender Markierung
 	{
 		const char* names[3] = {"Items", "Colors", "Presets"};
 		const int ids[3] = {0, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
-		float x0 = o.x + pad + 34 + TextW(fTitle, "ZLauncher") + 22, y0 = o.y + 15;
+		float x0 = o.x + pad + 34 + TextW(fTitle, "Prism") + 22, y0 = o.y + 15;
 		float tws[3], tx[3], xx = x0 + 4;
 		for (int i = 0; i < 3; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
 		ImVec2 bp(x0, y0), bq(xx + 4, y0 + 38);
@@ -1067,6 +1102,7 @@ void Render(bool* open) {
 		tabX = tabX < 0 ? target : Approach(tabX, target, 18.0f);
 		tabW = tabW <= 0 ? tws[curPos] : Approach(tabW, tws[curPos], 18.0f);
 		dl->AddRectFilled(ImVec2(o.x + tabX, y0 + 4), ImVec2(o.x + tabX + tabW, y0 + 34), A(Acc(0.20f)), 15);
+		SpecLine(dl, o.x + tabX + tabW * 0.26f, o.x + tabX + tabW * 0.74f, y0 + 32, 1.5f, 0.9f); // Spektrum-Strich unter dem Reiter
 		for (int i = 0; i < 3; i++) {
 			float on = Anim(ImGui::GetID(names[i]), tab == ids[i] ? 1.0f : 0.0f);
 			float nw = TextW(fBold, names[i]);
@@ -1397,7 +1433,7 @@ void Toast(float t) {
 	// verbleibende Zeit als feine Linie unten
 	float rem = std::clamp(1.0f - t / kToastSeconds, 0.0f, 1.0f);
 	float lx0 = p.x + 18, lx1 = p.x + sz.x - 18;
-	if (rem > 0.01f) d->AddRectFilled(ImVec2(lx0, p.y + sz.y - 4), ImVec2(lx0 + (lx1 - lx0) * rem, p.y + sz.y - 2), C(Acc(0.75f)), 1.0f);
+	if (rem > 0.01f) SpecLine(d, lx0, lx0 + (lx1 - lx0) * rem, p.y + sz.y - 4, 2.0f, 0.85f * a);
 }
 
 } // namespace gui
