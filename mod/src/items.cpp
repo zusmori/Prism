@@ -380,6 +380,19 @@ static std::set<int> restore;           // Slots, die zurueck auf das eigene Ite
 static bool loggedOnce = false;
 static bool applying = false;
 
+// Manche Autos (z. B. lizenzierte) erzwingen eigene Teile: mit dem Lamborghini werden deine Raeder durch die
+// Lamborghini-Raeder ersetzt. Das sehen wir am Menue-Auto. Willst du so ein Teil lackieren, tragen wir genau
+// dieses erzwungene Teil ein, damit die Farbe auf dem Teil landet, das wirklich am Auto ist. (mu gesperrt)
+static std::map<int, std::map<int, int>> forcedBy; // Auto (Produkt-ID) -> Slot -> erzwungenes Teil
+static void AddForced(std::map<int, int>& ov) {
+	auto b = ov.find(0);
+	if (b == ov.end()) return;
+	auto f = forcedBy.find(b->second);
+	if (f == forcedBy.end()) return;
+	for (auto& [slot, id] : f->second)
+		if (!ov.count(slot) && paints.count(slot)) ov[slot] = id;
+}
+
 static void Patch(ue::TArray<int32_t>* a, int team, const std::map<int, int>& ov) {
 	if (!a || !a->data || a->count <= 0 || a->count > 64) return;
 	for (auto& [slot, id] : ov) {
@@ -548,6 +561,7 @@ static void WritePaints(void* pri) {
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		AddForced(ov); // vom Auto erzwungene Teile, die du lackieren willst
 		pt = paints;
 	}
 	// Alle Stellen, an denen das Spiel Item-Attribute fuer den Spieler ablegt
@@ -569,6 +583,7 @@ static bool PaintsOk(void* pri) {
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		AddForced(ov); // vom Auto erzwungene Teile, die du lackieren willst
 		pt = paints;
 	}
 	auto* prods = ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offClientOnline);
@@ -602,6 +617,7 @@ static void WriteOverrides(void* pri) {
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		AddForced(ov); // vom Auto erzwungene Teile, die du lackieren willst
 	}
 	for (int t = 0; t < 2; t++) {
 		auto* client = ue::Ptr<ue::TArray<int32_t>>(pri, offClient + t * 0x10);
@@ -665,6 +681,7 @@ static void PatchParams(void* params) {
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		AddForced(ov); // vom Auto erzwungene Teile, die du lackieren willst
 	}
 	auto* a = reinterpret_cast<ue::TArray<int32_t>*>(params);
 	if (!a || !a->data || a->count <= 0 || a->count > 64) return;
@@ -690,6 +707,7 @@ static bool NeedsApply(void* pri) {
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		AddForced(ov); // vom Auto erzwungene Teile, die du lackieren willst
 	}
 	try { if (!PaintsOk(pri)) return true; } catch (...) {}
 	if (ov.empty()) return false;
@@ -739,6 +757,7 @@ static int CarMissesItems(void* car) {
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		ov = overrides;
+		AddForced(ov); // vom Auto erzwungene Teile, die du lackieren willst
 	}
 	for (int slot : {0, 2, 3}) {
 		auto it = ov.find(slot);
@@ -892,6 +911,7 @@ struct PreviewState {
 	std::map<int, int> lastSeen;  // Slot -> zuletzt gesehener Wert
 	std::map<int, long long> target; // Slot -> zuletzt gesetztes Item + Farbe
 	std::map<int, unsigned long long> until; // Slot -> nicht vor diesem Zeitpunkt erneut tauschen
+	std::map<int, OwnPart> base;  // dein Loadout, wie das Spiel es zeigt, bevor wir etwas tauschen
 	int gen = -1;
 };
 static std::map<void*, PreviewState> previews;
@@ -1009,48 +1029,84 @@ static void SyncPreview(void* actor, bool main) {
 	}
 	PreviewState& st = previews[actor];
 	if (st.gen != userGen.load()) { st.until.clear(); st.gen = userGen.load(); } // du hast gerade etwas geaendert: sofort
-	// Hast du im Spiel (Garage) inzwischen ein anderes eigenes Item ausgeruestet? Dann das als "deins" merken
-	for (auto& [slot, own] : st.orig) {
-		if (slot >= prods->count) continue;
-		int nowv = prods->data[slot];
-		auto tg = st.target.find(slot);
-		int ours = tg != st.target.end() ? int(tg->second / 1000) : -1;
-		if (nowv > 0 && nowv != ours && nowv != own.id) {
-			zl::Log("menu car: your own item in slot %d is now %d (was %d)", slot, nowv, own.id);
-			own = OwnPart{nowv, onlineAt(slot)};
-			st.target.erase(slot);
-			st.lastSeen.erase(slot);
+	auto snapshot = [&] {
+		st.base.clear();
+		for (int i = 0; i < kSlotCount; i++) {
+			int slot = kSlots[i].index;
+			if (slot < prods->count) st.base[slot] = OwnPart{prods->data[slot], onlineAt(slot)};
+		}
+	};
+	auto ourId = [&](int slot) { auto tg = st.target.find(slot); return tg != st.target.end() ? int(tg->second / 1000) : -1; };
+	int bodyWant = ov.count(0) ? ov[0] : 0;
+	// Dein Loadout merken, bevor wir tauschen. Baut das Spiel das Auto wieder aus deinem Profil auf
+	// (Auto ist wieder deins statt unserem), neu merken - so kommen auch Items mit, die du inzwischen
+	// in der Garage ausgeruestet hast.
+	if (st.base.empty()) snapshot();
+	else if (bodyWant && prods->data[0] != bodyWant && prods->data[0] != ourId(0)) {
+		snapshot();
+		st.target.clear();
+		st.lastSeen.clear();
+		st.orig.clear();
+	} else if (!bodyWant) {
+		for (auto& [slot, own] : st.base) { // ohne eigenes Auto: geaenderter Slot = du hast etwas anderes ausgeruestet
+			if (slot >= prods->count || ov.count(slot)) continue;
+			int v = prods->data[slot];
+			if (v != own.id && v != ourId(slot)) {
+				zl::Log("menu car: your own item in slot %d is now %d (was %d)", slot, v, own.id);
+				own = OwnPart{v, onlineAt(slot)};
+				st.orig.erase(slot);
+				st.target.erase(slot);
+				st.lastSeen.erase(slot);
+			}
 		}
 	}
-	// Was soll im Slot sein? Gewaehltes Item - oder dein eigenes Item, wenn du es lackieren willst
-	std::map<int, int> desired = ov;
-	for (auto& [slot, paint] : pt) {
-		if (ov.count(slot) || slot >= prods->count) continue;
-		auto o = st.orig.find(slot);
-		int ownId = o != st.orig.end() ? o->second.id : prods->data[slot];
-		if (WantedPaint(slot, ownId, pt)) desired[slot] = ownId;
-	}
-	for (auto& [slot, id] : desired) {
-		if (slot >= prods->count) continue;
+	auto baseId = [&](int slot) { auto b = st.base.find(slot); return b != st.base.end() ? b->second.id : prods->data[slot]; };
+	// Teile tauschen: zuerst das Auto (es kann andere Teile erzwingen), dann der Rest
+	auto apply = [&](int slot, int id) {
 		int want = WantedPaint(slot, id, pt);
 		OnlineId wantId;
 		if (want && !PaintedId(id, want, wantId)) want = 0;
 		long long tgt = (long long)id * 1000 + want;
 		int now = prods->data[slot];
 		bool ok = now == id && onlineAt(slot) == wantId;
-		if (ok) { st.lastSeen[slot] = now; st.target[slot] = tgt; continue; }
+		if (ok) { st.lastSeen[slot] = now; st.target[slot] = tgt; return; }
 		auto ls = st.lastSeen.find(slot);
 		auto tg = st.target.find(slot);
-		if (ls != st.lastSeen.end() && ls->second == now && tg != st.target.end() && tg->second == tgt) continue; // schon gesetzt
+		if (ls != st.lastSeen.end() && ls->second == now && tg != st.target.end() && tg->second == tgt) return; // schon gesetzt
 		unsigned long long t = GetTickCount64();
-		if (t < st.until[slot]) continue; // nicht staendig neu laden (z. B. beim Durchscrollen in der Garage)
+		if (t < st.until[slot]) return; // nicht staendig neu laden (z. B. beim Durchscrollen in der Garage)
 		st.until[slot] = t + 1200;
-		if (!st.orig.count(slot)) st.orig[slot] = OwnPart{now, onlineAt(slot)}; // dein eigenes Item
+		if (!st.orig.count(slot)) { auto b = st.base.find(slot); st.orig[slot] = b != st.base.end() ? b->second : OwnPart{now, onlineAt(slot)}; }
 		ChangePart(actor, slot, id, wantId);
 		st.lastSeen[slot] = prods->data[slot];
 		st.target[slot] = tgt;
 		zl::Log("menu car %s: slot %d %d -> %d%s (now %d)", ue::Name(actor).c_str(), slot, now, id, want ? " painted" : "", prods->data[slot]);
+	};
+	if (bodyWant && 0 < prods->count) apply(0, bodyWant);
+	// Hat unser Auto Teile erzwungen (Slot ohne gewaehltes Item zeigt etwas anderes als dein Teil)?
+	std::map<int, int> forced;
+	if (bodyWant && prods->data[0] == bodyWant) {
+		for (auto& [slot, own] : st.base) {
+			if (slot == 0 || slot >= prods->count || ov.count(slot)) continue;
+			int v = prods->data[slot];
+			if (v > 0 && v != own.id && v != ourId(slot)) forced[slot] = v;
+		}
+		std::lock_guard<std::mutex> lk(mu);
+		auto& fb = forcedBy[bodyWant];
+		for (auto& [slot, v] : forced)
+			if (fb[slot] != v) { fb[slot] = v; zl::Log("menu car: car %d brings its own part %d in slot %d", bodyWant, v, slot); }
+		for (auto& [slot, v] : fb) forced.emplace(slot, v);
 	}
+	// Was soll im Slot sein? Gewaehltes Item - oder dein (bzw. das erzwungene) Teil, wenn du es lackieren willst
+	std::map<int, int> desired = ov;
+	for (auto& [slot, paint] : pt) {
+		if (ov.count(slot) || slot >= prods->count) continue;
+		auto f = forced.find(slot);
+		int ownId = f != forced.end() ? f->second : baseId(slot);
+		if (WantedPaint(slot, ownId, pt)) desired[slot] = ownId;
+	}
+	for (auto& [slot, id] : desired)
+		if (slot != 0 && slot < prods->count) apply(slot, id);
 	// Slots zurueck auf das eigene Item
 	for (auto it = st.orig.begin(); it != st.orig.end();) {
 		int slot = it->first;
@@ -1061,15 +1117,12 @@ static void SyncPreview(void* actor, bool main) {
 		st.target.erase(slot);
 		it = st.orig.erase(it);
 	}
-	// Deine echten Items merken (fuer die Liste: "Your own" zeigt den Namen)
+	// Deine Items fuer die Liste ("Your own" zeigt den Namen) - bei erzwungenen Teilen das, was wirklich dran ist
 	if (main) {
 		std::map<int, int> own;
-		for (int i = 0; i < kSlotCount; i++) {
-			int slot = kSlots[i].index;
-			if (slot >= prods->count) continue;
-			auto o = st.orig.find(slot);
-			if (o != st.orig.end()) own[slot] = o->second.id;
-			else if (!ov.count(slot)) own[slot] = prods->data[slot];
+		for (auto& [slot, b] : st.base) {
+			auto f = forced.find(slot);
+			own[slot] = (!ov.count(slot) && f != forced.end()) ? f->second : b.id;
 		}
 		std::lock_guard<std::mutex> lk(mu);
 		for (auto& [k, v] : own) ownItems[k] = v;
