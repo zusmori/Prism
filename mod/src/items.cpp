@@ -1315,7 +1315,8 @@ static void TickBoostPaint() {
 	static unsigned long long fast = 0;
 	if (grCoreOn && now >= fast) { fast = now + 40; try { ApplyCoreColor(grTarget, false); } catch (...) {} }
 	if (now < grNext || !loaded) return;
-	grNext = now + 400;
+	// solange die Lackierung noch nicht sitzt (z. B. beim Laden eines Spiels): sehr oft pruefen
+	grNext = now + (grApplied == 0 ? 50 : 400);
 	// gewuenschte Lackierung fuer den Gold Rush (nur wenn er gerade ausgewaehlt ist)
 	int want = 0;
 	float paint[3] = {1, 1, 1};
@@ -1367,7 +1368,7 @@ static void TickBoostPaint() {
 	for (void* m : grMics) if (!ue::IsValid(m)) alive = false;
 	if (!alive) {
 		if (now < grScanAt) return;
-		grScanAt = now + 3000;
+		grScanAt = now + 200; // beim Laden einer Map sofort umfaerben, sobald der Boost da ist
 		grPatches.clear();
 		grMicPatches.clear();
 		grComps.clear();
