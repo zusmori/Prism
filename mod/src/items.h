@@ -79,6 +79,7 @@ void LoadPresets();
 void SavePresets();
 void AddPreset(const std::string& name); // aktuelle Items speichern (gleicher Name = ueberschreiben)
 void UpdatePreset(int i, const std::string& name); // Preset mit den aktuellen Items ueberschreiben (Name leer = bleibt)
+void RenamePreset(int i, const std::string& name);
 int FindPreset(const std::string& name); // -1 = gibt es nicht
 void ResetAll(); // alles auf deine echten Items, eigene Farben aus
 void DeletePreset(int i);

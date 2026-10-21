@@ -68,6 +68,11 @@ static int offPRIGameEvent = -1;
 static void *clsPreview = nullptr, *fnChangePart = nullptr;
 static int offPrevLoadout = -1, offCPSlot = -1, offCPProduct = -1, offCPOnline = -1, offCPPaint = -1;
 static std::atomic<unsigned long long> applyAt{0};
+// Kontrolle nach dem Spawn: hat das Auto wirklich unsere Items bekommen?
+static int offCarLoadout = -1, offLoaderRemaining = -1, offAIdId = -1, offAIdRet = -1;
+static void* fnAssetById = nullptr;
+static unsigned long long verifyAt = 0;
+static int verifyTries = 0;
 // Farben
 static void *fnIsPaintable = nullptr, *clsPainted = nullptr, *cdoPainted = nullptr, *fnCreatePaint = nullptr;
 static void *fnPathName = nullptr, *cdoObject = nullptr;
@@ -115,6 +120,13 @@ bool Setup() {
 	offPawn = ue::PropOffset(clsPC, "Pawn");
 	if (clsCar) {
 		offPawnPRI = ue::PropOffset(clsCar, "PlayerReplicationInfo");
+		offCarLoadout = ue::PropOffset(clsCar, "Loadout");
+		if (void* clsLoader = ue::FindClass("Class TAGame.ProductLoader_TA")) {
+			offLoaderRemaining = ue::PropOffset(clsLoader, "RemainingProducts");
+			fnAssetById = ue::FindFunction(clsLoader, "GetAssetByID");
+			if (fnAssetById) { offAIdId = ue::PropOffset(fnAssetById, "ProductID"); offAIdRet = ue::PropOffset(fnAssetById, "ReturnValue"); }
+		}
+		zl::Log("verify: carLoadout=%x remaining=%x GetAssetByID=%p (%x/%x)", offCarLoadout, offLoaderRemaining, fnAssetById, offAIdId, offAIdRet);
 		fnCarSetLoadout = ue::FindFunction(clsCar, "SetLoadout");
 		fnTeamIndex = ue::FindFunction(clsCar, "GetLoadoutTeamIndex");
 		if (fnTeamIndex) offTeamRet = ue::PropOffset(fnTeamIndex, "ReturnValue");
@@ -662,6 +674,31 @@ static void EnsureLocalLoadout() {
 	}
 }
 
+// Fehlt dem Auto eines unserer Items (Auto, Raeder, Boost)? 1 = ja, 0 = nein, -1 = (noch) nicht pruefbar
+static int CarMissesItems(void* car) {
+	if (offCarLoadout < 0 || !fnAssetById || offAIdId < 0 || offAIdRet < 0) return -1;
+	void* ld = ue::Read<void*>(car, offCarLoadout);
+	if (!ld || !ue::IsAlive(ld)) return -1;
+	if (offLoaderRemaining >= 0 && ue::Ptr<ue::TArray<void*>>(ld, offLoaderRemaining)->count > 0) return -1; // laedt noch
+	std::map<int, int> ov;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		ov = overrides;
+	}
+	for (int slot : {0, 2, 3}) {
+		auto it = ov.find(slot);
+		if (it == ov.end()) continue;
+		std::vector<uint8_t> p(size_t(ue::StructSize(fnAssetById)) + 16, 0);
+		*reinterpret_cast<int32_t*>(p.data() + offAIdId) = it->second;
+		ue::Call(ld, fnAssetById, p.data());
+		if (!*reinterpret_cast<void**>(p.data() + offAIdRet)) {
+			zl::Log("verify: car %s has no item %d in slot %d", ue::Name(car).c_str(), it->second, slot);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
 	if (fn == fnApplyColors && fnApplyColors) { try { PatchColorEvent(caller, params); } catch (...) {} }
@@ -715,6 +752,8 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			ue::CheckObjects(caller);
 			// Neues Spiel: pruefen, ob das Auto schon unsere Items hat - sonst einmal neu spawnen
 			applyAt = 0;
+			verifyTries = 0;
+			verifyAt = GetTickCount64() + 1500; // und kurz danach am fertigen Auto nachsehen
 			bool hasOv;
 			{
 				std::lock_guard<std::mutex> lk(mu);
@@ -730,6 +769,22 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		lastPlayerTick = GetTickCount64();
 		try { localPRIForColors = offPRI >= 0 ? ue::Read<void*>(caller, offPRI) : nullptr; } catch (...) {}
 		try { TickColors(nullptr, pawn); } catch (...) {}
+		// Das Auto kann schon gebaut sein, bevor unsere Items im Loadout stehen (dann faehrt man kurz das eigene
+		// Auto). Am fertigen Auto nachsehen und im Freeplay einmal sauber neu spawnen.
+		if (verifyAt && GetTickCount64() >= verifyAt) {
+			verifyAt = 0;
+			int miss = -1;
+			try { miss = CarMissesItems(pawn); } catch (...) {}
+			if (miss < 0 && verifyTries < 8) { verifyTries++; verifyAt = GetTickCount64() + 500; } // noch nicht fertig geladen
+			else if (miss == 1 && verifyTries < 10) {
+				verifyTries = 10;
+				zl::Log("verify: car was built without your items -> respawn");
+				applyAt = GetTickCount64();
+			} else if (miss == 0) {
+				static int ok = 0;
+				if (ok++ < 5) zl::Log("verify: car has your items");
+			}
+		}
 		// Gebuendeltes Anwenden hier im PlayerTick: sicherer Moment, um das Auto neu zu spawnen
 		if (unsigned long long t = applyAt.load(); t && GetTickCount64() >= t) {
 			applyAt = 0;
@@ -1151,11 +1206,35 @@ static bool ColorsIntact(void* mesh) {
 	return true;
 }
 
-static void RestorePrefs() {
-	if (offColorPrefs < 0) return;
-	for (auto& [m, p] : prefsOrig)
-		if (ue::IsAlive(m) && ue::Read<void*>(m, offColorPrefs) == cleanPrefs) *ue::Ptr<void*>(m, offColorPrefs) = p;
+
+// Eigene Farben aus: auf allen Modellen, die wir angefasst haben, Overrides loeschen, die echten
+// Farb-Einstellungen zurueckgeben und die Lackierung neu anwenden lassen
+static void ClearOurColors() {
+	std::set<void*> meshes;
+	for (auto& [m, g] : colorsApplied) meshes.insert(m);
+	for (auto& [m, p] : prefsOrig) meshes.insert(m);
+	meshes.insert(ourMeshes[0].load());
+	meshes.insert(ourMeshes[1].load());
+	void* fnClear = clsCarMesh ? ue::FindFunction(clsCarMesh, "ClearColorOverrides") : nullptr;
+	int n = 0;
+	for (void* m : meshes) {
+		if (!m || !ue::IsAlive(m) || !clsCarMesh || !ue::IsA(m, clsCarMesh)) continue;
+		if (offColorPrefs >= 0 && cleanPrefs && ue::Read<void*>(m, offColorPrefs) == cleanPrefs) {
+			auto o = prefsOrig.find(m);
+			*ue::Ptr<void*>(m, offColorPrefs) = o != prefsOrig.end() ? o->second : nullptr;
+		}
+		if (fnClear) ue::Call(m, fnClear);
+		static const float zero[4] = {0, 0, 0, 0};
+		if (offTeamOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(m) + offTeamOverride, zero, 16);
+		if (offCustomOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(m) + offCustomOverride, zero, 16);
+		if (void* fnPaint = ue::FindFunction(ue::ClassOf(m), "ApplyPaintSettings")) ue::Call(m, fnPaint);
+		n++;
+	}
 	prefsOrig.clear();
+	colorsApplied.clear();
+	ourMeshes[0] = nullptr;
+	ourMeshes[1] = nullptr;
+	zl::Log("colors: off -> game colors back on %d model(s) (clear=%p)", n, fnClear);
 }
 
 // Farben auf ein Auto-Modell legen (merkt sich pro Modell, ob es schon die aktuellen Farben hat)
@@ -1248,7 +1327,7 @@ void SetColors(bool on, bool both, const float (*cols)[2][3], bool save) {
 		if (cols) memcpy(colors, cols, sizeof colors);
 		if (wasOn && !on) { // aus: Spiel-Farben zurueck -> Karosserie neu laden bzw. Auto neu spawnen
 			Queue([] {
-				colorsApplied.clear();
+				ClearOurColors();
 				for (void* a : previewActors) {
 					if (!ue::IsAlive(a)) continue;
 					auto* pr = ue::Ptr<ue::TArray<int32_t>>(a, offPrevLoadout);
@@ -1370,6 +1449,17 @@ void AddPreset(const std::string& rawName) {
 			FillPreset(p);
 			presets.insert(presets.begin(), std::move(p)); // neuestes oben
 		}
+	}
+	SavePresets();
+}
+
+void RenamePreset(int i, const std::string& rawName) {
+	std::string name = CleanName(rawName);
+	if (name.empty()) return;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		if (i < 0 || i >= (int)presets.size()) return;
+		presets[i].name = name;
 	}
 	SavePresets();
 }

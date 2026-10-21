@@ -61,7 +61,11 @@ static bool focusName = false;
 static int pendingDelete = -1;
 static double pendingDeleteAt = 0, savedAt = -10;
 static float pScrollTarget = 0.0f, pScrollLast = -1.0f;
-static int editPreset = -1;       // Preset, das gerade bearbeitet wird
+static int renameIdx = -1;        // Preset, dessen Name gerade geaendert wird
+static char renameBuf[48] = {0};
+static bool focusRename = false;
+static int pendingUpdate = -1, savedIdx = -1;
+static double pendingUpdateAt = 0, savedIdxAt = -10;
 static bool resetArmed = false, doReset = false;
 static double resetArmedAt = 0;
 
@@ -429,19 +433,6 @@ static void Button(ImDrawList* dl, const char* id, const char* label, ImVec2 p, 
 }
 
 // ---------- Presets ----------
-// zweitrangiger Knopf (nur Rand)
-static bool GhostButton(ImDrawList* dl, const char* id, const char* label, ImVec2 p, ImVec2 size) {
-	ImGui::SetCursorScreenPos(p);
-	bool click = ImGui::InvisibleButton(id, size);
-	float h = Anim(ImGui::GetID(id), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-	ImVec2 q(p.x + size.x, p.y + size.y);
-	dl->AddRectFilled(p, q, U(Mix(cPanel, cHover, h)), 12);
-	dl->AddRect(p, q, U(Mix(cLine2, Rgb(255, 255, 255, 0.18f), h)), 12);
-	float tw = TextW(fBold, label);
-	Text(dl, fBold, ImVec2(p.x + (size.x - tw) / 2, p.y + (size.y - fBold->FontSize) / 2 - 1), Mix(cMuted, cText, h), label);
-	return click;
-}
-
 static std::string Trim(const char* s) {
 	std::string t(s);
 	while (!t.empty() && t.back() == ' ') t.pop_back();
@@ -449,47 +440,48 @@ static std::string Trim(const char* s) {
 	return t;
 }
 
-// Stift-Symbol (Preset bearbeiten), wird nach der Karte gezeichnet
-static void EditIcon(ImDrawList* d, ImVec2 p, float vis, float dh) {
+// kleiner Text-Knopf auf einer Preset-Karte; Eingabe zuerst (Vorrang), gezeichnet wird spaeter
+struct CardBtn { ImVec2 p; float w; bool hov, click; };
+static CardBtn CardButton(const char* id, ImVec2 p, float w) {
+	ImGui::SetCursorScreenPos(p);
+	CardBtn b{p, w, false, false};
+	b.click = ImGui::InvisibleButton(id, ImVec2(w, 30));
+	b.hov = ImGui::IsItemHovered();
+	return b;
+}
+static void DrawCardButton(ImDrawList* d, const CardBtn& b, const char* label, float vis, float hov, ImVec4 tint, bool strong) {
 	if (vis < 0.01f) return;
-	d->AddRectFilled(p, ImVec2(p.x + 32, p.y + 32), U(Rgb(255, 255, 255, (0.04f + 0.06f * dh) * vis)), 10);
-	ImVec2 m(p.x + 16, p.y + 16);
-	ImU32 c = U(Alpha(Mix(cMuted, cText, dh), vis));
-	d->AddLine(ImVec2(m.x - 5, m.y + 5), ImVec2(m.x + 4, m.y - 4), c, 1.6f);
-	d->AddLine(ImVec2(m.x + 2, m.y - 6), ImVec2(m.x + 6, m.y - 2), c, 1.6f);
-	d->AddLine(ImVec2(m.x - 5, m.y + 5), ImVec2(m.x - 6, m.y + 6.5f), c, 1.6f);
+	ImVec2 q(b.p.x + b.w, b.p.y + 30);
+	ImVec4 bg = strong ? Alpha(tint, (0.18f + 0.14f * hov) * vis) : Rgb(255, 255, 255, (0.05f + 0.07f * hov) * vis);
+	d->AddRectFilled(b.p, q, U(bg), 9);
+	if (strong) d->AddRect(b.p, q, U(Alpha(tint, 0.45f * vis)), 9);
+	float tw = TextW(fBold, label);
+	ImVec4 tc = strong ? Mix(tint, Rgb(255, 255, 255), 0.55f) : Mix(cMuted, cText, hov);
+	Text(d, fBold, ImVec2(b.p.x + (b.w - tw) / 2, b.p.y + 6), Alpha(tc, vis), label);
 }
 
-// action: 1 = anwenden, 2 = loeschen, 3 = speichern (gleicher Name = ueberschreiben), 4 = bearbeitetes Preset sichern,
-//         5 = Bearbeiten starten, 6 = Bearbeiten abbrechen
+// action: 1 = laden, 2 = loeschen, 3 = neu speichern (gleicher Name = ueberschreiben),
+//         4 = aktuelle Items in dieses Preset speichern, 7 = umbenennen
 static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, int& action, int& actionIdx) {
 	const float leftW = 250, listTop = top + 14;
 	dl->AddLine(ImVec2(o.x + pad + leftW + 14, o.y + top + 1), ImVec2(o.x + pad + leftW + 14, o.y + W.y - 1), U(cLine));
 	int count = (int)items::presets.size();
-	if (editPreset >= count) editPreset = -1;
-	bool edit = editPreset >= 0;
+	if (renameIdx >= count) renameIdx = -1;
 
-	// Links: aktuelles Loadout speichern bzw. bearbeitetes Preset sichern
+	// Links: neues Preset aus den aktuellen Items
 	float x = o.x + pad, y = o.y + listTop;
-	if (edit) {
-		Text(dl, fTiny, ImVec2(x + 2, y), Acc(1.0f), "EDITING PRESET");
-		y += 18;
-		Text(dl, fSmall, ImVec2(x + 2, y), cMuted, Fit(fSmall, fSmall->FontSize, "Change items, then save here", leftW).c_str());
-		y += 24;
-	} else {
-		Text(dl, fTiny, ImVec2(x + 2, y), cFaint, "SAVE CURRENT ITEMS");
-		y += 22;
-	}
+	Text(dl, fTiny, ImVec2(x + 2, y), cFaint, "NEW PRESET FROM CURRENT ITEMS");
+	y += 22;
 	int changed = (int)items::overrides.size();
 	{
 		int rows = std::min(changed, 5) + (changed > 5 ? 1 : 0);
 		ImVec2 cp(x, y), cq(x + leftW, y + (changed ? 24.0f + rows * 22.0f : 100.0f));
 		dl->AddRectFilled(cp, cq, U(cPanel), 14);
-		dl->AddRect(cp, cq, U(edit ? Acc(0.45f) : cLine), 14);
+		dl->AddRect(cp, cq, U(cLine), 14);
 		float ly = cp.y + 12;
 		if (!changed) {
-			Text(dl, fRegular, ImVec2(cp.x + 16, cp.y + 44), cMuted, edit ? "Only your own items" : "Nothing changed yet");
-			Text(dl, fSmall, ImVec2(cp.x + 16, cp.y + 66), cFaint, edit ? "Pick items in the Items tab" : "Pick some items first");
+			Text(dl, fRegular, ImVec2(cp.x + 16, cp.y + 44), cMuted, "Nothing changed yet");
+			Text(dl, fSmall, ImVec2(cp.x + 16, cp.y + 66), cFaint, "Pick some items first");
 		} else {
 			int n = 0;
 			for (int i = 0; i < items::kSlotCount && n < 5; i++) {
@@ -516,22 +508,15 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 	bool enter = Field(dl, "##pname", "Preset name", presetName, sizeof presetName, ImVec2(x, y), ImVec2(x + leftW, y + 42), focusName, false, false);
 	y += 52;
 	bool justSaved = ImGui::GetTime() - savedAt < 1.4;
-	if (edit) {
-		bool click = false;
-		const float bw = leftW - 96;
-		Button(dl, "##saveedit", justSaved ? "Saved" : "Save changes", ImVec2(x, y), ImVec2(bw, 42), true, click);
-		if (click || enter) { action = 4; actionIdx = editPreset; savedAt = ImGui::GetTime(); }
-		if (GhostButton(dl, "##canceledit", "Done", ImVec2(x + bw + 8, y), ImVec2(leftW - bw - 8, 42))) action = 6;
-	} else {
-		// gibt es den Namen schon? Dann wird dieses Preset ueberschrieben
+	{
 		std::string nm = Trim(presetName);
 		bool exists = false;
 		for (auto& p : items::presets)
 			if (!nm.empty() && Lower(p.name) == Lower(nm)) exists = true;
 		bool click = false;
-		Button(dl, "##save", justSaved ? "Saved" : (exists ? "Update preset" : "Save preset"), ImVec2(x, y), ImVec2(leftW, 42), changed > 0, click);
+		Button(dl, "##save", justSaved ? "Saved" : (exists ? "Replace preset" : "Save preset"), ImVec2(x, y), ImVec2(leftW, 42), changed > 0, click);
 		if ((click || (enter && changed > 0))) { action = 3; savedAt = ImGui::GetTime(); }
-		if (exists && !justSaved) Text(dl, fSmall, ImVec2(x + 2, y + 52), cFaint, "Same name: the old preset is replaced");
+		if (exists && !justSaved) Text(dl, fSmall, ImVec2(x + 2, y + 52), cFaint, "A preset with this name gets replaced");
 	}
 
 	// Rechts: Liste
@@ -544,10 +529,14 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 		ImVec2 c0(o.x + px + nw + 10, o.y + listTop + 5);
 		dl->AddRectFilled(c0, ImVec2(c0.x + cw + 14, c0.y + 18), U(Rgb(255, 255, 255, 0.06f)), 9);
 		Text(dl, fTiny, ImVec2(c0.x + 7, c0.y + 2), cMuted, cnt);
+		if (count) {
+			const char* hint = "Click to load  \xC2\xB7  Update saves your current items into it";
+			Text(dl, fSmall, ImVec2(o.x + px, o.y + listTop + 28), cFaint, Fit(fSmall, fSmall->FontSize, hint, pw).c_str());
+		}
 	}
-	const float ly = listTop + 40;
+	const float ly = listTop + 56;
 	if (!count) {
-		ImVec2 c(o.x + px + pw / 2, o.y + ly + 140);
+		ImVec2 c(o.x + px + pw / 2, o.y + ly + 124);
 		dl->AddRectFilled(ImVec2(c.x - 26, c.y - 26), ImVec2(c.x + 26, c.y + 26), U(Acc(0.10f)), 16);
 		dl->AddRect(ImVec2(c.x - 11, c.y - 6), ImVec2(c.x + 11, c.y + 12), U(Acc(0.9f)), 4, 0, 1.6f);
 		dl->AddLine(ImVec2(c.x - 7, c.y - 11), ImVec2(c.x + 7, c.y - 11), U(Acc(0.6f)), 1.6f);
@@ -557,83 +546,100 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 		Text(dl, fSmall, ImVec2(c.x - TextW(fSmall, t2) / 2, c.y + 62), cMuted, t2);
 		return;
 	}
-	if (pendingDelete >= 0 && ImGui::GetTime() - pendingDeleteAt > 2.5) pendingDelete = -1;
+	double now = ImGui::GetTime();
+	if (pendingDelete >= 0 && now - pendingDeleteAt > 2.5) pendingDelete = -1;
+	if (pendingUpdate >= 0 && now - pendingUpdateAt > 2.5) pendingUpdate = -1;
 	ImGui::SetCursorScreenPos(ImVec2(o.x + px - 4, o.y + ly));
 	ImGui::BeginChild("presets", ImVec2(pw + 8, W.y - ly - 14), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
 	SmoothScroll(pScrollTarget, pScrollLast);
 	const float cw = pw - 8, ch = 64;
 	ImDrawList* d = ImGui::GetWindowDrawList();
+	ImVec4 red = Rgb(235, 85, 85);
+	d->ChannelsSplit(2); // 0 = Karten-Hintergrund, 1 = alles darauf (auch das Namensfeld)
+	d->ChannelsSetCurrent(1);
 	for (int i = 0; i < count; i++) {
 		const items::Preset& pr = items::presets[i];
 		ImGui::PushID(i);
 		ImVec2 p = ImGui::GetCursorScreenPos(), q(p.x + cw, p.y + ch);
-		// Knoepfe zuerst (haben Vorrang vor der Karte): Loeschen ganz rechts, Bearbeiten daneben
-		bool confirm = pendingDelete == i;
-		float delW = confirm ? 74.0f : 32.0f;
-		ImVec2 dp(q.x - 14 - delW, p.y + (ch - 32) / 2);
-		ImGui::SetCursorScreenPos(dp);
-		bool delClick = ImGui::InvisibleButton("##del", ImVec2(delW, 32));
-		bool delHov = ImGui::IsItemHovered();
-		ImVec2 ep(dp.x - 6 - 32, dp.y);
-		bool thisEdit = editPreset == i;
-		ImGui::SetCursorScreenPos(ep);
-		bool editClick = ImGui::InvisibleButton("##edit", ImVec2(32, 32));
-		bool editHov = ImGui::IsItemHovered();
+		bool confirmDel = pendingDelete == i, confirmUpd = pendingUpdate == i, renaming = renameIdx == i;
+		bool justUpd = savedIdx == i && now - savedIdxAt < 1.4;
+		// Knoepfe von rechts: Loeschen, Umbenennen, Update (Eingabe zuerst, damit sie Vorrang vor der Karte haben)
+		const float by = p.y + (ch - 30) / 2;
+		float delW = confirmDel ? 70.0f : 34.0f;
+		CardBtn del = CardButton("##del", ImVec2(q.x - 14 - delW, by), delW);
+		float renW = TextW(fBold, "Rename") + 22;
+		CardBtn ren = CardButton("##ren", ImVec2(del.p.x - 6 - renW, by), renW);
+		const char* updLabel = justUpd ? "Saved" : (confirmUpd ? "Save here?" : "Update");
+		float updW = TextW(fBold, updLabel) + 22;
+		CardBtn upd = CardButton("##upd", ImVec2(ren.p.x - 6 - updW, by), updW);
+		// Name aendern: Feld direkt auf der Karte
+		bool renEnter = false;
+		if (renaming) {
+			renEnter = Field(d, "##rn", "Preset name", renameBuf, sizeof renameBuf, ImVec2(p.x + 10, p.y + 12), ImVec2(upd.p.x - 12, p.y + ch - 12),
+				focusRename, false, false);
+		}
 		ImGui::SetCursorScreenPos(p);
 		bool click = ImGui::InvisibleButton("##card", ImVec2(cw, ch));
-		bool hov = ImGui::IsItemHovered() || delHov || editHov;
+		bool hov = ImGui::IsItemHovered() || del.hov || ren.hov || upd.hov;
 		bool active = pr.items == items::overrides && pr.paints == items::paints && !pr.items.empty();
 		float h = Anim(ImGui::GetID("h"), hov ? 1.0f : 0.0f);
-		float ac = Anim(ImGui::GetID("a"), (active || thisEdit) ? 1.0f : 0.0f);
-		float vis = std::max(h, confirm ? 1.0f : 0.0f);
+		float ac = Anim(ImGui::GetID("a"), active ? 1.0f : 0.0f);
+		float vis = std::max({h, confirmDel || confirmUpd || renaming || justUpd ? 1.0f : 0.0f});
+		d->ChannelsSetCurrent(0);
 		d->AddRectFilled(p, q, U(Mix(Mix(cPanel, cHover, h), Acc(0.12f), ac * 0.8f)), 14);
-		d->AddRect(p, q, U(Mix(cLine, Acc(0.55f), ac)), 14);
-		std::string nm = Fit(fBold, fBold->FontSize, pr.name, cw - 210);
-		Text(d, fBold, ImVec2(p.x + 18, p.y + 13), cText, nm.c_str());
-		std::string sum = pr.items.empty() ? std::string("Your own items") : Summary(pr.items, 3);
-		Text(d, fSmall, ImVec2(p.x + 18, p.y + 35), cMuted, Fit(fSmall, fSmall->FontSize, sum, cw - 210).c_str());
-		// Chip: "Editing" bzw. "Active"
-		if (ac > 0.01f) {
-			const char* t = thisEdit ? "Editing" : "Active";
-			float tw = TextW(fTiny, t);
-			ImVec2 c0(ep.x - 12 - tw - 18, p.y + (ch - 22) / 2);
-			d->AddRectFilled(c0, ImVec2(c0.x + tw + 18, c0.y + 22), U(Acc(0.2f * ac)), 11);
-			Text(d, fTiny, ImVec2(c0.x + 9, c0.y + 4), Alpha(Mix(accent, Rgb(255, 255, 255), 0.5f), ac), t);
-		}
-		// Bearbeiten + Loeschen
-		EditIcon(d, ep, confirm ? 0.0f : h, Anim(ImGui::GetID("eh"), editHov ? 1.0f : 0.0f));
-		float dh = Anim(ImGui::GetID("dh"), delHov ? 1.0f : 0.0f);
-		if (vis > 0.01f) {
-			ImVec2 dq(dp.x + delW, dp.y + 32);
-			if (confirm) {
-				d->AddRectFilled(dp, dq, U(Rgb(235, 85, 85, (0.18f + 0.14f * dh))), 10);
-				float tw = TextW(fBold, "Delete");
-				Text(d, fBold, ImVec2(dp.x + (delW - tw) / 2, dp.y + 7), Rgb(255, 160, 160), "Delete");
-			} else {
-				d->AddRectFilled(dp, dq, U(Rgb(255, 255, 255, (0.04f + 0.06f * dh) * vis)), 10);
-				ImU32 c = U(Alpha(Mix(cMuted, Rgb(255, 130, 130), dh), vis));
-				ImVec2 m(dp.x + 16, dp.y + 16);
-				d->AddLine(ImVec2(m.x - 6, m.y - 5), ImVec2(m.x + 6, m.y - 5), c, 1.5f);
-				d->AddLine(ImVec2(m.x - 2, m.y - 7.5f), ImVec2(m.x + 2, m.y - 7.5f), c, 1.5f);
-				d->AddRect(ImVec2(m.x - 4.5f, m.y - 3), ImVec2(m.x + 4.5f, m.y + 7), c, 2, 0, 1.5f);
+		d->AddRect(p, q, U(Mix(cLine, Acc(renaming ? 0.7f : 0.55f), std::max(ac, renaming ? 1.0f : 0.0f))), 14);
+		d->ChannelsSetCurrent(1);
+		if (!renaming) {
+			std::string nm = Fit(fBold, fBold->FontSize, pr.name, upd.p.x - p.x - 30 - (ac > 0.01f ? 64 : 0));
+			Text(d, fBold, ImVec2(p.x + 18, p.y + 13), cText, nm.c_str());
+			if (ac > 0.01f) { // "Active" direkt hinter dem Namen
+				float nx = p.x + 18 + TextW(fBold, nm.c_str()) + 10, tw = TextW(fTiny, "Active");
+				d->AddRectFilled(ImVec2(nx, p.y + 13), ImVec2(nx + tw + 16, p.y + 32), U(Acc(0.2f * ac)), 9);
+				Text(d, fTiny, ImVec2(nx + 8, p.y + 16), Alpha(Mix(accent, Rgb(255, 255, 255), 0.5f), ac), "Active");
 			}
+			std::string sum = pr.items.empty() ? std::string("Your own items") : Summary(pr.items, 3);
+			Text(d, fSmall, ImVec2(p.x + 18, p.y + 36), cMuted, Fit(fSmall, fSmall->FontSize, sum, upd.p.x - p.x - 30).c_str());
 		}
-		if (delClick) {
-			if (confirm) { action = 2; actionIdx = i; pendingDelete = -1; }
-			else { pendingDelete = i; pendingDeleteAt = ImGui::GetTime(); }
-		} else if (editClick) {
-			action = 5;
-			actionIdx = i;
-			pendingDelete = -1;
-		} else if (click) {
+		float vh = std::max(vis, 0.55f); // Knoepfe immer sichtbar, beim Drueberfahren deutlicher
+		DrawCardButton(d, upd, updLabel, std::max(vh, justUpd ? 1.0f : 0.0f), Anim(ImGui::GetID("uh"), upd.hov ? 1.0f : 0.0f), justUpd ? Rgb(90, 220, 140) : accent,
+			confirmUpd || justUpd);
+		DrawCardButton(d, ren, renaming ? "Save" : "Rename", vh, Anim(ImGui::GetID("rh"), ren.hov ? 1.0f : 0.0f), accent, renaming);
+		// Loeschen: Muelleimer bzw. "Delete"
+		float dh = Anim(ImGui::GetID("dh"), del.hov ? 1.0f : 0.0f);
+		if (confirmDel) DrawCardButton(d, del, "Delete", 1.0f, dh, red, true);
+		else if (vh > 0.01f) {
+			ImVec2 dq(del.p.x + del.w, del.p.y + 30);
+			d->AddRectFilled(del.p, dq, U(Rgb(255, 255, 255, (0.05f + 0.07f * dh) * vh)), 9);
+			ImU32 c = U(Alpha(Mix(cMuted, Rgb(255, 130, 130), dh), vh));
+			ImVec2 m(del.p.x + del.w / 2, del.p.y + 15);
+			d->AddLine(ImVec2(m.x - 6, m.y - 5), ImVec2(m.x + 6, m.y - 5), c, 1.5f);
+			d->AddLine(ImVec2(m.x - 2, m.y - 7.5f), ImVec2(m.x + 2, m.y - 7.5f), c, 1.5f);
+			d->AddRect(ImVec2(m.x - 4.5f, m.y - 3), ImVec2(m.x + 4.5f, m.y + 7), c, 2, 0, 1.5f);
+		}
+		// Klicks
+		bool renFocused = renaming && FieldFocused();
+		if (del.click) {
+			if (confirmDel) { action = 2; actionIdx = i; pendingDelete = -1; }
+			else { pendingDelete = i; pendingDeleteAt = now; pendingUpdate = -1; }
+		} else if (upd.click) {
+			if (confirmUpd) { action = 4; actionIdx = i; pendingUpdate = -1; savedIdx = i; savedIdxAt = now; }
+			else { pendingUpdate = i; pendingUpdateAt = now; pendingDelete = -1; }
+		} else if (ren.click) {
+			if (renaming) { action = 7; actionIdx = i; }
+			else { renameIdx = i; snprintf(renameBuf, sizeof renameBuf, "%s", pr.name.c_str()); focusRename = true; }
+			pendingDelete = pendingUpdate = -1;
+		} else if (renEnter || (renaming && !renFocused && !focusRename)) {
+			action = 7; actionIdx = i; // Enter oder daneben geklickt: Namen uebernehmen
+		} else if (click && !renaming) {
 			action = 1;
 			actionIdx = i;
-			pendingDelete = -1;
+			pendingDelete = pendingUpdate = -1;
 		}
 		ImGui::SetCursorScreenPos(ImVec2(p.x, q.y + 8));
 		ImGui::Dummy(ImVec2(cw, 0));
 		ImGui::PopID();
 	}
+	d->ChannelsMerge();
 	ImGui::Dummy(ImVec2(0, 6));
 	ImGui::EndChild();
 }
@@ -1052,6 +1058,7 @@ void Render(bool* open) {
 				tab = ids[i];
 				tabFade = 0.0f;
 				pendingDelete = -1;
+				renameIdx = -1;
 			}
 			ImGui::PopID();
 		}
@@ -1175,20 +1182,10 @@ void Render(bool* open) {
 		ImGui::PopFont();
 		ImGui::PopStyleVar();
 		if (action == 1) items::ApplyPreset(idx);
-		if (action == 2) {
-			items::DeletePreset(idx);
-			if (editPreset == idx) { editPreset = -1; presetName[0] = 0; }
-			else if (editPreset > idx) editPreset--;
-		}
+		if (action == 2) { items::DeletePreset(idx); if (renameIdx == idx) renameIdx = -1; }
 		if (action == 3) { items::AddPreset(name); presetName[0] = 0; pScrollTarget = 0; }
-		if (action == 4) items::UpdatePreset(idx, name);
-		if (action == 5) { // bearbeiten: Preset laden, Name zum Aendern ins Feld
-			items::ApplyPreset(idx);
-			editPreset = idx;
-			std::lock_guard<std::mutex> g(items::mu);
-			if (idx >= 0 && idx < (int)items::presets.size()) snprintf(presetName, sizeof presetName, "%s", items::presets[idx].name.c_str());
-		}
-		if (action == 6) { editPreset = -1; presetName[0] = 0; }
+		if (action == 4) items::UpdatePreset(idx, "");
+		if (action == 7) { items::RenamePreset(idx, renameBuf); renameIdx = -1; BlurField(); }
 		return;
 	}
 
