@@ -491,6 +491,57 @@ static void PaintList(ue::TArray<ue::TArray<void*>>* prods, ue::TArray<int32_t>*
 	}
 }
 
+// Eigene (gekaufte) Items haben im PRI eine Inventar-ID (FullLoadouts[t].OnlineProducts). Mit dieser ID
+// laedt das Spiel das echte Produkt aus deinem Inventar - samt dessen Attributen (also ohne unsere Farbe).
+// Fuer eigene Items, die wir lackieren, nehmen wir die ID deshalb heraus (und setzen sie spaeter zurueck).
+struct InstId { uint64_t a = 0, b = 0; };
+static int offLDOnline = -2;
+static std::map<std::pair<void*, int>, InstId> instOrig; // (Listen-Element) -> urspruengliche Inventar-ID
+static ue::TArray<InstId>* InstList(void* pri, int t) {
+	if (offFull < 0) return nullptr;
+	if (offLDOnline == -2) {
+		void* st = ue::FindObject("ScriptStruct TAGame._Types_TA.LoadoutData");
+		offLDOnline = st ? ue::PropOffset(st, "OnlineProducts") : -1;
+		if (offLDOnline < 0) offLDOnline = 0x30;
+		zl::Log("paint: inventory ids at loadout+%x", offLDOnline);
+	}
+	auto* l = ue::Ptr<ue::TArray<InstId>>(pri, offFull + t * 0x40 + offLDOnline);
+	return (l->data && l->count > 0 && l->count <= 64) ? l : nullptr;
+}
+// true = alles so, wie es sein soll (check), sonst wird geschrieben
+static bool OwnPaintIds(void* pri, const std::map<int, int>& ov, const std::map<int, int>& pt, bool check) {
+	bool ok = true;
+	for (int t = 0; t < 2; t++) {
+		auto* l = InstList(pri, t);
+		auto* ids = ue::Ptr<ue::TArray<int32_t>>(pri, offClient + t * 0x10);
+		if (!l || !ids->data) continue;
+		for (int i = 0; i < kSlotCount; i++) {
+			int slot = kSlots[i].index;
+			if (slot >= l->count || slot >= ids->count) continue;
+			InstId* e = &l->data[slot];
+			auto key = std::make_pair((void*)e, t);
+			bool want = !ov.count(slot) && WantedPaint(slot, ids->data[slot], pt) != 0;
+			if (want) {
+				if (e->a || e->b) {
+					if (check) { ok = false; continue; }
+					instOrig[key] = *e;
+					*e = InstId{};
+					static int n = 0;
+					if (n++ < 6) zl::Log("paint: your own item %d in slot %d -> painted copy", ids->data[slot], slot);
+				}
+			} else {
+				auto o = instOrig.find(key);
+				if (o != instOrig.end()) {
+					if (check) { ok = false; continue; }
+					*e = o->second;
+					instOrig.erase(o);
+				}
+			}
+		}
+	}
+	return ok;
+}
+
 static void WritePaints(void* pri) {
 	if (!attrArraysOk || offClientOnline < 0) return;
 	std::map<int, int> ov, pt;
@@ -508,6 +559,7 @@ static void WritePaints(void* pri) {
 		if (offFullOnline >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullOnline + t * 0x10), ids(t), pt, "FullOnlineLoadout");
 		if (offFullAttr >= 0) PaintList(ue::Ptr<ue::TArray<ue::TArray<void*>>>(pri, offFullAttr + t * 0x10), ids(t), pt, "FullLoadoutAttributes");
 	}
+	OwnPaintIds(pri, ov, pt, false);
 }
 
 // Stimmen die Farben im PRI?
@@ -533,6 +585,7 @@ static bool PaintsOk(void* pri) {
 		if (want && !(isOurs && elem->count == 1 && offPaintID >= 0 && elem->data[0] && ue::Read<int32_t>(elem->data[0], offPaintID) == want)) return false;
 		if (!want && attrOrig.count(elem)) return false;
 	}
+	if (!OwnPaintIds(pri, ov, pt, true)) return false;
 	return true;
 }
 
@@ -542,6 +595,7 @@ static void WriteOverrides(void* pri) {
 		originals[0].clear();
 		originals[1].clear();
 		ResetPaintState();
+		instOrig.clear();
 		origPRI = pri;
 	}
 	std::map<int, int> ov;
