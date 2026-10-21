@@ -741,15 +741,16 @@
   /* ---------- Einstellungen: eigene Seite mit Navigation links ---------- */
   #vSet{padding:4px 18px 18px}
   .max #vSet{padding:4px 22px 22px}
-  .setpage{height:100%;display:grid;grid-template-columns:196px minmax(0,1fr);gap:22px;min-height:0}
-  .snav{position:relative;align-self:start;display:flex;flex-direction:column;gap:2px;padding:10px 8px;margin-top:6px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+  .setpage{--nw:188px;--ng:30px;--cw:720px;--sg:calc(var(--nw) + var(--ng));position:relative;height:100%;min-height:0}
+  /* Inhalt genau in der Mitte, Navigation links daneben; rechts gleich viel Platz -> symmetrisch */
+  .snav{position:absolute;z-index:2;top:16px;width:var(--nw);left:max(0px,calc(50% - var(--cw) / 2 - var(--sg)));display:flex;flex-direction:column;gap:2px;padding:10px 8px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
   .snl{position:relative;z-index:1;border:0;background:none;text-align:left;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:9px 12px 9px 16px;border-radius:10px;cursor:pointer;transition:color .25s var(--ease)}
   .snl:hover{color:var(--text)} .snl.on{color:#fff}
   .snind{position:absolute;left:8px;right:8px;top:10px;height:36px;border-radius:10px;background:rgb(var(--ac-rgb) / .15);box-shadow:inset 0 0 0 1px rgb(var(--ac-rgb) / .28);
     transition:top .5s var(--ease),height .5s var(--ease);pointer-events:none}
   .snind::before{content:"";position:absolute;left:6px;top:10px;bottom:10px;width:3px;border-radius:2px;background:linear-gradient(rgb(var(--sp-a)),rgb(var(--sp-b)),rgb(var(--sp-c)))}
-  .scol{min-height:0;overflow-y:auto;padding:0 8px 48px 2px;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
-  .scol > *{max-width:780px}
+  .scol{position:relative;height:100%;min-height:0;overflow-y:auto;padding:0 var(--sg) 48px;scrollbar-gutter:stable both-edges;scrollbar-width:thin;scrollbar-color:#2a2a33 transparent}
+  .scol > *{max-width:var(--cw);margin-left:auto;margin-right:auto}
   .shero{padding:12px 2px 2px}
   .shero h2{font-size:26px;font-weight:700;letter-spacing:-.4px;background:linear-gradient(90deg,#fff 55%,rgb(var(--sp-b)));-webkit-background-clip:text;background-clip:text;color:transparent}
   .shero p{color:var(--muted);font-size:13px;margin-top:2px}
@@ -761,7 +762,31 @@
   .ssec.spot .sgrp{animation:slotglow 1.8s var(--ease)}
   .kbd{display:inline-block;padding:0 5px;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid var(--line2);font-size:10.5px;font-weight:700;color:var(--text);line-height:16px}
   .sbtn[disabled]{opacity:.45;pointer-events:none}
-  @media (max-width:760px){.setpage{grid-template-columns:1fr}.snav{display:none}}
+  @media (max-width:900px){.setpage{--sg:8px}.snav{display:none}}
+  /* Menue-Taste: sieht aus wie eine echte Taste */
+  .kset{display:flex;align-items:center;gap:8px;flex:none}
+  .kreset{border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--faint);padding:6px 8px;border-radius:8px;cursor:pointer;
+    transition:color .2s,background .2s,opacity .3s var(--ease),transform .3s var(--ease)}
+  .kreset:hover{color:var(--text);background:rgba(255,255,255,.05)}
+  .kreset.hide{opacity:0;transform:translateX(6px);pointer-events:none}
+  .keycap{position:relative;min-width:58px;height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--line2);cursor:pointer;font:inherit;font-size:13.5px;font-weight:700;color:var(--text);
+    background:linear-gradient(#24242c,#18181e);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -3px 0 rgba(0,0,0,.35),0 2px 8px rgba(0,0,0,.25);
+    transition:border-color .25s,transform .12s var(--ease),box-shadow .25s,color .25s,min-width .35s var(--ease)}
+  .keycap:hover{border-color:rgb(var(--ac-rgb) / .55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 -3px 0 rgba(0,0,0,.35),0 0 0 3px rgb(var(--ac-rgb) / .12)}
+  .keycap:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(0,0,0,.35)}
+  .keycap .kl{position:relative;z-index:1;display:inline-block;white-space:nowrap}
+  .keycap.pop .kl{animation:kpop .45s var(--ease)}
+  @keyframes kpop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .keycap.listen{min-width:132px;color:rgb(var(--ac3-rgb));border-color:transparent;background:linear-gradient(#1d1b2b,#15141d)}
+  .keycap.listen::before{content:"";position:absolute;inset:-1px;border-radius:11px;padding:1px;pointer-events:none;
+    background:conic-gradient(from var(--ka,0deg),rgb(var(--sp-a)),rgb(var(--sp-b)),rgb(var(--sp-c)),rgb(var(--sp-a)));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:kspin 2.2s linear infinite}
+  .keycap.listen::after{content:"";position:absolute;inset:0;border-radius:10px;box-shadow:0 0 18px rgb(var(--sp-b) / .25);animation:kglow 1.6s ease-in-out infinite;pointer-events:none}
+  @property --ka{syntax:'<angle>';inherits:false;initial-value:0deg}
+  @keyframes kspin{to{--ka:360deg}}
+  @keyframes kglow{50%{opacity:.35}}
+  .keycap.bad{animation:kshake .4s var(--ease)}
+  @keyframes kshake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
   .ssec h4{font-size:10.5px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--faint);margin:0 0 8px 2px}
   .sgrp{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .srow{display:flex;align-items:center;gap:13px;padding:10px 14px;transition:background .15s}
@@ -774,6 +799,7 @@
   .srow .tx{flex:1;min-width:0}
   .srow .tx b{display:block;font-size:13.5px;font-weight:600;color:var(--text)}
   .srow .tx small{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:1px}
+  .srow .tx small b.kbd{display:inline-block;font-size:10.5px;font-weight:700;line-height:16px;padding:0 6px;margin:0 1px;vertical-align:1px;color:var(--text)}
   .srow .sbtn{height:34px;padding:0 12px;font-size:12.5px;gap:7px;flex:none}
   .srow .sbtn .gi svg{width:13px;height:13px}
   .sbtn.ok{color:var(--ok);border-color:rgba(126,226,168,.3);background:rgba(126,226,168,.07)}
@@ -1458,11 +1484,14 @@
       </div></div>
       <div class="ssec" id="secGame"><h4>In game</h4><div class="sgrp">
         <div class="srow" id="setItemMod" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="spark"></span>
-          <div class="tx"><b>F8 menu <span class="spill" style="color:rgb(var(--ac3-rgb));background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .35)">Beta</span></b><small>Press F8 in Rocket League to use any item and swap maps. Items are only visible to you. Works when you play without Anti-Cheat.</small></div><span class="tg" id="tgItemMod"></span></div>
+          <div class="tx"><b>Prism menu <span class="spill" style="color:rgb(var(--ac3-rgb));background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .35)">Beta</span></b><small>Press <b class="kbd mkey">F8</b> in Rocket League to use any item and swap maps. Items are only visible to you. Works when you play without Anti-Cheat.</small></div><span class="tg" id="tgItemMod"></span></div>
+        <div class="srow nohov" id="rowKey"><span class="sic gi" data-ic="kbd"></span>
+          <div class="tx"><b>Menu key</b><small id="keyHint">The key that opens the Prism menu in game.</small></div>
+          <div class="kset"><button class="kreset hide" id="keyReset" title="Back to F8">Reset</button><button class="keycap" id="keyCap" aria-label="Change menu key"><span class="kl" id="keyLbl">F8</span></button></div></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
           <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit Prism. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
         <div class="srow nohov"><span class="sic gi" data-ic="swap"></span>
-          <div class="tx"><b>Swapped arenas</b><small id="swList">No arena swapped. Press <b class="kbd">F8</b> in Rocket League → Maps.</small></div>
+          <div class="tx"><b>Swapped arenas</b><small id="swList">No arena swapped. Press <b class="kbd mkey">F8</b> in Rocket League → Maps.</small></div>
           <button class="sbtn" id="swRestore" disabled>Restore all</button></div>
       </div></div>
       <div class="ssec"><h4>Performance</h4><div class="sgrp">
@@ -1734,7 +1763,7 @@ async function refresh(force){
 function paintSwaps(){
   const sw = curState.swaps || {}, keys = Object.keys(sw);
   const titleOf = name => (maps.find(m => m.name === name) || {}).title || name;
-  $('swList').innerHTML = keys.length ? '' : 'No arena swapped. Press <b class="kbd">F8</b> in Rocket League → Maps.';
+  $('swList').innerHTML = keys.length ? '' : 'No arena swapped. Press <b class="kbd mkey">' + esc(keyLabel()) + '</b> in Rocket League → Maps.';
   if (keys.length) $('swList').textContent = keys.map(f => (curState.swapNames?.[f] || f) + ': ' + titleOf(sw[f])).join('  ·  ');
   $('swRestore').disabled = !keys.length;
 }
@@ -1786,6 +1815,7 @@ function buildSwatches(){
 buildSwatches();
 async function saveSetting(k, v){ try { if (has('setSetting')) await setSetting(k, v); } catch (e) { toast(e, false); } }
 function paintSettings(){
+  paintKey(false);
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
   $('tgItemMod').classList.toggle('on', settings.itemMod !== false); $('setItemMod').setAttribute('aria-checked', settings.itemMod !== false);
@@ -1874,6 +1904,63 @@ document.querySelectorAll('.sexp').forEach(b => b.onclick = () => {
     const r = f.getBoundingClientRect(), br = sb.getBoundingClientRect();
     if (r.bottom > br.bottom) sb.scrollBy({top: r.bottom - br.bottom + 12, behavior: 'smooth'}); }, 380);
 });
+/* ---------- Menue-Taste im Spiel (Standard F8) ---------- */
+// KeyboardEvent.code -> Windows-Tastencode (VK); Tasten zum Spielen/Tippen sind nicht erlaubt
+const KEY_VK = (() => {
+  const m = {Insert:0x2D, Delete:0x2E, Home:0x24, End:0x23, PageUp:0x21, PageDown:0x22, Pause:0x13, ScrollLock:0x91,
+    ArrowLeft:0x25, ArrowUp:0x26, ArrowRight:0x27, ArrowDown:0x28, NumpadMultiply:0x6A, NumpadAdd:0x6B, NumpadSubtract:0x6D,
+    NumpadDecimal:0x6E, NumpadDivide:0x6F, Backquote:0xC0, Minus:0xBD, Equal:0xBB, BracketLeft:0xDB, BracketRight:0xDD,
+    Backslash:0xDC, Semicolon:0xBA, Quote:0xDE, Comma:0xBC, Period:0xBE, Slash:0xBF, IntlBackslash:0xE2};
+  for (let i = 1; i <= 24; i++) m['F' + i] = 0x6F + i;
+  for (let i = 0; i < 26; i++) m['Key' + String.fromCharCode(65 + i)] = 65 + i;
+  for (let i = 0; i <= 9; i++){ m['Digit' + i] = 48 + i; m['Numpad' + i] = 0x60 + i; }
+  return m;
+})();
+const KEY_NAMES = {Insert:'Insert', Delete:'Delete', Home:'Home', End:'End', PageUp:'Page Up', PageDown:'Page Down', Pause:'Pause',
+  ScrollLock:'Scroll Lock', ArrowLeft:'←', ArrowUp:'↑', ArrowRight:'→', ArrowDown:'↓', NumpadMultiply:'Num *', NumpadAdd:'Num +',
+  NumpadSubtract:'Num -', NumpadDecimal:'Num ,', NumpadDivide:'Num /'};
+function keyName(e){
+  if (KEY_NAMES[e.code]) return KEY_NAMES[e.code];
+  if (/^F\d+$/.test(e.code)) return e.code;
+  if (/^Numpad\d$/.test(e.code)) return 'Num ' + e.code.slice(6);
+  if (/^Key[A-Z]$/.test(e.code) || /^Digit\d$/.test(e.code)) return (e.key && e.key.length === 1 ? e.key : e.code.slice(-1)).toUpperCase();
+  return e.key && e.key.length === 1 ? e.key.toUpperCase() : e.code;
+}
+function keyLabel(){ return settings.menuKey && settings.menuKeyName ? settings.menuKeyName : 'F8'; }
+function paintKey(pop){
+  const l = keyLabel(), cap = $('keyCap');
+  if (!cap.classList.contains('listen')) $('keyLbl').textContent = l;
+  $('keyReset').classList.toggle('hide', l === 'F8');
+  document.querySelectorAll('.mkey').forEach(k => k.textContent = l);
+  if (pop){ cap.classList.remove('pop'); void cap.offsetWidth; cap.classList.add('pop'); }
+}
+const keyCap = {on: false, prev: ''};
+function keyListen(on){
+  const cap = $('keyCap'); keyCap.on = on;
+  cap.classList.toggle('listen', on);
+  $('keyLbl').textContent = on ? 'Press a key …' : keyLabel();
+  $('keyHint').textContent = on ? 'Press the new key. Esc cancels.' : 'The key that opens the Prism menu in game.';
+  if (!on) cap.blur();
+}
+$('keyCap').onclick = () => { Sfx.ui('tick'); keyListen(!keyCap.on); };
+$('keyReset').onclick = () => {
+  Sfx.ui('tick'); settings.menuKey = 0; settings.menuKeyName = '';
+  saveSetting('menuKey', 0); saveSetting('menuKeyName', ''); keyListen(false); paintKey(true); toast('Menu key is F8 again.', true);
+};
+document.addEventListener('keydown', e => {
+  if (!keyCap.on) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.code === 'Escape'){ keyListen(false); return; }
+  const vk = KEY_VK[e.code];
+  if (!vk){ const c = $('keyCap'); c.classList.remove('bad'); void c.offsetWidth; c.classList.add('bad');
+    $('keyHint').textContent = 'That key is needed for playing. Pick another one.'; return; }
+  const name = keyName(e);
+  settings.menuKey = vk === 0x77 ? 0 : vk; settings.menuKeyName = vk === 0x77 ? '' : name;
+  saveSetting('menuKey', settings.menuKey); saveSetting('menuKeyName', settings.menuKeyName);
+  keyListen(false); paintKey(true); Sfx.ui('done');
+  toast('Menu key set to ' + name + '. Works the next time you press it in game.', true);
+}, true);
+document.addEventListener('mousedown', e => { if (keyCap.on && !e.target.closest('#keyCap')) keyListen(false); }, true);
 // Einstellungen sind eine eigene Seite (Reiter "Settings")
 function openSettings(){ setTab('vSet'); }
 function closeSettings(){ if (tab === 'vSet') setTab('vHome'); }
@@ -2003,6 +2090,7 @@ document.fonts && document.fonts.ready.then(() => inkRO.takeRecords && moveInk($
 /* ---------- Browse Maps ---------- */
 // Outline-Icons (leuchten per CSS-Glow)
 const ICONS = {
+  kbd:    '<rect x="1.8" y="4" width="12.4" height="8.4" rx="1.8"/><path d="M4.5 6.6h.1M7 6.6h.1M9.5 6.6h.1M12 6.6h.1M4.5 9.8h7"/>',
   search: '<circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5l3.4 3.4"/>',
   flame:  '<path d="M8 14.4c-2.7 0-4.6-1.9-4.6-4.4 0-2.7 2.1-3.9 2.7-6.9 1.5 1 2.4 2.5 2.4 3.8.7-.5 1.2-1.3 1.4-2.3 1.7 1.4 2.8 3.2 2.8 5.4 0 2.5-1.9 4.4-4.7 4.4z"/><path d="M8 14.4c-1.1 0-1.9-.8-1.9-1.9 0-1.2.9-1.8 1.4-2.9.9.7 2.4 1.6 2.4 2.9 0 1.1-.8 1.9-1.9 1.9z"/>',
   users:  '<circle cx="6" cy="5.4" r="2.3"/><path d="M1.9 13.6c.4-2.4 2-3.7 4.1-3.7s3.7 1.3 4.1 3.7"/><path d="M10.6 3.3a2.1 2.1 0 0 1 0 4.1M12 9.9c1.2.5 2 1.6 2.2 3.7"/>',
@@ -2290,7 +2378,7 @@ function updateBadge(){
 async function startDownload(it, card){
   const d = dls[it.id];
   if (installed.has(it.id) && (!d || d.state === 'done')){ // schon da: getauscht wird im Spiel
-    toast('Already downloaded. In Rocket League press F8 → Maps to play it.', true);
+    toast('Already downloaded. In Rocket League press ' + keyLabel() + ' → Maps to play it.', true);
     return;
   }
   if (d && (d.state === 'queued' || d.state === 'downloading')) return;
@@ -2320,7 +2408,7 @@ window.__dl = async e => {
   dls[e.id] = {state: e.state, pct: e.pct || 0, msg: e.msg};
   if (e.state === 'error') toast(e.msg || 'Download failed.', false);
   if (e.state === 'done' && prev?.state !== 'done'){
-    toast('Downloaded "' + (titles[e.id] || 'map') + '". In Rocket League press F8 → Maps to play it.', true);
+    toast('Downloaded "' + (titles[e.id] || 'map') + '". In Rocket League press ' + keyLabel() + ' → Maps to play it.', true);
     if (has('loadMeta')) loadMeta();   // Titel und Bild fuer das F8-Menue holen
     Sfx.ui('done');
     await refresh(true);

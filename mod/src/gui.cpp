@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <string>
 
 #include "imgui.h"
@@ -99,10 +100,74 @@ static void ReadTheme() {
 	char buf[16384] = {0};
 	fread(buf, 1, sizeof buf - 1, f);
 	fclose(f);
-	std::string s(buf);
+	std::string s;
+	for (char ch : std::string(buf)) if (ch != ' ' && ch != '\n' && ch != '\r' && ch != '\t') s += ch; // Launcher speichert eingerueckt
 	if (s.find("\"theme\":\"purple\"") != std::string::npos) set(139, 92, 246, 129, 140, 248, 167, 139, 250, 232, 121, 249);
 	else if (s.find("\"theme\":\"cyan\"") != std::string::npos) set(6, 182, 212, 96, 165, 250, 34, 211, 238, 45, 212, 191);
 	else if (s.find("\"theme\":\"green\"") != std::string::npos) set(16, 185, 129, 34, 211, 238, 52, 211, 153, 163, 230, 53);
+}
+
+// ---------- Menue-Taste (im Launcher einstellbar, Standard F8) ----------
+static std::mutex keyMu;
+static std::atomic<int> menuVk{VK_F8};
+static std::string keyName = "F8";
+static unsigned long long keyReadAt = 0;
+
+static std::string NameOfKey(int vk) {
+	if (vk >= VK_F1 && vk <= VK_F24) return "F" + std::to_string(vk - VK_F1 + 1);
+	UINT sc = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
+	switch (vk) { // Tasten mit "erweitertem" Scancode
+	case VK_INSERT: case VK_DELETE: case VK_HOME: case VK_END: case VK_PRIOR: case VK_NEXT:
+	case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN: case VK_DIVIDE: case VK_NUMLOCK:
+		sc |= 0x100;
+	}
+	wchar_t w[64] = {0};
+	if (sc && GetKeyNameTextW(LONG(sc << 16), w, 64) > 0) {
+		char b[128] = {0};
+		WideCharToMultiByte(CP_UTF8, 0, w, -1, b, sizeof b, nullptr, nullptr);
+		std::string n(b);
+		if (n.size() == 1) n[0] = (char)toupper((unsigned char)n[0]);
+		if (!n.empty()) return n;
+	}
+	char b[16];
+	snprintf(b, sizeof b, "Key %d", vk);
+	return b;
+}
+
+static void ReadKey() {
+	int vk = VK_F8;
+	FILE* f = _wfopen((zl::DataDir() + L"\\settings.json").c_str(), L"r");
+	if (f) {
+		char buf[16384] = {0};
+		fread(buf, 1, sizeof buf - 1, f);
+		fclose(f);
+		std::string s;
+		for (char ch : std::string(buf)) if (ch != ' ' && ch != '\n' && ch != '\r' && ch != '\t') s += ch;
+		size_t p = s.find("\"menuKey\":");
+		if (p != std::string::npos) {
+			int v = atoi(s.c_str() + p + 10);
+			// keine Tasten, die man zum Spielen oder Tippen braucht
+			if (v > 7 && v < 255 && v != VK_ESCAPE && v != VK_RETURN && v != VK_TAB && v != VK_SPACE && v != VK_BACK && v != VK_SHIFT &&
+				v != VK_CONTROL && v != VK_MENU && v != VK_LWIN && v != VK_RWIN && v != VK_CAPITAL)
+				vk = v;
+		}
+	}
+	std::string n = NameOfKey(vk);
+	std::lock_guard<std::mutex> lk(keyMu);
+	if (vk != menuVk.load()) zl::Log("menu key: %s (%d)", n.c_str(), vk);
+	menuVk = vk;
+	keyName = n;
+}
+
+int MenuKey() {
+	unsigned long long now = GetTickCount64();
+	if (now - keyReadAt > 1500) { keyReadAt = now; ReadKey(); }
+	return menuVk.load();
+}
+std::string MenuKeyName() {
+	MenuKey();
+	std::lock_guard<std::mutex> lk(keyMu);
+	return keyName;
 }
 
 void Fonts() {
@@ -1811,9 +1876,11 @@ void Toast(float t) {
 	float in = EaseOut(t / 0.45f);
 	float out = std::clamp((kToastSeconds - t) / 0.45f, 0.0f, 1.0f);
 	float a = std::min(in, out * out);
-	const char* title = "Item menu ready";
-	const char* sub = "Press F8 in game to pick your items";
-	float w = std::max(TextW(fBold, title), TextW(fSmall, sub)) + 120;
+	const char* title = "Prism menu ready";
+	std::string kn = MenuKeyName();
+	std::string subS = "Press " + kn + " in game for items, colors and maps";
+	const char* sub = subS.c_str();
+	float w = std::max(TextW(fBold, title), TextW(fSmall, sub)) + 86 + std::max(34.0f, TextW(fBold, kn.c_str()) + 18);
 	const ImVec2 sz(w, 64);
 	ImVec2 p((io.DisplaySize.x - sz.x) / 2, 26 + (in - 1.0f) * 18 - (1.0f - out) * 10);
 	ImDrawList* d = ImGui::GetForegroundDrawList();
@@ -1825,12 +1892,13 @@ void Toast(float t) {
 	d->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), C(cLine2), 18);
 	// Symbol: "F8"-Taste in der Akzentfarbe
 	ImVec2 k(p.x + 16, p.y + 15);
-	d->AddRectFilled(k, ImVec2(k.x + 34, k.y + 34), C(Acc(0.18f)), 9);
-	d->AddRect(k, ImVec2(k.x + 34, k.y + 34), C(Acc(0.55f)), 9);
-	float kw = TextW(fBold, "F8");
-	Text(d, fBold, ImVec2(k.x + (34 - kw) / 2, k.y + 8), Alpha(Mix(accent, Rgb(255, 255, 255), 0.6f), a), "F8");
-	Text(d, fBold, ImVec2(p.x + 64, p.y + 13), Alpha(cText, a), title);
-	Text(d, fSmall, ImVec2(p.x + 64, p.y + 34), Alpha(cMuted, a), sub);
+	std::string kl = Fit(fBold, fBold->FontSize, kn, 90);
+	float kw = TextW(fBold, kl.c_str()), kb = std::max(34.0f, kw + 18);
+	d->AddRectFilled(k, ImVec2(k.x + kb, k.y + 34), C(Acc(0.18f)), 9);
+	d->AddRect(k, ImVec2(k.x + kb, k.y + 34), C(Acc(0.55f)), 9);
+	Text(d, fBold, ImVec2(k.x + (kb - kw) / 2, k.y + 8), Alpha(Mix(accent, Rgb(255, 255, 255), 0.6f), a), kl.c_str());
+	Text(d, fBold, ImVec2(k.x + kb + 14, p.y + 13), Alpha(cText, a), title);
+	Text(d, fSmall, ImVec2(k.x + kb + 14, p.y + 34), Alpha(cMuted, a), sub);
 	// verbleibende Zeit als feine Linie unten
 	float rem = std::clamp(1.0f - t / kToastSeconds, 0.0f, 1.0f);
 	float lx0 = p.x + 18, lx1 = p.x + sz.x - 18;

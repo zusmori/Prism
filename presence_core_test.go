@@ -62,8 +62,8 @@ func TestStatsAndActivity(t *testing.T) {
 	if a.Details != "Browsing workshop maps" || a.Buttons[0].Label != "Get Prism" {
 		t.Fatalf("launcher got %+v", a)
 	}
-	if a = BuildActivity(cfg, PresenceInput{Tab: "vDl", MapCount: 12}); a.State != "12 maps ready to play" {
-		t.Fatal(a.State)
+	if a = BuildActivity(cfg, PresenceInput{Tab: "vSet"}); a.Details != "Tweaking settings" {
+		t.Fatal(a.Details)
 	}
 	if a = BuildActivity(cfg, PresenceInput{Tab: "vHome"}); a.Details != "Idle" || a.State != "" {
 		t.Fatal(a.Details, a.State)

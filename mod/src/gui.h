@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 
 namespace gui {
 void Fonts();          // Segoe UI laden
@@ -10,5 +11,7 @@ bool BlurField();       // Esc: erst das Eingabefeld verlassen (true), sonst Men
 bool FieldFocused();    // tippt man gerade in ein Textfeld?
 bool OverMenu(float x, float y); // liegt der Punkt (Fenster-Pixel) auf dem Menue?
 constexpr float kToastSeconds = 6.5f;
-void Toast(float t);   // Hinweis "Item Swapper aktiv" (t = Sekunden seit Start)
+void Toast(float t);
+int MenuKey();           // Taste fuer das Menue (virtueller Tastencode), Standard F8
+std::string MenuKeyName();   // Hinweis "Item Swapper aktiv" (t = Sekunden seit Start)
 } // namespace gui

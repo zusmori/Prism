@@ -237,7 +237,7 @@ type PresenceInput struct {
 	MyIDs      []string          // eigene Steam-IDs (fuer "mein Team")
 	MyName     string
 	Swaps      map[string]string // Arena-Datei -> Map-Titel
-	Tab        string            // vHome | vDl | vBrowse
+	Tab        string            // vHome | vBrowse | vSet
 	LaunchOpen time.Time
 	Hidden     bool // ZLauncher liegt im Tray
 	Starting   bool // Play wurde gedrueckt, Spiel startet gerade
@@ -372,16 +372,8 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 	case cfg.Launcher:
 		start = in.LaunchOpen
 		switch in.Tab {
-		case "vDl":
-			a.Details = "Swapping workshop maps"
-			switch {
-			case in.MapCount == 1:
-				a.State = "1 map ready to play"
-			case in.MapCount > 1:
-				a.State = fmt.Sprintf("%d maps ready to play", in.MapCount)
-			default:
-				a.State = "Picking a map"
-			}
+		case "vSet":
+			a.Details, a.State = "Tweaking settings", "Making Prism just right"
 		case "vBrowse":
 			a.Details, a.State = "Browsing workshop maps", "Looking for something new"
 		default: // Home

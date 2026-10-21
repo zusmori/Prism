@@ -263,7 +263,9 @@ static int ReadRawMouse(LPARAM lp, bool count) {
 }
 
 static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
-	if (msg == WM_KEYDOWN && wp == VK_F8 && !(lp & (1 << 30))) {
+	// Menue-Taste (Standard F8); beim Tippen in ein Suchfeld zaehlen Buchstaben-Tasten als Text
+	if ((msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) && (int)wp == gui::MenuKey() && !(lp & (1 << 30)) &&
+		!(menuOpen && gui::FieldFocused() && MapVirtualKeyW((UINT)wp, MAPVK_VK_TO_CHAR) != 0)) {
 		menuOpen = !menuOpen;
 		OnMenuToggled();
 		return 0;
@@ -286,7 +288,7 @@ static LRESULT CALLBACK WndProcHook(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 			if (mouseGame) break;
 			return 0;
 		case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR: case WM_SYSKEYDOWN: case WM_SYSKEYUP:
-			if (keysGame && wp != VK_ESCAPE && wp != VK_F8) break; // Esc schliesst nur das Menue
+			if (keysGame && wp != VK_ESCAPE && (int)wp != gui::MenuKey()) break; // Esc schliesst nur das Menue
 			return 0;
 		}
 	}
