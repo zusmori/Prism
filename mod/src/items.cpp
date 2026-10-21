@@ -1,6 +1,7 @@
 #include "items.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <atomic>
@@ -781,52 +782,26 @@ static int CarMissesItems(void* car) {
 }
 
 // ---------- Lackierter Gold Rush ----------
-// Der Alpha-Boost "Gold Rush" hat im Spiel keine Lackierungen: seine Partikel ignorieren das Lack-Attribut.
-// Deshalb werden hier die Farben in seinen Partikel-Vorlagen direkt umgefaerbt (nur auf deinem PC sichtbar)
-// und beim Abwaehlen wieder auf die Originalwerte gesetzt.
+// Der Alpha-Boost "Gold Rush" hat im Spiel keine Lackierungen: Partikel und Materialien ignorieren das Lack-Attribut.
+// Deshalb faerbt der Mod alles aus seinem Paket (Boost_AlphaReward) selbst um: Farben der Partikel-Module
+// und die Farb-Parameter seiner Materialien (Flamme, Funken und der Schweif ohne Boost). Nur auf deinem PC sichtbar,
+// beim Abwaehlen kommen die Originalwerte zurueck. Funktioniert im Hauptmenue (Garage) und im Spiel.
 static const int kGoldRush = 32;
 struct FloatPatch { void* owner; float* p; float orig; };
-static std::unordered_map<float*, FloatPatch> grPatches; // Originalwerte aller geaenderten Farben
-static std::vector<void*> grTemplates;        // gefundene Partikel-Vorlagen des Gold Rush
-static int grApplied = 0;                     // aktuell angewendete Lackierung (0 = original)
+static std::unordered_map<float*, FloatPatch> grPatches; // Originalwerte der Partikel-Farben
+struct MicPatch { void* mic; ue::FName name; float orig[4]; };
+static std::vector<MicPatch> grMicPatches;                // Originalwerte der Material-Farben
+static std::vector<void*> grTemplates, grMics;            // gefundene Partikel-Vorlagen und Materialien
+static std::string grPkg;
+static int grApplied = 0;                                 // aktuell angewendete Lackierung (0 = original)
 static unsigned long long grNext = 0, grScanAt = 0;
-static bool grLogged = false;
+static bool grDumped = false, grModLogged = false;
 
 static std::string LowerS(std::string v) { for (auto& c : v) c = (char)tolower((unsigned char)c); return v; }
 static std::string Outermost(void* o) {
 	void* last = o;
 	for (int i = 0; i < 16 && o; i++) { last = o; o = ue::OuterOf(o); }
 	return ue::Name(last);
-}
-
-static bool FindGoldRushFx() {
-	grTemplates.clear();
-	void* clsPS = ue::FindClass("Class Engine.ParticleSystem");
-	if (!clsPS) return false;
-	// Paketname des Boosts aus den Produktdaten (z. B. "Boost_...")
-	std::string pkg;
-	auto dbs = ue::Instances(clsDB);
-	if (!dbs.empty()) {
-		auto* arr = ue::Ptr<ue::TArray<void*>>(dbs[0], offProducts);
-		void* prod = (arr->data && kGoldRush < arr->count) ? arr->data[kGoldRush] : nullptr;
-		int offPkg = ue::PropOffset(clsProduct, "AssetPackageName");
-		if (prod && offPkg >= 0) pkg = ue::NameOf(ue::Read<int32_t>(prod, offPkg));
-		if (!grLogged) zl::Log("gold rush: product %p asset package '%s'", prod, pkg.c_str());
-	}
-	std::string lp = LowerS(pkg);
-	std::vector<std::string> boosty;
-	for (void* ps : ue::Instances(clsPS)) {
-		if (!ue::IsAlive(ps)) continue;
-		std::string outer = LowerS(Outermost(ps)), full = LowerS(ue::FullName(ps));
-		bool hit = (!lp.empty() && outer == lp) || full.find("goldrush") != std::string::npos || full.find("gold_rush") != std::string::npos;
-		if (hit) grTemplates.push_back(ps);
-		else if (!grLogged && boosty.size() < 25 && full.find("boost") != std::string::npos) boosty.push_back(ue::FullName(ps) + " [" + Outermost(ps) + "]");
-	}
-	if (!grLogged) {
-		for (void* t : grTemplates) zl::Log("gold rush: fx %s [%s]", ue::FullName(t).c_str(), Outermost(t).c_str());
-		if (grTemplates.empty()) for (auto& b : boosty) zl::Log("gold rush: (not it) %s", b.c_str());
-	}
-	return !grTemplates.empty();
 }
 
 // Farbe aendern: Helligkeit des Originals bleibt, Farbton kommt von der Lackierung
@@ -853,11 +828,6 @@ static void PatchTriples(void* owner, float* f, int n, const float* target, bool
 	}
 }
 
-static void RestoreGoldRush() {
-	for (auto& [q, pt] : grPatches)
-		if (ue::IsAlive(pt.owner)) *pt.p = pt.orig;
-	grPatches.clear();
-}
 
 // Alle Farb-Module einer Vorlage umfaerben (target = lineare Farbe 0..1)
 static int TintTemplate(void* ps, const float* target) {
@@ -903,7 +873,7 @@ static int TintTemplate(void* ps, const float* target) {
 					PatchTriples(ps, tab->data + 2, tab->count - 2, target, grayToo, changed);
 				// 2) die Verteilung selbst (falls ohne Tabelle)
 				void* dist = *reinterpret_cast<void**>(rd + oDist);
-				if (dist && ue::IsAlive(dist)) {
+				if (dist && ue::IsValid(dist)) {
 					void* dc = ue::ClassOf(dist);
 					std::string dn = ue::Name(dc);
 					if (dn == "DistributionVectorConstant") {
@@ -923,7 +893,7 @@ static int TintTemplate(void* ps, const float* target) {
 						}
 					}
 				}
-				if (!grLogged) {
+				if (!grModLogged) {
 					std::string vals;
 					if (tab->data && tab->count > 4) {
 						char b[96];
@@ -939,13 +909,198 @@ static int TintTemplate(void* ps, const float* target) {
 	return changed;
 }
 
+
+// ----- Materialien (MaterialInstanceConstant): Farb-Parameter -----
+static void* clsMIC = nullptr;
+static void* fnSetVec = nullptr;
+static int oVecParams = -1, vpStride = 40, vpName = 0, vpValue = 8, oSetName = -1, oSetValue = -1, oMicParent = -1, oTexParams = -1, tpStride = 32;
+
+static bool MicSetup() {
+	if (fnSetVec) return true;
+	clsMIC = ue::FindClass("Class Engine.MaterialInstanceConstant");
+	if (!clsMIC) return false;
+	oVecParams = ue::PropOffset(clsMIC, "VectorParameterValues");
+	oTexParams = ue::PropOffset(clsMIC, "TextureParameterValues");
+	void* clsMI = ue::FindClass("Class Engine.MaterialInstance");
+	oMicParent = clsMI ? ue::PropOffset(clsMI, "Parent") : -1;
+	if (void* st = ue::FindObject("ScriptStruct Engine.MaterialInstanceConstant.VectorParameterValue")) {
+		vpStride = ue::StructSize(st);
+		vpName = ue::PropOffset(st, "ParameterName");
+		vpValue = ue::PropOffset(st, "ParameterValue");
+	}
+	if (void* st = ue::FindObject("ScriptStruct Engine.MaterialInstanceConstant.TextureParameterValue")) tpStride = ue::StructSize(st);
+	fnSetVec = ue::FindFunction(clsMIC, "SetVectorParameterValue");
+	if (fnSetVec) { oSetName = ue::PropOffset(fnSetVec, "ParameterName"); oSetValue = ue::PropOffset(fnSetVec, "Value"); }
+	zl::Log("gold rush: mic vec=%x stride=%d name=%d value=%d set=%p (%d/%d)", oVecParams, vpStride, vpName, vpValue, fnSetVec, oSetName, oSetValue);
+	return fnSetVec && oVecParams >= 0 && oSetName >= 0 && oSetValue >= 0 && vpName >= 0 && vpValue >= 0;
+}
+
+static void MicSet(void* mic, ue::FName n, const float* c) {
+	std::vector<uint8_t> prm(size_t(ue::StructSize(fnSetVec)) + 16, 0);
+	*reinterpret_cast<ue::FName*>(prm.data() + oSetName) = n;
+	memcpy(prm.data() + oSetValue, c, 16);
+	ue::Call(mic, fnSetVec, prm.data());
+}
+
+static void TintMic(void* mic, const float* target, int& changed) {
+	auto* arr = ue::Ptr<ue::TArray<uint8_t>>(mic, oVecParams);
+	std::vector<std::pair<ue::FName, std::array<float, 4>>> todo;
+	for (int i = 0; arr->data && i < arr->count && i < 64; i++) {
+		uint8_t* e = arr->data + size_t(i) * vpStride;
+		ue::FName n = *reinterpret_cast<ue::FName*>(e + vpName);
+		const float* v = reinterpret_cast<const float*>(e + vpValue);
+		// Original merken (nur beim ersten Mal)
+		const float* orig = nullptr;
+		for (auto& mp : grMicPatches)
+			if (mp.mic == mic && mp.name.index == n.index && mp.name.number == n.number) { orig = mp.orig; break; }
+		if (!orig) {
+			grMicPatches.push_back({mic, n, {v[0], v[1], v[2], v[3]}});
+			orig = grMicPatches.back().orig;
+		}
+		std::string nm = LowerS(ue::NameOf(n.index));
+		float mx = std::max({orig[0], orig[1], orig[2]}), mn = std::min({orig[0], orig[1], orig[2]});
+		bool colored = mx > 0.0001f && (mx - mn) > 0.12f * mx;
+		bool colorName = nm.find("color") != std::string::npos || nm.find("colour") != std::string::npos || nm.find("tint") != std::string::npos ||
+			nm.find("emis") != std::string::npos || nm.find("glow") != std::string::npos;
+		if (!colored && !colorName) continue;
+		if (mx <= 0.0001f) mx = 1.0f;
+		todo.push_back({n, {target[0] * mx, target[1] * mx, target[2] * mx, orig[3]}});
+	}
+	for (auto& [n, c] : todo) { MicSet(mic, n, c.data()); changed++; }
+}
+
+static void RestoreGoldRush() {
+	for (auto& [q, pt] : grPatches)
+		if (ue::IsValid(pt.owner)) *pt.p = pt.orig;
+	grPatches.clear();
+	if (fnSetVec)
+		for (auto& mp : grMicPatches)
+			if (ue::IsValid(mp.mic)) MicSet(mp.mic, mp.name, mp.orig);
+	grMicPatches.clear();
+}
+
+// Materialien, die die Partikel-Emitter benutzen (auch ausserhalb des Pakets)
+static void CollectTemplateMics(void* ps, std::vector<void*>& out) {
+	static void *clsEm = ue::FindClass("Class Engine.ParticleEmitter"), *clsLod = ue::FindClass("Class Engine.ParticleLODLevel");
+	static void* clsReq = ue::FindClass("Class Engine.ParticleModuleRequired");
+	static void* clsMeshMat = ue::FindClass("Class Engine.ParticleModuleMeshMaterial");
+	static void* clsPS = ue::FindClass("Class Engine.ParticleSystem");
+	int oEmitters = ue::PropOffset(clsPS, "Emitters");
+	int oLods = clsEm ? ue::PropOffset(clsEm, "LODLevels") : -1, oMods = clsLod ? ue::PropOffset(clsLod, "Modules") : -1;
+	int oReq = clsLod ? ue::PropOffset(clsLod, "RequiredModule") : -1, oMat = clsReq ? ue::PropOffset(clsReq, "Material") : -1;
+	int oMeshMats = clsMeshMat ? ue::PropOffset(clsMeshMat, "MeshMaterials") : -1;
+	if (oEmitters < 0 || oLods < 0) return;
+	auto add = [&](void* m) {
+		for (int d = 0; d < 4 && m && ue::IsValid(m); d++) { // MIC und ihre Eltern-MICs
+			if (!ue::IsA(m, clsMIC)) break;
+			if (std::find(out.begin(), out.end(), m) == out.end()) out.push_back(m);
+			m = oMicParent >= 0 ? ue::Read<void*>(m, oMicParent) : nullptr;
+		}
+	};
+	auto* ems = ue::Ptr<ue::TArray<void*>>(ps, oEmitters);
+	for (int e = 0; ems->data && e < ems->count && e < 64; e++) {
+		void* em = ems->data[e];
+		if (!em) continue;
+		auto* lods = ue::Ptr<ue::TArray<void*>>(em, oLods);
+		for (int l = 0; lods->data && l < lods->count && l < 8; l++) {
+			void* lod = lods->data[l];
+			if (!lod) continue;
+			if (oReq >= 0 && oMat >= 0) if (void* rq = ue::Read<void*>(lod, oReq)) add(ue::Read<void*>(rq, oMat));
+			if (oMods >= 0 && oMeshMats >= 0) {
+				auto* mods = ue::Ptr<ue::TArray<void*>>(lod, oMods);
+				for (int m = 0; mods->data && m < mods->count && m < 64; m++) {
+					void* mod = mods->data[m];
+					if (!mod || !ue::IsA(mod, clsMeshMat)) continue;
+					auto* mm = ue::Ptr<ue::TArray<void*>>(mod, oMeshMats);
+					for (int k = 0; mm->data && k < mm->count && k < 16; k++) add(mm->data[k]);
+				}
+			}
+		}
+	}
+}
+
+// Einmalig ins Log: was steckt im Paket des Boosts (zum Nachbessern)
+static void DumpGoldRush(const std::vector<void*>& all) {
+	if (grDumped) return;
+	grDumped = true;
+	std::map<std::string, int> byClass;
+	for (void* o : all) byClass[ue::Name(ue::ClassOf(o))]++;
+	std::string cls;
+	for (auto& [c, n] : byClass) cls += c + "=" + std::to_string(n) + " ";
+	zl::Log("gold rush: package %s has %d objects: %s", grPkg.c_str(), (int)all.size(), cls.c_str());
+	for (void* t : grTemplates) zl::Log("gold rush: fx %s", ue::FullName(t).c_str());
+	int lines = 0;
+	for (void* m : grMics) {
+		std::string params;
+		auto* arr = ue::Ptr<ue::TArray<uint8_t>>(m, oVecParams);
+		for (int i = 0; arr->data && i < arr->count && i < 24; i++) {
+			uint8_t* e = arr->data + size_t(i) * vpStride;
+			const float* v = reinterpret_cast<const float*>(e + vpValue);
+			char b[128];
+			snprintf(b, sizeof b, "%s=(%.2f %.2f %.2f %.2f) ", ue::NameOf(reinterpret_cast<ue::FName*>(e + vpName)->index).c_str(), v[0], v[1], v[2], v[3]);
+			params += b;
+		}
+		int tex = oTexParams >= 0 ? ue::Ptr<ue::TArray<uint8_t>>(m, oTexParams)->count : 0;
+		void* par = oMicParent >= 0 ? ue::Read<void*>(m, oMicParent) : nullptr;
+		if (lines++ < 60)
+			zl::Log("gold rush: mic %s parent=%s textures=%d vectors: %s", ue::FullName(m).c_str(), par ? ue::Name(par).c_str() : "-", tex, params.c_str());
+	}
+	for (void* o : all) {
+		std::string c = ue::Name(ue::ClassOf(o));
+		if (c == "Material" || c.find("Texture") != std::string::npos || c.find("StaticMesh") != std::string::npos || c.find("FXActor") != std::string::npos)
+			if (lines++ < 120) zl::Log("gold rush: %s", ue::FullName(o).c_str());
+	}
+}
+
+static bool FindGoldRushFx() {
+	grTemplates.clear();
+	grMics.clear();
+	void* clsPS = ue::FindClass("Class Engine.ParticleSystem");
+	if (!clsPS || !MicSetup()) { if (!clsPS) zl::Log("gold rush: ParticleSystem class missing"); }
+	if (grPkg.empty()) {
+		auto dbs = ue::Instances(clsDB);
+		if (!dbs.empty()) {
+			auto* arr = ue::Ptr<ue::TArray<void*>>(dbs[0], offProducts);
+			void* prod = (arr->data && kGoldRush < arr->count) ? arr->data[kGoldRush] : nullptr;
+			int offPkg = ue::PropOffset(clsProduct, "AssetPackageName");
+			if (prod && offPkg >= 0) grPkg = ue::NameOf(ue::Read<int32_t>(prod, offPkg));
+		}
+		if (grPkg.empty()) grPkg = "Boost_AlphaReward";
+	}
+	std::string lp = LowerS(grPkg);
+	// erst das Paket selbst finden (Objekt ohne Outer), dann nur Zeiger vergleichen - schnell
+	std::vector<void*> pkgs;
+	for (int i = 0, n = ue::ObjectCount(); i < n; i++) {
+		void* o = ue::ObjectAt(i);
+		if (o && !ue::OuterOf(o) && LowerS(ue::Name(o)) == lp) pkgs.push_back(o);
+	}
+	std::vector<void*> all;
+	if (pkgs.empty()) { static int miss = 0; if (miss++ < 3) zl::Log("gold rush: package %s not loaded yet", grPkg.c_str()); return false; }
+	for (int i = 0, n = ue::ObjectCount(); i < n; i++) {
+		void* o = ue::ObjectAt(i);
+		if (!o) continue;
+		try {
+			void* top = o;
+			for (int d = 0; d < 16; d++) { void* up = ue::OuterOf(top); if (!up) break; top = up; }
+			if (top == o || std::find(pkgs.begin(), pkgs.end(), top) == pkgs.end()) continue;
+			if (ue::Name(o).rfind("Default__", 0) == 0) continue;
+			all.push_back(o);
+			if (clsPS && ue::IsA(o, clsPS)) grTemplates.push_back(o);
+			else if (clsMIC && ue::IsA(o, clsMIC)) grMics.push_back(o);
+		} catch (...) {}
+	}
+	if (clsMIC) for (void* t : grTemplates) CollectTemplateMics(t, grMics);
+	DumpGoldRush(all);
+	return !all.empty();
+}
+
 static void TickBoostPaint() {
 	unsigned long long now = GetTickCount64();
 	if (now < grNext || !loaded) return;
-	grNext = now + 500;
+	grNext = now + 400;
 	// gewuenschte Lackierung fuer den Gold Rush (nur wenn er gerade ausgewaehlt ist)
 	int want = 0;
-	float target[3] = {1, 1, 1};
+	float paint[3] = {1, 1, 1};
 	{
 		std::unique_lock<std::mutex> lk(mu, std::try_to_lock);
 		if (!lk.owns_lock()) return;
@@ -956,32 +1111,41 @@ static void TickBoostPaint() {
 			want = pp->second;
 			for (auto& pi : paintList)
 				if (pi.id == want)
-					for (int k = 0; k < 3; k++) target[k] = powf(std::clamp(pi.rgb[k], 0.0f, 1.0f), 2.2f); // sRGB -> linear
+					for (int k = 0; k < 3; k++) paint[k] = powf(std::clamp(pi.rgb[k], 0.0f, 1.0f), 2.2f); // sRGB -> linear
 		}
 	}
-	// Lackierungen leuchten bei Partikeln nicht von selbst: Farbton auf volle Helligkeit, dunkle Farben (Schwarz) bleiben sichtbar dunkel
-	float mx = std::max({target[0], target[1], target[2]});
-	float val = 0.12f + 0.88f * std::min(1.0f, mx * 1.6f);
-	for (int k = 0; k < 3; k++) target[k] = (mx > 0.0001f ? target[k] / mx : 1.0f) * val;
 	if (want == 0) {
 		if (grApplied) { RestoreGoldRush(); grApplied = 0; zl::Log("gold rush: original colors back"); }
 		return;
 	}
-	// Vorlagen noch da? (werden beim Wechsel der Map neu geladen)
-	bool alive = !grTemplates.empty();
-	for (void* t : grTemplates) if (!ue::IsAlive(t)) alive = false;
+	// Farbe: Farbton auf volle Helligkeit; die Helligkeit kommt aus dem Original (Leuchten bleibt)
+	float mx = std::max({paint[0], paint[1], paint[2]});
+	float val = std::min(1.0f, mx * 1.6f);
+	float target[3];
+	for (int k = 0; k < 3; k++) target[k] = (mx > 0.0001f ? paint[k] / mx : 1.0f) * std::max(val, 0.02f);
+	// Vorlagen/Materialien noch da? (werden beim Laden einer Map neu angelegt)
+	bool alive = !grTemplates.empty() || !grMics.empty();
+	for (void* t : grTemplates) if (!ue::IsValid(t)) alive = false;
+	for (void* m : grMics) if (!ue::IsValid(m)) alive = false;
 	if (!alive) {
 		if (now < grScanAt) return;
 		grScanAt = now + 3000;
-		grPatches.clear(); // alte Vorlagen sind weg, ihre Werte auch
+		grPatches.clear();
+		grMicPatches.clear();
 		grApplied = 0;
-		if (!FindGoldRushFx()) { if (!grLogged) zl::Log("gold rush: no particle templates found yet"); grLogged = true; return; }
+		if (!FindGoldRushFx()) return;
 	}
-	if (grApplied == want) return;
-	int n = 0;
+	// Materialien setzt das Spiel beim Neuaufbau des Boosts manchmal zurueck: regelmaessig erneuern
+	static unsigned long long refresh = 0;
+	if (grApplied == want && now < refresh) return;
+	refresh = now + 2000;
+	int n = 0, m = 0;
 	for (void* t : grTemplates) n += TintTemplate(t, target);
-	zl::Log("gold rush: paint %d -> %d colors in %d templates (target %.2f %.2f %.2f)", want, n, (int)grTemplates.size(), target[0], target[1], target[2]);
-	grLogged = true;
+	grModLogged = true;
+	if (fnSetVec) for (void* mic : grMics) TintMic(mic, target, m);
+	if (grApplied != want)
+		zl::Log("gold rush: paint %d -> %d particle colors, %d material colors (%d fx, %d materials, target %.2f %.2f %.2f)", want, n, m,
+			(int)grTemplates.size(), (int)grMics.size(), target[0], target[1], target[2]);
 	grApplied = want;
 }
 
