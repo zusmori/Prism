@@ -56,6 +56,15 @@ std::string FullName(const void* obj); // z. B. "Class TAGame.Product_TA"
 void* FindObject(const char* fullName);
 void* FindClass(const char* fullName) ;
 std::vector<void*> Instances(void* cls); // ohne "Default__"-Objekte
+// Wie Instances, aber in kleinen Stuecken ueber mehrere Bilder verteilt (im Spiel kein Ruckler).
+struct SlicedScan {
+	void* cls = nullptr;
+	int pos = 0;
+	bool running = false;
+	std::vector<void*> partial, result;
+	void Start(void* c) { cls = c; pos = 0; partial.clear(); running = c != nullptr; }
+	bool Step(int budget = 12000); // true = Durchlauf fertig, result ist neu
+};
 bool IsA(const void* obj, const void* cls);
 int PropOffset(void* cls, const char* name); // -1 = nicht gefunden
 uint32_t BoolMask(void* cls, const char* name); // Bit einer bool-Eigenschaft, 0 = unbekannt

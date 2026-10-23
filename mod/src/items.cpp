@@ -397,6 +397,7 @@ static void* LocalCar() {
 	} catch (...) { return nullptr; }
 }
 
+static void* pendingSet = nullptr;      // PRI, dem das neue Loadout noch gemeldet werden muss (sobald kein Auto faehrt)
 static std::map<int, int> originals[2]; // Team -> Slot -> eigenes Item
 static std::set<int> restore;           // Slots, die zurueck auf das eigene Item sollen
 static bool loggedOnce = false;
@@ -691,9 +692,14 @@ void ApplyNow() {
 		ue::Call(ge, restart);
 		void* now = LocalCar();
 		zl::Log("apply: car respawned in freeplay (%s, old car %p, new car %p %s)", ue::Name(ge).c_str(), car, now, now ? ue::Name(now).c_str() : "-");
+		verifyTries = 0;
+		verifyAt = GetTickCount64() + 800; // am neuen Auto nachsehen (Items + Hitbox ins Log)
 	} else {
-		ue::Call(pri, fnSet);
-		zl::Log("apply: not in freeplay (%s) - items show on the next spawn", ge ? ue::Name(ge).c_str() : "-");
+		// Kein Freeplay (Match, Training): ein fahrendes Auto nie umbauen - sonst passen Modell und Hitbox/Physik
+		// nicht mehr zusammen. Das Loadout steht schon drin; das Spiel baut das Auto beim naechsten Spawn
+		// (nach Tor/Reset) ganz normal damit auf. Bekannt gegeben wird es erst, wenn gerade kein Auto faehrt.
+		pendingSet = pri;
+		zl::Log("apply: not in freeplay (%s) - items come with the next spawn", ge ? ue::Name(ge).c_str() : "-");
 	}
 	zl::Log("apply: done for PRI %p", pri);
 }
@@ -793,6 +799,33 @@ static int CarMissesItems(void* car) {
 		}
 	}
 	return 0;
+}
+
+// Kontrolle fuers Log: alles rund um Kollision/Hitbox des fertigen Autos (zeigt, dass das Spiel die Hitbox
+// des getauschten Autos benutzt - das Auto wird ganz normal aus dem Loadout gebaut, nichts wird umgebogen)
+static std::string LowerS(std::string v);
+static void LogHitbox(void* car, int body) {
+	static int n = 0;
+	if (n >= 12 || !car) return;
+	n++;
+	std::string out;
+	for (void* st = ue::ClassOf(car); st && out.size() < 1200; st = ue::Read<void*>(st, ue::off::StructSuper))
+		for (void* f = ue::Read<void*>(st, ue::off::StructChildren); f && out.size() < 1200; f = ue::Read<void*>(f, ue::off::FieldNext)) {
+			std::string nm = ue::Name(f), lo = LowerS(nm), cn = ue::Name(ue::ClassOf(f));
+			if (lo.find("hitbox") == std::string::npos && lo.find("collision") == std::string::npos && lo.find("extent") == std::string::npos) continue;
+			int o = ue::Read<int32_t>(f, ue::off::PropOffset), sz = ue::Read<int32_t>(f, ue::off::PropElementSize);
+			char buf[160] = {};
+			if (cn == "FloatProperty") snprintf(buf, sizeof buf, "%s=%.1f ", nm.c_str(), ue::Read<float>(car, o));
+			else if (cn == "StructProperty" && sz == 12) {
+				const float* v = ue::Ptr<float>(car, o);
+				snprintf(buf, sizeof buf, "%s=(%.1f %.1f %.1f) ", nm.c_str(), v[0], v[1], v[2]);
+			} else if (cn == "ObjectProperty") {
+				void* ob = ue::Read<void*>(car, o);
+				snprintf(buf, sizeof buf, "%s=%s ", nm.c_str(), ob && ue::IsValid(ob) ? ue::Name(ob).c_str() : "-");
+			} else continue;
+			out += buf;
+		}
+	zl::Log("hitbox: %s body %d: %s", ue::Name(car).c_str(), body, out.empty() ? "(no collision values found)" : out.c_str());
 }
 
 // ---------- Lackierter Gold Rush ----------
@@ -1142,30 +1175,6 @@ static void DumpGoldRush(const std::vector<void*>& all) {
 }
 
 // Welche Partikel zeigt das Spiel gerade am Boost? (einmal pro Spielstart ins Log)
-static void DiagBoostComponents() {
-	static int runs = 0;
-	if (runs >= 3) return;
-	void* clsPSC = ue::FindClass("Class Engine.ParticleSystemComponent");
-	void* clsAC = ue::FindClass("Class Engine.ActorComponent");
-	if (!clsPSC) return;
-	int oTpl = ue::PropOffset(clsPSC, "Template"), oOwner = clsAC ? ue::PropOffset(clsAC, "Owner") : -1;
-	if (oTpl < 0) return;
-	runs++;
-	int lines = 0;
-	for (void* c : ue::Instances(clsPSC)) {
-		if (!ue::IsValid(c)) continue;
-		void* t = ue::Read<void*>(c, oTpl);
-		void* ow = oOwner >= 0 ? ue::Read<void*>(c, oOwner) : nullptr;
-		std::string on = ow ? ue::Name(ue::ClassOf(ow)) : "";
-		bool ours = t && std::find(grTemplates.begin(), grTemplates.end(), t) != grTemplates.end();
-		if (!ours && LowerS(on).find("boost") == std::string::npos) continue;
-		if (lines++ < 40)
-			zl::Log("gold rush: psc %s owner=%s %s template=%s%s", ue::Name(c).c_str(), on.c_str(), ow ? ue::Name(ow).c_str() : "-",
-				t ? ue::FullName(t).c_str() : "-", ours ? " (ours)" : "");
-	}
-	zl::Log("gold rush: %d boost particle components (run %d)", lines, runs);
-}
-
 static bool FindGoldRushFx() {
 	grTemplates.clear();
 	grMics.clear();
@@ -1238,16 +1247,6 @@ static bool PscSetup() {
 	zl::Log("gold rush: psc tpl=%x inst=%x param stride=%d name=%d type=%d vector=%d color=%d setVec=%p(%d/%d) setCol=%p(%d/%d)", oPscTpl, oPscInst, spStride,
 		spName, spType, spVector, spColor, fnPscSetVec, oSvName, oSvVal, fnPscSetCol, oScName, oScVal);
 	return oPscTpl >= 0;
-}
-
-static void FindGoldRushComps() {
-	grComps.clear();
-	if (!PscSetup()) return;
-	for (void* c : ue::Instances(clsPSC)) {
-		if (!ue::IsValid(c)) continue;
-		void* t = ue::Read<void*>(c, oPscTpl);
-		if (t && std::find(grTemplates.begin(), grTemplates.end(), t) != grTemplates.end()) grComps.push_back(c);
-	}
 }
 
 // Wert eines Instanz-Parameters lesen (Vektor oder Farbe), false = nicht gesetzt
@@ -1328,6 +1327,26 @@ static void TickBoostPaint() {
 	// schnell: die Laufzeit-Farbe setzt das Spiel immer wieder neu (z. B. bei jedem Boost-Start)
 	static unsigned long long fast = 0;
 	if (grCoreOn && now >= fast) { fast = now + 40; try { ApplyCoreColor(grTarget, false); } catch (...) {} }
+	// Partikel-Komponenten des Boosts (Garage und Spiel) regelmaessig neu suchen - verteilt auf mehrere Bilder,
+	// damit das Spiel dabei nicht ruckelt
+	static ue::SlicedScan grScan;
+	if (grCoreOn && !grTemplates.empty() && PscSetup()) {
+		static void* grCar = nullptr; // neues Auto (Respawn) = neuer Boost: gleich neu suchen
+		void* car = LocalCar();
+		if (car != grCar) { grCar = car; grCompsAt = 0; if (grScan.running) grScan.Start(clsPSC); }
+		if (!grScan.running && now >= grCompsAt) grScan.Start(clsPSC);
+		if (grScan.running && grScan.Step()) {
+			grCompsAt = now + 1500;
+			size_t before = grComps.size();
+			grComps.clear();
+			for (void* c : grScan.result) {
+				if (!ue::IsValid(c)) continue;
+				void* t = ue::Read<void*>(c, oPscTpl);
+				if (t && std::find(grTemplates.begin(), grTemplates.end(), t) != grTemplates.end()) grComps.push_back(c);
+			}
+			if (grComps.size() != before) zl::Log("gold rush: %d particle components, params %d", (int)grComps.size(), (int)grParams.size());
+		}
+	}
 	if (now < grNext || !loaded) return;
 	// solange die Lackierung noch nicht sitzt (z. B. beim Laden eines Spiels): sehr oft pruefen
 	grNext = now + (grApplied == 0 ? 50 : 400);
@@ -1369,13 +1388,6 @@ static void TickBoostPaint() {
 	bool blackish = mx < 0.06f || grPaintName == "Black" || grPaintName == "Onyx";
 	grV = blackish ? 0.0f : std::min(1.25f, powf(mx, 0.45f) * 1.3f);
 	grCoreOn = true;
-	// Partikel-Komponenten des Boosts (Garage und Spiel) regelmaessig neu suchen
-	if (now >= grCompsAt && !grTemplates.empty()) {
-		grCompsAt = now + 1500;
-		size_t before = grComps.size();
-		FindGoldRushComps();
-		if (grComps.size() != before) zl::Log("gold rush: %d particle components, params %d", (int)grComps.size(), (int)grParams.size());
-	}
 	// Vorlagen/Materialien noch da? (werden beim Laden einer Map neu angelegt)
 	bool alive = !grTemplates.empty() || !grMics.empty();
 	for (void* t : grTemplates) if (!ue::IsValid(t)) alive = false;
@@ -1401,7 +1413,6 @@ static void TickBoostPaint() {
 	if (grApplied != want)
 		zl::Log("gold rush: paint %d -> %d particle colors, %d material colors (%d fx, %d materials, target %.2f %.2f %.2f)", want, n, m,
 			(int)grTemplates.size(), (int)grMics.size(), target[0], target[1], target[2]);
-	if (grApplied != want) DiagBoostComponents();
 	grApplied = want;
 }
 
@@ -1477,7 +1488,6 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
 	if (fn == fnApplyColors && fnApplyColors) { try { PatchColorEvent(caller, params); } catch (...) {} }
 	tweaks::OnEvent(caller, fn);
-	CamOnEvent(caller, fn, params);
 	try { customs::Fast(); } catch (...) {}
 	static unsigned long long nextCheck = 0;
 	unsigned long long now = GetTickCount64();
@@ -1489,12 +1499,10 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (lastIsCar) try { CarEventColors(caller); } catch (...) {}
 	// Beim Laden (noch kein Auto unterwegs) bei jedem Auto-/PRI-Ereignis pruefen: das Loadout kommt per
 	// Replikation und das Auto wird direkt danach gebaut - hier zaehlt jede Millisekunde.
-	// Danach feuern Autos sehr viele Ereignisse pro Bild -> hoechstens alle 4 ms.
-	static unsigned long long nextCarCheck = 0;
+	// Danach (beim Fahren) reicht alle 40 ms - das haelt den Hook schlank, das Spiel laeuft fluessiger.
 	bool loading = now - lastPlayerTick.load() > 1500;
-	if (((lastIsCar || lastIsPRI) && (loading || now >= nextCarCheck)) || now >= nextCheck) {
+	if (((lastIsCar || lastIsPRI) && loading) || now >= nextCheck) {
 		nextCheck = now + 40;
-		nextCarCheck = now + 4;
 		try { EnsureLocalLoadout(); } catch (...) {}
 	}
 	if (tickFns.count(fn)) { // lokaler Spieler
@@ -1513,6 +1521,15 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		void* pawn = nullptr;
 		try { pawn = (ue::IsA(caller, clsPC) && offPawn >= 0) ? ue::Read<void*>(caller, offPawn) : nullptr; } catch (...) {}
 		if (!pawn || !clsCar || !ue::IsA(pawn, clsCar)) {
+			// zwischen zwei Spawns (kein Auto unterwegs): sicherer Moment, dem Spiel das neue Loadout zu melden
+			if (void* pp = pendingSet) {
+				pendingSet = nullptr;
+				void* cpri = nullptr;
+				try { cpri = offPRI >= 0 ? ue::Read<void*>(caller, offPRI) : nullptr; } catch (...) {}
+				if (cpri == pp && ue::IsAlive(pp)) {
+					try { WriteOverrides(pp); ue::Call(pp, fnSet); zl::Log("apply: no car right now -> loadout announced for the next spawn"); } catch (...) {}
+				}
+			}
 			// Hauptmenue/Garage: sicherer Moment (einmal pro Frame), um das Vorschau-Auto anzupassen
 			try { RestoreSharedPrefs(); } catch (...) {}
 			try { TickPreview(); } catch (...) {}
@@ -1575,6 +1592,12 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			} else if (miss == 0) {
 				static int ok = 0;
 				if (ok++ < 5) zl::Log("verify: car has your items");
+				int body = 0;
+				{
+					std::lock_guard<std::mutex> lk(mu);
+					body = overrides.count(0) ? overrides[0] : (ownItems.count(0) ? ownItems[0] : 0);
+				}
+				try { LogHitbox(pawn, body); } catch (...) {}
 			}
 		}
 		// Gebuendeltes Anwenden hier im PlayerTick: sicherer Moment, um das Auto neu zu spawnen

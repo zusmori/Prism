@@ -104,20 +104,19 @@ static int Patch(void* cam) {
 }
 
 void Tick() {
-	static unsigned long long next = 0;
 	unsigned long long now = GetTickCount64();
+	// alle Kameras und ihre Vorlagen (auch Unterklassen): ab und zu neu suchen, verteilt auf mehrere Bilder (kein Ruckler)
+	static ue::SlicedScan scan;
+	static std::vector<void*> known;
+	static unsigned long long rescan = 0;
+	if (clsCam && !scan.running && now >= rescan) { rescan = now + 5000; scan.Start(clsCam); }
+	if (scan.running && scan.Step()) known = scan.result;
+	static unsigned long long next = 0;
 	if (now < next) return;
 	next = now + 1000;
 	if (!Setup()) return;
 	int changed = 0, objs = 0;
 	if (void* cdo = ue::FindObject("Camera_TA TAGame.Default__Camera_TA")) { changed += Patch(cdo); objs++; }
-	// alle Kameras und ihre Vorlagen (auch Unterklassen). Selten neu suchen, sonst nur die bekannten pruefen
-	static std::vector<void*> known;
-	static unsigned long long rescan = 0;
-	if (now >= rescan) {
-		rescan = now + 5000;
-		known = ue::Instances(clsCam);
-	}
 	for (void* c : known)
 		if (ue::IsValid(c)) { changed += Patch(c); objs++; }
 	static int logs = 0;

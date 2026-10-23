@@ -1,6 +1,7 @@
 #include "ue.h"
 
 #include <psapi.h>
+#include <algorithm>
 #include <sstream>
 #include <map>
 #include <unordered_map>
@@ -245,6 +246,9 @@ std::string FullName(const void* obj) {
 void* FindObject(const char* fullName) {
 	static std::unordered_map<std::string, void*> cache;
 	if (auto it = cache.find(fullName); it != cache.end()) return it->second;
+	// nicht gefunden: nicht bei jedem Aufruf alle Objekte durchsuchen (sonst ruckelt das Spiel), nur alle 5 s erneut
+	static std::unordered_map<std::string, unsigned long long> missed;
+	if (auto m = missed.find(fullName); m != missed.end() && GetTickCount64() < m->second) return nullptr;
 	// zuerst ueber den Namen vorfiltern (schnell), dann den vollen Namen pruefen
 	std::string full(fullName);
 	std::string last = full.substr(full.find_last_of(". ") + 1);
@@ -259,6 +263,7 @@ void* FindObject(const char* fullName) {
 			}
 		} catch (...) {}
 	}
+	missed[full] = GetTickCount64() + 5000;
 	return nullptr;
 }
 
@@ -281,6 +286,23 @@ std::vector<void*> Instances(void* cls) {
 		} catch (...) {}
 	}
 	return out;
+}
+
+bool SlicedScan::Step(int budget) {
+	if (!running) return false;
+	int n = ObjectCount();
+	int end = std::min(n, pos + budget);
+	for (; pos < end; pos++) {
+		void* o = ObjectAt(pos);
+		try {
+			if (o && IsA(o, cls) && Name(o).rfind("Default__", 0) != 0) partial.push_back(o);
+		} catch (...) {}
+	}
+	if (pos < n) return false;
+	result.swap(partial);
+	partial.clear();
+	running = false;
+	return true;
 }
 
 static void* FindChild(void* strct, const char* name, bool function) {

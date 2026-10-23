@@ -116,15 +116,27 @@ static LRESULT CALLBACK LowLevelMouse(int code, WPARAM wp, LPARAM lp) {
 	}
 	return CallNextHookEx(llHook, code, wp, lp);
 }
+// Der Maus-Hook gilt fuer das ganze System und jede Mausbewegung laeuft durch ihn. Deshalb nur, solange das
+// Menue offen ist - beim Spielen ist er weg (keine zusaetzliche Verzoegerung der Maus).
 static void StartWheelHook() {
 	CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
 		HMODULE self = nullptr;
 		GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
 			reinterpret_cast<LPCWSTR>(&LowLevelMouse), &self);
-		llHook = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouse, self, 0);
-		zl::Log(llHook ? "wheel hook ready" : "WARNING: wheel hook failed (%lu)", GetLastError());
-		MSG msg;
-		while (GetMessageW(&msg, nullptr, 0, 0) > 0) {}
+		static int logged = 0;
+		for (;;) {
+			bool want = menuOpen.load();
+			if (want && !llHook) {
+				llHook = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouse, self, 0);
+				if (logged++ < 1) zl::Log(llHook ? "wheel hook ready (only while the menu is open)" : "WARNING: wheel hook failed (%lu)", GetLastError());
+			} else if (!want && llHook) {
+				UnhookWindowsHookEx(llHook);
+				llHook = nullptr;
+			}
+			MsgWaitForMultipleObjects(0, nullptr, FALSE, llHook ? 20 : 100, QS_ALLINPUT);
+			MSG msg;
+			while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {}
+		}
 		return 0;
 	}, nullptr, 0, nullptr);
 }

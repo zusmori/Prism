@@ -98,7 +98,6 @@ static BallFn ballFns[] = {
 // Der Standardwert des Balls wird gemerkt und mit dem Regler multipliziert.
 static void *fnCarBounce = nullptr;
 static int offCarBounceArg = -1, offCarBounce = -1;
-static std::map<void*, float> carBounceBase;
 static void *clsBall = nullptr, *clsActor = nullptr;
 static int offWorldInfo = -1, offDilation = -1, offGameBalls = -1;
 // Ballgeschwindigkeit: die Hoechstgeschwindigkeit allein merkt man kaum (sie wird fast nie erreicht).
@@ -183,7 +182,14 @@ static std::vector<void*> Balls(void* ge) {
 	return cached;
 }
 
-static std::map<void*, int> ballGen;    // Ball -> Stand der Werte, die schon drauf sind
+struct BallState {
+	bool mod[8] = {};          // Wert von uns verstellt (nicht Standard)
+	int sent[8] = {};          // zuletzt gesendeter Stand (wenn der Wert nicht lesbar ist)
+	bool baseKnown = false, carMod = false;
+	float base = 0.0f;         // Abprall von Autos, wie das Spiel ihn gesetzt hat
+	int carSent = 0;
+};
+static std::map<void*, BallState> ballState;
 static void* lastWorld = nullptr;
 static float worldOrig = 1.0f;
 static bool worldTouched = false;
@@ -250,63 +256,56 @@ void Tick(void* car, void* ge, bool freeplay) {
 	if (wi && offDilation >= 0 && ue::IsAlive(wi)) {
 		float* d = ue::Ptr<float>(wi, offDilation);
 		if (wi != lastWorld) { lastWorld = wi; worldOrig = *d > 0.0f ? *d : 1.0f; worldTouched = false; }
-		if (freeplay) {
-			float want = v[0];
-			if (fabsf(*d - want) > 0.001f && (worldTouched || fabsf(want - 1.0f) > 0.001f)) { *d = want; worldTouched = true; }
-		} else if (worldTouched) { *d = worldOrig; worldTouched = false; } // nie ausserhalb des Freeplays
+		bool isDef = fabsf(v[0] - 1.0f) < 0.001f;
+		if (freeplay && !isDef) {
+			if (fabsf(*d - v[0]) > 0.001f) *d = v[0];
+			worldTouched = true;
+		} else if (worldTouched) { *d = worldOrig; worldTouched = false; } // Standard oder kein Freeplay: Wert des Spiels
 	}
 	if (!freeplay) return;
-	// Ball: neue Baelle (nach Reset/Tor) und geaenderte Werte
+	// Ball: neue Baelle (nach Reset/Tor) und geaenderte Werte. Ein Ball wird nur angefasst, wenn du etwas
+	// verstellt hast - auf Standard bleibt der Ball genau so, wie das Spiel ihn baut (gleiche Physik wie immer).
 	for (void* b : Balls(ge)) {
-		auto bg = ballGen.find(b);
-		bool fresh = bg == ballGen.end();
-		bool drift = false;
-		for (auto& f : ballFns)
-			if (f.offProp >= 0 && fabsf(ue::Read<float>(b, f.offProp) - v[f.setting]) > 0.001f) drift = true;
-		if (offCarBounce >= 0 && carBounceBase.count(b)) {
-			float base = carBounceBase[b], want = base > 0.01f ? base * v[1] : (v[1] - 1.0f);
-			if (fabsf(ue::Read<float>(b, offCarBounce) - want) > 0.001f) drift = true;
-		}
-		if (!fresh && bg->second == g && !drift) continue;
+		BallState& st = ballState[b];
 		bool any = false;
 		for (auto& f : ballFns) {
 			if (!f.f || f.param < 0) continue;
-			float cur = f.offProp >= 0 ? ue::Read<float>(b, f.offProp) : -1.0f;
-			if (fresh && f.offProp < 0 && fabsf(v[f.setting] - 1.0f) < 0.001f) continue; // Standard und nicht pruefbar: nicht anfassen
-			if (f.offProp >= 0 && fabsf(cur - v[f.setting]) < 0.001f) continue;
+			int k = f.setting;
+			float want = v[k];
+			bool isDef = fabsf(want - list[k].def) < 0.001f;
+			if (isDef && !st.mod[k]) continue; // nie verstellt: nicht anfassen
+			float cur = f.offProp >= 0 ? ue::Read<float>(b, f.offProp) : -999.0f;
+			if (f.offProp >= 0 ? fabsf(cur - want) < 0.001f : st.sent[k] == g) continue;
 			std::vector<uint8_t> p(size_t(ue::StructSize(f.f)) + 16, 0);
-			*reinterpret_cast<float*>(p.data() + f.param) = v[f.setting];
+			*reinterpret_cast<float*>(p.data() + f.param) = want;
 			ue::Call(b, f.f, p.data());
+			st.mod[k] = !isDef; // zurueck auf Standard: danach wieder in Ruhe lassen
+			st.sent[k] = g;
 			any = true;
 		}
-		// Schussstaerke (Ball speed)
+		// Schussstaerke (Ball speed): zusaetzlicher Abprall von Autos, Standard des Balls wird gemerkt
 		if (fnCarBounce && offCarBounceArg >= 0) {
-			auto cb = carBounceBase.find(b);
-			if (cb == carBounceBase.end()) {
-				float base = offCarBounce >= 0 ? ue::Read<float>(b, offCarBounce) : 1.0f;
-				cb = carBounceBase.emplace(b, base).first;
-				static int lb = 0;
-				if (lb++ < 3) zl::Log("tweaks: %s car bounce default %.3f", ue::Name(b).c_str(), base);
-			}
-			float base = cb->second;
-			float want = base > 0.01f ? base * v[1] : (v[1] - 1.0f);
-			float cur = offCarBounce >= 0 ? ue::Read<float>(b, offCarBounce) : -999.0f;
-			if (fabsf(cur - want) > 0.001f && (fabsf(v[1] - 1.0f) > 0.001f || cur != -999.0f)) {
-				std::vector<uint8_t> p(size_t(ue::StructSize(fnCarBounce)) + 16, 0);
-				*reinterpret_cast<float*>(p.data() + offCarBounceArg) = want;
-				ue::Call(b, fnCarBounce, p.data());
-				any = true;
+			if (!st.baseKnown) { st.base = offCarBounce >= 0 ? ue::Read<float>(b, offCarBounce) : 0.0f; st.baseKnown = true; }
+			bool isDef = fabsf(v[1] - 1.0f) < 0.001f;
+			if (!isDef || st.carMod) {
+				float want = isDef ? st.base : (st.base > 0.01f ? st.base * v[1] : st.base + (v[1] - 1.0f));
+				float cur = offCarBounce >= 0 ? ue::Read<float>(b, offCarBounce) : -999.0f;
+				if (offCarBounce >= 0 ? fabsf(cur - want) > 0.001f : st.carSent != g) {
+					std::vector<uint8_t> p(size_t(ue::StructSize(fnCarBounce)) + 16, 0);
+					*reinterpret_cast<float*>(p.data() + offCarBounceArg) = want;
+					ue::Call(b, fnCarBounce, p.data());
+					any = true;
+				}
+				st.carMod = !isDef;
+				st.carSent = g;
 			}
 		}
-		ballGen[b] = g;
 		static int logged = 0;
 		if (any && logged++ < 12)
 			zl::Log("tweaks: %s speed %.2f size %.2f gravity %.2f bounce %.2f", ue::Name(b).c_str(), v[1], v[2], v[3], v[4]);
 	}
-	if (carBounceBase.size() > 32)
-		for (auto it = carBounceBase.begin(); it != carBounceBase.end();) it = ue::IsAlive(it->first) ? std::next(it) : carBounceBase.erase(it);
-	if (ballGen.size() > 32)
-		for (auto it = ballGen.begin(); it != ballGen.end();) it = ue::IsAlive(it->first) ? std::next(it) : ballGen.erase(it);
+	if (!ballState.empty()) // geloeschte Baelle vergessen (ein neuer Ball startet wieder unberuehrt)
+		for (auto it = ballState.begin(); it != ballState.end();) it = ue::IsAlive(it->first) ? std::next(it) : ballState.erase(it);
 }
 
 } // namespace tweaks
