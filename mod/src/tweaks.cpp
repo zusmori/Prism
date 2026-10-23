@@ -94,6 +94,11 @@ static BallFn ballFns[] = {
 	{"SetBallGravityScale", "ReplicatedBallGravityScale", 3},
 	{"SetWorldBounceScale", "ReplicatedWorldBounceScale", 4},
 };
+// Ballgeschwindigkeit wirklich spuerbar: wie stark ein Auto den Ball wegschiesst (wie der Boomer-Mutator).
+// Der Standardwert des Balls wird gemerkt und mit dem Regler multipliziert.
+static void *fnCarBounce = nullptr;
+static int offCarBounceArg = -1, offCarBounce = -1;
+static std::map<void*, float> carBounceBase;
 static void *clsBall = nullptr, *clsActor = nullptr;
 static int offWorldInfo = -1, offDilation = -1, offGameBalls = -1;
 // Ballgeschwindigkeit: die Hoechstgeschwindigkeit allein merkt man kaum (sie wird fast nie erreicht).
@@ -133,6 +138,25 @@ static void SetupOnce(void* ge) {
 		if (fnSetVel && type != "StructProperty") { fnSetVel = nullptr; offSetVel = -1; }
 	}
 	if (clsActor) offVelocity = ue::PropOffset(clsActor, "Velocity");
+	if (clsBall) {
+		fnCarBounce = ue::FindFunction(clsBall, "SetCarBounceScale");
+		std::string type;
+		if (fnCarBounce) offCarBounceArg = ue::FirstParamOffset(fnCarBounce, &type);
+		if (fnCarBounce && type != "FloatProperty") fnCarBounce = nullptr;
+		for (const char* n : {"ReplicatedAddedCarBounceScale", "ReplicatedCarBounceScale", "AddedCarBounceScale", "CarBounceScale"})
+			if (offCarBounce < 0) offCarBounce = ue::PropOffset(clsBall, n);
+		// alle Funktionen des Balls rund um Tempo/Physik ins Log (zum Nachbessern)
+		std::string fns;
+		for (void* st = clsBall; st && fns.size() < 1800; st = ue::Read<void*>(st, ue::off::StructSuper))
+			for (void* f = ue::Read<void*>(st, ue::off::StructChildren); f && fns.size() < 1800; f = ue::Read<void*>(f, ue::off::FieldNext)) {
+				if (ue::Name(ue::ClassOf(f)) != "Function") continue;
+				std::string n = ue::Name(f), lo = n;
+				for (auto& c : lo) c = (char)tolower((unsigned char)c);
+				for (const char* k : {"veloc", "impulse", "force", "rbstate", "physic", "touch", "hit", "speed", "scale", "kick"})
+					if (lo.find(k) != std::string::npos) { fns += n + " "; break; }
+			}
+		zl::Log("tweaks: carBounce=%s(arg %d, prop %x) ball functions: %s", fnCarBounce ? "yes" : "no", offCarBounceArg, offCarBounce, fns.c_str());
+	}
 	zl::Log("tweaks: ball=%p worldInfo=%x dilation=%x gameBalls=%x %s touch=%s setVel=%s(%d) velocity=%x", clsBall, offWorldInfo, offDilation, offGameBalls,
 		have.c_str(), fnTouch ? ue::Name(fnTouch).c_str() : "-", fnSetVel ? ue::Name(fnSetVel).c_str() : "-", offSetVel, offVelocity);
 }
@@ -193,7 +217,7 @@ static void ApplyTouches(float scale) {
 			std::vector<uint8_t> p(size_t(ue::StructSize(fnSetVel)) + 16, 0);
 			memcpy(p.data() + offSetVel, v, 12);
 			ue::Call(b, fnSetVel, p.data());
-		} else memcpy(reinterpret_cast<uint8_t*>(b) + offVelocity, v, 12);
+		} else continue; // ohne passende Funktion nicht anfassen (Speicher schreiben erreicht die Physik nicht)
 		static int n = 0;
 		if (n++ < 6) zl::Log("tweaks: ball touched -> speed x%.2f (%.0f %.0f %.0f)", scale, v[0], v[1], v[2]);
 	}
@@ -239,6 +263,10 @@ void Tick(void* car, void* ge, bool freeplay) {
 		bool drift = false;
 		for (auto& f : ballFns)
 			if (f.offProp >= 0 && fabsf(ue::Read<float>(b, f.offProp) - v[f.setting]) > 0.001f) drift = true;
+		if (offCarBounce >= 0 && carBounceBase.count(b)) {
+			float base = carBounceBase[b], want = base > 0.01f ? base * v[1] : (v[1] - 1.0f);
+			if (fabsf(ue::Read<float>(b, offCarBounce) - want) > 0.001f) drift = true;
+		}
 		if (!fresh && bg->second == g && !drift) continue;
 		bool any = false;
 		for (auto& f : ballFns) {
@@ -251,11 +279,32 @@ void Tick(void* car, void* ge, bool freeplay) {
 			ue::Call(b, f.f, p.data());
 			any = true;
 		}
+		// Schussstaerke (Ball speed)
+		if (fnCarBounce && offCarBounceArg >= 0) {
+			auto cb = carBounceBase.find(b);
+			if (cb == carBounceBase.end()) {
+				float base = offCarBounce >= 0 ? ue::Read<float>(b, offCarBounce) : 1.0f;
+				cb = carBounceBase.emplace(b, base).first;
+				static int lb = 0;
+				if (lb++ < 3) zl::Log("tweaks: %s car bounce default %.3f", ue::Name(b).c_str(), base);
+			}
+			float base = cb->second;
+			float want = base > 0.01f ? base * v[1] : (v[1] - 1.0f);
+			float cur = offCarBounce >= 0 ? ue::Read<float>(b, offCarBounce) : -999.0f;
+			if (fabsf(cur - want) > 0.001f && (fabsf(v[1] - 1.0f) > 0.001f || cur != -999.0f)) {
+				std::vector<uint8_t> p(size_t(ue::StructSize(fnCarBounce)) + 16, 0);
+				*reinterpret_cast<float*>(p.data() + offCarBounceArg) = want;
+				ue::Call(b, fnCarBounce, p.data());
+				any = true;
+			}
+		}
 		ballGen[b] = g;
 		static int logged = 0;
 		if (any && logged++ < 12)
 			zl::Log("tweaks: %s speed %.2f size %.2f gravity %.2f bounce %.2f", ue::Name(b).c_str(), v[1], v[2], v[3], v[4]);
 	}
+	if (carBounceBase.size() > 32)
+		for (auto it = carBounceBase.begin(); it != carBounceBase.end();) it = ue::IsAlive(it->first) ? std::next(it) : carBounceBase.erase(it);
 	if (ballGen.size() > 32)
 		for (auto it = ballGen.begin(); it != ballGen.end();) it = ue::IsAlive(it->first) ? std::next(it) : ballGen.erase(it);
 }

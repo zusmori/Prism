@@ -12,6 +12,7 @@
 
 #include "log.h"
 #include "tweaks.h"
+#include "camera.h"
 #include "ue.h"
 
 namespace items {
@@ -1486,6 +1487,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	}
 	if (tickFns.count(fn)) { // lokaler Spieler
 		try { TickBoostPaint(); } catch (...) {}
+		try { cam::Tick(); } catch (...) {}
 		// LocalPlayer merken (gibt es auch schon im Hauptmenue)
 		try {
 			void* lp = ue::Read<void*>(caller, offPlayer);
