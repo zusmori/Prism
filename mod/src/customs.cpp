@@ -540,10 +540,13 @@ static std::string PartOf(void* mat, int element) {
 		chain += Lower(ue::Name(mat)) + " ";
 		mat = (oMicParent >= 0 && clsMIC && ue::IsA(mat, clsMIC)) ? ue::Read<void*>(mat, oMicParent) : nullptr;
 	}
+	(void)element;
+	// nur eindeutige Namen: Glas, Lichter, Zierleisten usw. bleiben unberuehrt
 	if (chain.find("chassis") != std::string::npos) return "chassis";
 	if (chain.find("ball") != std::string::npos) return "ball";
-	if (chain.find("body") != std::string::npos || chain.find("paint") != std::string::npos) return "body";
-	return element == 0 ? "body" : (element == 1 ? "chassis" : "");
+	if (chain.find("body_paintable") != std::string::npos || chain.find("_body") != std::string::npos || chain.find("mic_skin_") != std::string::npos)
+		return "body";
+	return "";
 }
 
 struct Applied {

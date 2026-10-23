@@ -1938,6 +1938,8 @@ void Render(bool* open) {
 		customStatus = customs::status;
 	}
 	std::string pickCustom = "\x01"; // \x01 = nichts geklickt
+	static int autoDecal = 0; // von uns fuer ein eigenes Decal gewaehltes Spiel-Decal
+	int autoDecalWant = -1;
 	bool openFolder = false;
 	std::string q = Lower(search);
 	std::vector<const items::Item*> shown;
@@ -2080,7 +2082,23 @@ void Render(bool* open) {
 					const items::Item* car = FindItem(c.bodyId);
 					sub = "Only on " + (car ? car->name : "car " + std::to_string(c.bodyId));
 				}
-				if (CustomRow(c, c.id == selCustom, fits, sub.c_str(), rw)) pickCustom = c.id == selCustom ? "" : c.id;
+				if (CustomRow(c, c.id == selCustom, fits, sub.c_str(), rw)) {
+					pickCustom = c.id == selCustom ? "" : c.id;
+					// Eigene Decals brauchen ein Spiel-Decal am Auto (sonst zeichnet das Material gar kein Decal-Bild):
+					// hat das Auto keins, eins dafuer aussuchen (SkinID aus dem Paket, sonst irgendeins fuer dieses Auto)
+					if (curSlot == 1 && !pickCustom.empty() && fits) {
+						int curDecal = items::overrides.count(1) ? items::overrides[1] : (items::ownItems.count(1) ? items::ownItems[1] : 0);
+						if (!curDecal) {
+							int pickId = (c.skinId > 0 && FindItem(c.skinId)) ? c.skinId : 0;
+							for (auto& it : items::list)
+								if (!pickId && it.slot == 1 && it.forCar && it.forCar == (c.bodyId ? c.bodyId : body)) pickId = it.id;
+							if (pickId) { autoDecalWant = pickId; autoDecal = pickId; }
+						}
+					} else if (curSlot == 1 && pickCustom.empty() && autoDecal && items::overrides.count(1) && items::overrides[1] == autoDecal) {
+						autoDecalWant = 0; // wieder wie vorher
+						autoDecal = 0;
+					}
+				}
 			}
 			if (AddCustomCard(curSlot == kBallSlot ? "Add your own balls" : "Add your own decals", rw)) openFolder = true;
 			ImGui::Dummy(ImVec2(0, 6));
@@ -2125,8 +2143,9 @@ void Render(bool* open) {
 	ImGui::PopStyleVar();
 
 	if (curSlot == kBallSlot) pick = -1; // eigener Ball ist kein Spiel-Item
-	if (pick >= 0 && curSlot == 1 && !selCustom.empty()) customs::Select(false, ""); // Spiel-Decal gewaehlt: eigenes aus
+	if (pick >= 0 && curSlot == 1 && !selCustom.empty()) { customs::Select(false, ""); autoDecal = 0; } // Spiel-Decal gewaehlt: eigenes aus
 	if (pickCustom != "\x01") customs::Select(curSlot == kBallSlot, pickCustom);
+	if (autoDecalWant >= 0) items::Set(1, autoDecalWant);
 	if (openFolder) customs::OpenFolder();
 	if (pick >= 0 && pick != cur) items::Set(curSlot, pick);
 	if (pickPaint >= 0) items::SetPaint(curSlot, pickPaint);
