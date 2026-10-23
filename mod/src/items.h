@@ -39,7 +39,8 @@ extern const int kSlotCount;
 void Queue(std::function<void()> fn);
 void RunQueue();
 void TickPreview();
-bool InMatch(); // gerade im Freeplay/Match (eigenes Auto faehrt) // Auto im Hauptmenue/Garage nachziehen (Spiel-Thread)
+bool InMatch();
+bool InFreeplay(); // gerade im Freeplay (fuer den Reiter Tweaks) // gerade im Freeplay/Match (eigenes Auto faehrt) // Auto im Hauptmenue/Garage nachziehen (Spiel-Thread)
 
 // im Spiel-Thread
 bool Setup();          // Klassen/Eigenschaften suchen

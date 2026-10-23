@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 #include "log.h"
+#include "tweaks.h"
 #include "ue.h"
 
 namespace items {
@@ -71,6 +72,7 @@ static int offPRIGameEvent = -1;
 static void *clsPreview = nullptr, *fnChangePart = nullptr;
 static int offPrevLoadout = -1, offCPSlot = -1, offCPProduct = -1, offCPOnline = -1, offCPPaint = -1;
 static std::atomic<unsigned long long> applyAt{0};
+static std::atomic<bool> inFreeplay{false};
 // Kontrolle nach dem Spawn: hat das Auto wirklich unsere Items bekommen?
 static int offCarLoadout = -1, offLoaderRemaining = -1, offAIdId = -1, offAIdRet = -1;
 static void* fnAssetById = nullptr;
@@ -645,7 +647,7 @@ void ApplyNow() {
 	if (!Setup()) return;
 	void* pc = LocalPC();
 	void* pri = LocalPRI();
-	if (!LocalCar()) return; // nicht im Spiel: Items sind gespeichert und kommen beim naechsten Spawn
+	if (!LocalCar()) { zl::Log("apply: no car right now - items come with the next spawn"); return; } // nicht im Spiel
 	static int n = 0;
 	inGame = pri != nullptr;
 	if (pri) n = 0;
@@ -1466,6 +1468,14 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 		lastPlayerTick = GetTickCount64();
 		try { localPRIForColors = offPRI >= 0 ? ue::Read<void*>(caller, offPRI) : nullptr; } catch (...) {}
 		try { TickColors(nullptr, pawn); } catch (...) {}
+		// Freeplay-Tweaks (Ball, Spielgeschwindigkeit)
+		try {
+			void* tpri = offPRI >= 0 ? ue::Read<void*>(caller, offPRI) : nullptr;
+			void* tge = (tpri && offPRIGameEvent >= 0) ? ue::Read<void*>(tpri, offPRIGameEvent) : nullptr;
+			bool fp = clsFreeplayCar && ue::IsA(pawn, clsFreeplayCar);
+			inFreeplay = fp;
+			tweaks::Tick(pawn, ue::IsValid(tge) ? tge : nullptr, fp);
+		} catch (...) {}
 		// Das Auto kann schon gebaut sein, bevor unsere Items im Loadout stehen (dann faehrt man kurz das eigene
 		// Auto). Am fertigen Auto nachsehen und im Freeplay einmal sauber neu spawnen.
 		if (verifyAt && GetTickCount64() >= verifyAt) {
@@ -1539,6 +1549,10 @@ static unsigned long long nextPreviewScan = 0;
 static std::atomic<unsigned long long> nextPreviewCheck{0};
 static std::atomic<int> userGen{0}; // steigt bei jeder Aenderung im Menue -> Wartezeiten aufheben
 std::map<int, int> ownItems;        // Slot -> dein echtes Item (fuer die Anzeige)
+// Was wir selbst ans Menue-Auto gehaengt haben (Slot -> Items). Baut das Spiel ein neues Vorschau-Auto aus dem
+// alten (mit unseren Items dran), sind das NICHT deine Items - dann gilt dein zuletzt bekanntes echtes Item.
+static std::map<int, std::set<int>> issued;
+static std::map<int, OwnPart> realOwn; // Slot -> dein echtes Item (bleibt ueber neue Vorschau-Autos hinweg)
 
 // ---------- Lackierte Items fuer das Menue-Auto ----------
 // Das Spiel zeigt lackierte Shop-Items ueber "temporaere" Online-Produkte an. Genau so machen wir es auch:
@@ -1652,7 +1666,17 @@ static void SyncPreview(void* actor, bool main) {
 		st.base.clear();
 		for (int i = 0; i < kSlotCount; i++) {
 			int slot = kSlots[i].index;
-			if (slot < prods->count) st.base[slot] = OwnPart{prods->data[slot], onlineAt(slot)};
+			if (slot >= prods->count) continue;
+			OwnPart now{prods->data[slot], onlineAt(slot)};
+			auto is = issued.find(slot);
+			bool ours = is != issued.end() && is->second.count(now.id);
+			{ // vom Auto erzwungene Teile (z. B. Lamborghini-Raeder) sind auch nicht deine
+				std::lock_guard<std::mutex> lk(mu);
+				for (auto& [body, parts] : forcedBy) { auto f = parts.find(slot); if (f != parts.end() && f->second == now.id && issued[0].count(body)) ours = true; }
+			}
+			auto ro = realOwn.find(slot);
+			if (ours && ro != realOwn.end() && ro->second.id != now.id) st.base[slot] = ro->second;
+			else { st.base[slot] = now; realOwn[slot] = now; }
 		}
 	};
 	auto ourId = [&](int slot) { auto tg = st.target.find(slot); return tg != st.target.end() ? int(tg->second / 1000) : -1; };
@@ -1673,6 +1697,7 @@ static void SyncPreview(void* actor, bool main) {
 			if (v != own.id && v != ourId(slot)) {
 				zl::Log("menu car: your own item in slot %d is now %d (was %d)", slot, v, own.id);
 				own = OwnPart{v, onlineAt(slot)};
+				realOwn[slot] = own;
 				st.orig.erase(slot);
 				st.target.erase(slot);
 				st.lastSeen.erase(slot);
@@ -1697,6 +1722,7 @@ static void SyncPreview(void* actor, bool main) {
 		st.until[slot] = t + 1200;
 		if (!st.orig.count(slot)) { auto b = st.base.find(slot); st.orig[slot] = b != st.base.end() ? b->second : OwnPart{now, onlineAt(slot)}; }
 		ChangePart(actor, slot, id, wantId);
+		issued[slot].insert(id);
 		st.lastSeen[slot] = prods->data[slot];
 		st.target[slot] = tgt;
 		zl::Log("menu car %s: slot %d %d -> %d%s (now %d)", ue::Name(actor).c_str(), slot, now, id, want ? " painted" : "", prods->data[slot]);
@@ -1749,6 +1775,7 @@ static void SyncPreview(void* actor, bool main) {
 }
 
 bool InMatch() { return GetTickCount64() - lastPlayerTick.load() < 1500; }
+bool InFreeplay() { return inFreeplay.load() && InMatch(); }
 
 void TickPreview() {
 	if (!ready || !clsPreview || offPrevLoadout < 0 || !fnChangePart) return;
@@ -1968,10 +1995,13 @@ static void ClearOurColors() {
 			auto o = prefsOrig.find(m);
 			*ue::Ptr<void*>(m, offColorPrefs) = o != prefsOrig.end() ? o->second : nullptr;
 		}
+		// Overrides loescht das Spiel selbst; NICHT mit 0 ueberschreiben - 0 ist fuer das Spiel "schwarz"
 		if (fnClear) ue::Call(m, fnClear);
-		static const float zero[4] = {0, 0, 0, 0};
-		if (offTeamOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(m) + offTeamOverride, zero, 16);
-		if (offCustomOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(m) + offCustomOverride, zero, 16);
+		else {
+			static const float none[4] = {0, 0, 0, -1};
+			if (offTeamOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(m) + offTeamOverride, none, 16);
+			if (offCustomOverride >= 0) memcpy(reinterpret_cast<uint8_t*>(m) + offCustomOverride, none, 16);
+		}
 		if (void* fnPaint = ue::FindFunction(ue::ClassOf(m), "ApplyPaintSettings")) ue::Call(m, fnPaint);
 		n++;
 	}
@@ -2107,6 +2137,7 @@ void SetColors(bool on, bool both, const float (*cols)[2][3], bool save) {
 		if (wasOn && !on) { // aus: Spiel-Farben zurueck -> Karosserie neu laden bzw. Auto neu spawnen
 			Queue([] {
 				ClearOurColors();
+				applyAt = GetTickCount64() + 150; // im Freeplay: Auto frisch spawnen, damit es sicher die Spiel-Farben hat
 				for (void* a : previewActors) {
 					if (!ue::IsAlive(a)) continue;
 					auto* pr = ue::Ptr<ue::TArray<int32_t>>(a, offPrevLoadout);

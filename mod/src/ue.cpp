@@ -299,6 +299,19 @@ uint32_t BoolMask(void* cls, const char* name) {
 	}
 }
 
+int FirstParamOffset(void* fn, std::string* type) {
+	try {
+		for (void* f = fn ? Read<void*>(fn, off::StructChildren) : nullptr; f; f = Read<void*>(f, off::FieldNext)) {
+			std::string cn = Name(ClassOf(f));
+			if (cn.size() > 8 && cn.compare(cn.size() - 8, 8, "Property") == 0) {
+				if (type) *type = cn;
+				return Read<int32_t>(f, off::PropOffset);
+			}
+		}
+	} catch (...) {}
+	return -1;
+}
+
 void* FindFunction(void* cls, const char* name) {
 	try {
 		return FindChild(cls, name, true);

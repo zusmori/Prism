@@ -5,6 +5,7 @@
 #include "MinHook.h"
 #include "hooks.h"
 #include "items.h"
+#include "tweaks.h"
 #include "log.h"
 #include "ue.h"
 
@@ -26,6 +27,7 @@ static DWORD WINAPI Start(LPVOID) {
 	}
 	items::LoadSaved();
 	items::LoadPresets();
+	tweaks::Load();
 	if (!hooks::HookProcessEvent()) return 0;
 	hooks::HookD3D();
 	// Klassen suchen, sobald das Spiel so weit ist (im Spiel-Thread)

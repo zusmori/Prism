@@ -16,6 +16,7 @@
 #include "items.h"
 #include "log.h"
 #include "maps.h"
+#include "tweaks.h"
 
 namespace gui {
 
@@ -1497,6 +1498,78 @@ static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, M
 	if (act.kind == 2 || act.kind == 4) { act.arena = cur.file; act.arenaU8 = cur.fileU8; }
 }
 
+// ---------- Tweaks (nur im Freeplay) ----------
+static float SliderPos(int i) {
+	const auto& t = tweaks::list[i];
+	return std::clamp((t.value - t.min) / (t.max - t.min), 0.0f, 1.0f);
+}
+
+static void TweaksBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, bool& resetAll) {
+	const float listTop = top + 14;
+	Text(dl, fTitle, ImVec2(o.x + pad + 2, o.y + listTop - 2), cText, "Freeplay tweaks");
+	Text(dl, fSmall, ImVec2(o.x + pad + 2, o.y + listTop + 30), cMuted, "Only in Freeplay. Everything is back to normal when you leave.");
+	{
+		bool any = tweaks::Changed();
+		float w = PillW("Reset all", 2);
+		float ra = Anim(ImGui::GetID("twreset"), any ? 1.0f : 0.35f, 14.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * ra);
+		if (PillButton(dl, "##twreset", "Reset all", ImVec2(o.x + W.x - pad - w, o.y + listTop - 4), 34, false, any, 2)) resetAll = true;
+		ImGui::PopStyleVar();
+	}
+	const float cx = o.x + pad, cw = W.x - pad * 2, ch = 70, gap = 10;
+	float y = o.y + listTop + 62;
+	for (int i = 0; i < tweaks::count; i++, y += ch + gap) {
+		const auto& t = tweaks::list[i];
+		ImGui::PushID(i + 9000);
+		ImVec2 a(cx, y), b(cx + cw, y + ch);
+		bool changed = fabsf(t.value - t.def) > 0.001f;
+		float hov = Anim(ImGui::GetID("cardh"), ImGui::IsMouseHoveringRect(a, b, false) ? 1.0f : 0.0f);
+		dl->AddRectFilled(a, b, U(Mix(cPanel, cPanel2, hov)), 14);
+		dl->AddRect(a, b, U(Mix(cLine, changed ? Acc(0.45f) : cLine2, std::max(hov * 0.6f, changed ? 1.0f : 0.0f))), 14);
+		// Text links
+		Text(dl, fBold, ImVec2(a.x + 18, a.y + 15), cText, t.label);
+		Text(dl, fSmall, ImVec2(a.x + 18, a.y + 37), cMuted, Fit(fSmall, fSmall->FontSize, t.hint, 270).c_str());
+		// Wert rechts
+		char vb[16];
+		snprintf(vb, sizeof vb, "%.2fx", t.value);
+		float vw = TextW(fBold, vb) + 20;
+		ImVec2 vp(b.x - 18 - vw, a.y + (ch - 28) / 2);
+		dl->AddRectFilled(vp, ImVec2(vp.x + vw, vp.y + 28), U(changed ? Acc(0.20f) : Rgb(255, 255, 255, 0.05f)), 9);
+		Text(dl, fBold, ImVec2(vp.x + 10, vp.y + 5), changed ? Mix(accent, Rgb(255, 255, 255), 0.6f) : cMuted, vb);
+		// Regler dazwischen
+		float sx0 = a.x + 320, sx1 = vp.x - 22, sy = a.y + ch / 2;
+		ImGui::SetCursorScreenPos(ImVec2(sx0 - 10, sy - 16));
+		ImGui::InvisibleButton("##sl", ImVec2(sx1 - sx0 + 20, 32));
+		bool active = ImGui::IsItemActive(), sh = ImGui::IsItemHovered();
+		if (sh && ImGui::IsMouseDoubleClicked(0)) tweaks::Set(i, t.def); // Doppelklick: Standard
+		else if (active) {
+			float f = std::clamp((ImGui::GetIO().MousePos.x - sx0) / (sx1 - sx0), 0.0f, 1.0f);
+			tweaks::Set(i, t.min + f * (t.max - t.min));
+		}
+		if (ImGui::IsItemDeactivated()) tweaks::Save();
+		float* shown = ImGui::GetStateStorage()->GetFloatRef(ImGui::GetID("pos"), SliderPos(i));
+		*shown = active ? SliderPos(i) : Approach(*shown, SliderPos(i), 18.0f);
+		float kx = sx0 + (sx1 - sx0) * *shown;
+		float kh = Anim(ImGui::GetID("kh"), (sh || active) ? 1.0f : 0.0f, 20.0f);
+		dl->AddRectFilled(ImVec2(sx0, sy - 2.5f), ImVec2(sx1, sy + 2.5f), U(Rgb(255, 255, 255, 0.08f)), 3);
+		// Spektrum bis zum Knopf
+		if (kx > sx0 + 1) {
+			int v0 = dl->VtxBuffer.Size;
+			dl->AddRectFilled(ImVec2(sx0, sy - 2.5f), ImVec2(kx, sy + 2.5f), U(Rgb(255, 255, 255)), 3);
+			ImGui::ShadeVertsLinearColorGradientKeepAlpha(dl, v0, dl->VtxBuffer.Size, ImVec2(sx0, sy), ImVec2(sx1, sy), U(spec[0]), U(spec[2]));
+		}
+		// Markierung beim Standardwert
+		float dx = sx0 + (sx1 - sx0) * std::clamp((t.def - t.min) / (t.max - t.min), 0.0f, 1.0f);
+		dl->AddRectFilled(ImVec2(dx - 1, sy - 7), ImVec2(dx + 1, sy + 7), U(Rgb(255, 255, 255, 0.22f)), 1);
+		float kr = 7.5f + 2.0f * kh;
+		if (kh > 0.01f) dl->AddCircleFilled(ImVec2(kx, sy), kr + 6, U(Acc(0.18f * kh)), 24);
+		dl->AddCircleFilled(ImVec2(kx, sy), kr, U(Rgb(255, 255, 255)), 24);
+		dl->AddCircle(ImVec2(kx, sy), kr, U(Acc(0.8f)), 24, 2.0f);
+		ImGui::PopID();
+	}
+	Text(dl, fTiny, ImVec2(cx + 2, o.y + W.y - 26), cFaint, "Double-click a slider to set it back to normal.");
+}
+
 void Render(bool* open) {
 	if (!requested) {
 		requested = true;
@@ -1551,11 +1624,14 @@ void Render(bool* open) {
 	Text(dl, fTitle, ImVec2(o.x + pad + 34, o.y + 21), cText, "Prism");
 	// Reiter "Items" / "Presets" mit gleitender Markierung
 	{
-		constexpr int N = 4;
-		const char* names[N] = {"Items", "Colors", "Presets", "Maps"};
-		const int ids[N] = {0, 2, 1, 3}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
+		// "Tweaks" gibt es nur im Freeplay
+		const bool fp = items::InFreeplay();
+		if (!fp && tab == 4) { tab = 0; tabFade = 0.0f; }
+		const int N = fp ? 5 : 4;
+		const char* names[5] = {"Items", "Colors", "Presets", "Maps", "Tweaks"};
+		const int ids[5] = {0, 2, 1, 3, 4}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
 		float x0 = o.x + pad + 34 + TextW(fTitle, "Prism") + 22, y0 = o.y + 15;
-		float tws[N], tx[N], xx = x0 + 4;
+		float tws[5], tx[5], xx = x0 + 4;
 		for (int i = 0; i < N; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
 		ImVec2 bp(x0, y0), bq(xx + 4, y0 + 38);
 		dl->AddRectFilled(bp, bq, A(cPanel), 19);
@@ -1588,7 +1664,7 @@ void Render(bool* open) {
 	}
 
 	// Zuruecksetzen (zweimal klicken): alles wieder auf deine echten Items (nicht im Reiter Maps)
-	if (tab != 3) {
+	if (tab != 3 && tab != 4) {
 		bool any = !items::overrides.empty() || !items::paints.empty() || items::colorsOn;
 		if (resetArmed && (ImGui::GetTime() - resetArmedAt > 3.0 || !any)) resetArmed = false;
 		const char* label = resetArmed ? "Reset all?" : "Reset";
@@ -1649,6 +1725,20 @@ void Render(bool* open) {
 	const float top = 66;
 	dl->AddLine(ImVec2(o.x + 1, o.y + top), ImVec2(o.x + W.x - 1, o.y + top), A(cLine));
 
+	// Tweaks: nur im Freeplay, braucht die Items nicht
+	if (tab == 4) {
+		tabFade = Approach(tabFade, 1.0f, 12.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e * EaseOut(tabFade));
+		bool resetTw = false;
+		TweaksBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, resetTw);
+		ImGui::PopStyleVar();
+		lk.unlock();
+		ImGui::End();
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+		if (resetTw) tweaks::ResetAll();
+		return;
+	}
 	// Maps: braucht die Items nicht
 	if (tab == 3) {
 		static double lastScan = 0;

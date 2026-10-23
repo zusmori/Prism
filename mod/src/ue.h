@@ -59,6 +59,7 @@ bool IsA(const void* obj, const void* cls);
 int PropOffset(void* cls, const char* name); // -1 = nicht gefunden
 uint32_t BoolMask(void* cls, const char* name); // Bit einer bool-Eigenschaft, 0 = unbekannt
 void* FindFunction(void* cls, const char* name);
+int FirstParamOffset(void* fn, std::string* type = nullptr); // erster Parameter einer Funktion, -1 = keiner
 int StructSize(void* strct);
 
 std::string Narrow(const FString& s);
