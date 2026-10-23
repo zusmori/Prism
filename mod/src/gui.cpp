@@ -756,7 +756,7 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 		bool click = ImGui::InvisibleButton("##card", ImVec2(cw, ch));
 		bool hov = ImGui::IsItemHovered() || del.hov || ren.hov || upd.hov;
 		bool hasC = pr.hasCustoms && (!pr.customDecal.empty() || !pr.customBall.empty());
-		bool active = pr.items == items::overrides && pr.paints == items::paints && (!pr.items.empty() || hasC) &&
+		bool active = pr.items == items::overrides && pr.paints == items::paints && (!pr.items.empty() || !pr.paints.empty() || hasC) &&
 			(!pr.hasCustoms || (pr.customDecal == curDecal && pr.customBall == curBall));
 		float h = Anim(ImGui::GetID("h"), hov ? 1.0f : 0.0f);
 		float ac = Anim(ImGui::GetID("a"), active ? 1.0f : 0.0f);
@@ -773,7 +773,10 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 				d->AddRectFilled(ImVec2(nx, p.y + 13), ImVec2(nx + tw + 16, p.y + 32), U(Acc(0.2f * ac)), 9);
 				Text(d, fTiny, ImVec2(nx + 8, p.y + 16), Alpha(Mix(accent, Rgb(255, 255, 255), 0.5f), ac), "Active");
 			}
-			std::string sum = pr.items.empty() ? std::string(hasC ? "" : "Your own items") : Summary(pr.items, 3);
+			int ownPainted = 0;
+			for (auto& [slot, pid] : pr.paints) if (!pr.items.count(slot)) ownPainted++;
+			std::string sum = pr.items.empty() ? std::string(hasC ? "" : (ownPainted ? "Your own items painted" : "Your own items")) : Summary(pr.items, 3);
+			if (!pr.items.empty() && ownPainted) sum += "  \xC2\xB7  " + std::to_string(ownPainted) + " own painted";
 			if (pr.hasCustoms)
 				for (auto* cid : {&pr.customDecal, &pr.customBall}) {
 					if (cid->empty()) continue;

@@ -2485,9 +2485,7 @@ static bool SameName(const std::string& a, const std::string& b) {
 // aktuelle Items in ein Preset schreiben (mu muss gesperrt sein)
 static void FillPreset(Preset& p) {
 	p.items = overrides;
-	p.paints.clear();
-	for (auto& [slot, pid] : paints)
-		if (overrides.count(slot)) p.paints[slot] = pid;
+	p.paints = paints; // auch Lackierungen deiner eigenen Items (ohne gewaehltes Item im Slot)
 	std::lock_guard<std::mutex> lk(customs::mu);
 	p.hasCustoms = true;
 	p.customDecal = customs::selDecal;
