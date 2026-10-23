@@ -2045,7 +2045,14 @@ static bool EnsureColors() {
 	clsCarMesh = ue::FindClass("Class TAGame.CarMeshComponentBase_TA");
 	if (clsCarMesh) {
 		fnApplyColors = ue::FindFunction(clsCarMesh, "ApplyColorsToCar");
-		if (fnApplyColors) { offApplyTeam = ue::PropOffset(fnApplyColors, "TeamColor"); offApplyCustom = ue::PropOffset(fnApplyColors, "CustomColor"); }
+		if (fnApplyColors) {
+			offApplyTeam = ue::PropOffset(fnApplyColors, "TeamColor");
+			offApplyCustom = ue::PropOffset(fnApplyColors, "CustomColor");
+			std::string ps;
+			for (void* f = ue::Read<void*>(fnApplyColors, ue::off::StructChildren); f; f = ue::Read<void*>(f, ue::off::FieldNext))
+				ps += ue::Name(f) + ":" + ue::Name(ue::ClassOf(f)) + " ";
+			zl::Log("colors: ApplyColorsToCar(%s)", ps.c_str());
+		}
 		offTeamOverride = ue::PropOffset(clsCarMesh, "TeamColorOverride");
 		offCustomOverride = ue::PropOffset(clsCarMesh, "CustomColorOverride");
 		offMeshTeam = ue::PropOffset(clsCarMesh, "Team");
@@ -2169,10 +2176,19 @@ static void ApplyColorsTo(void* mesh, bool force) {
 	uint32_t* bits = (pr && offPrefsBits >= 0 && prefsMask && ue::IsValid(pr)) ? ue::Ptr<uint32_t>(pr, offPrefsBits) : nullptr;
 	uint32_t saved = bits ? *bits : 0;
 	if (bits) *bits &= ~prefsMask;
-	std::vector<uint8_t> p(size_t(ue::StructSize(fnApplyColors)) + 16, 0);
-	memcpy(p.data() + offApplyTeam, lin[0], 16);
-	memcpy(p.data() + offApplyCustom, lin[1], 16);
-	ue::Call(mesh, fnApplyColors, p.data());
+	// Die Lackierung vom Spiel selbst neu aufbauen lassen: es nimmt dabei unsere Overrides (MarkOurs) UND die
+	// Lackierung der Items (z. B. Black Octane). ApplyColorsToCar direkt aufzurufen hat die Lackierung des
+	// Autos geloescht (Auto war kurz schwarz und dann wieder normal).
+	void* fnPaint = ue::FindFunction(ue::ClassOf(mesh), "ApplyPaintSettings");
+	if (fnPaint) ue::Call(mesh, fnPaint);
+	else {
+		std::vector<uint8_t> p(size_t(ue::StructSize(fnApplyColors)) + 16, 0);
+		memcpy(p.data() + offApplyTeam, lin[0], 16);
+		memcpy(p.data() + offApplyCustom, lin[1], 16);
+		ue::Call(mesh, fnApplyColors, p.data());
+	}
+	static int logged = 0;
+	if (logged++ < 3) zl::Log("colors: applied on %s via %s", ue::Name(mesh).c_str(), fnPaint ? "ApplyPaintSettings" : "ApplyColorsToCar");
 	if (bits) *bits = saved;
 	colorsApplied[mesh] = gen;
 	if (colorsApplied.size() > 48) // alte Modelle (z. B. nach vielen Resets) vergessen
@@ -2243,9 +2259,16 @@ static void TickCarColors(void* car) {
 	}
 	int gen = colorGen.load();
 	if (!fresh && gen == lastGen && now < next) return;
-	bool early = now - seenAt < 1500;
+	// Nach dem Spawn laden Teile nach: kurz danach noch zweimal neu anwenden, sonst nur, wenn das Spiel
+	// unsere Farben ersetzt hat (kein staendiges Neu-Lackieren -> keine kleinen Ruckler)
+	unsigned long long age = now - seenAt;
+	bool early = age < 1500;
 	next = now + (early ? 100 : 1000);
-	if (!fresh && gen == lastGen && !early && ColorsIntact(m) && now - lastFull < 5000) return;
+	static int earlyStep = 0;
+	if (fresh) earlyStep = 0;
+	bool due = fresh || gen != lastGen || !ColorsIntact(m) || (earlyStep == 0 && age >= 300) || (earlyStep == 1 && age >= 1000);
+	if (!due) return;
+	if (!fresh && age >= 300 && earlyStep < 2) earlyStep = age >= 1000 ? 2 : 1;
 	lastGen = gen;
 	lastFull = now;
 	ApplyColorsTo(m, true);

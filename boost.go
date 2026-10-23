@@ -10,7 +10,6 @@ package main
 // dauerhaft (solange Boost an ist):
 //   - Windows-Grafikeinstellung "Hohe Leistung" fuer Rocket League (Laptops mit 2 Grafikchips)
 //   - Vollbildoptimierungen fuer RocketLeague.exe aus (echtes Vollbild, weniger Eingabeverzoegerung)
-//   - Intro-Videos beim Start ueberspringen (-nomovie)
 // Alles wird automatisch zurueckgesetzt, wenn das Spiel endet, Boost ausgeschaltet wird oder ZLauncher beendet wird.
 // Grafik-Einstellungen von Rocket League werden nicht veraendert.
 
@@ -191,7 +190,8 @@ func raisePriority(pid uint32) bool {
 		return false
 	}
 	defer windows.CloseHandle(h)
-	return windows.SetPriorityClass(h, windows.HIGH_PRIORITY_CLASS) == nil
+	// "Hoeher als normal" statt "Hoch": Hoch kann Steam (Steam Input) und Treiber ausbremsen -> Controller fuehlt sich anders an
+	return windows.SetPriorityClass(h, windows.ABOVE_NORMAL_PRIORITY_CLASS) == nil
 }
 
 // ---------- Grafikkarte (Windows-Grafikeinstellung pro Programm) ----------
@@ -414,7 +414,7 @@ func boostLaunchArgs() []string {
 	if !boostOn {
 		return nil
 	}
-	return []string{"-nomovie"}
+	return nil // Ladebildschirme/Intro bleiben wie im normalen Spiel
 }
 
 // ---------- Steuerung ----------

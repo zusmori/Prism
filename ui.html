@@ -887,7 +887,8 @@
     background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);transform:skewX(-20deg);animation:idleshine 5s 1.5s ease-in-out infinite}
   .lbtn.busy{pointer-events:none}
   .lbtn.busy .li svg{display:none}
-  .lbtn.busy .li::after{content:"";width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:sp .8s linear infinite}
+  .lbtn.busy .li>*{display:none}
+  .lbtn.busy .li::after{content:"";grid-area:1/1;box-sizing:border-box;width:18px;height:18px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:sp .8s linear infinite}
   .lbtn[disabled]{opacity:.45;pointer-events:none;transform:none}
   .lbtn.play.running{opacity:1;background:rgb(12 14 14 / .78);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
     border-color:rgba(126,226,168,.55);box-shadow:0 0 0 1px rgba(126,226,168,.12),0 12px 30px -14px rgba(0,0,0,.8),0 0 24px -8px rgba(126,226,168,.55);text-shadow:none}
@@ -1488,6 +1489,8 @@
         <div class="srow nohov" id="rowKey"><span class="sic gi" data-ic="kbd"></span>
           <div class="tx"><b>Menu key</b><small id="keyHint">The key that opens the Prism menu in game.</small></div>
           <div class="kset"><button class="kreset hide" id="keyReset" title="Back to F8">Reset</button><button class="keycap" id="keyCap" aria-label="Change menu key"><span class="kl" id="keyLbl">F8</span></button></div></div>
+        <div class="srow" id="setSteamStart" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="play"></span>
+          <div class="tx"><b>Start through Steam</b><small>Keeps your Steam Input controller settings (deadzone, layout) and the Steam overlay. Steam asks how to start: pick <b>without Anti-Cheat</b> for the Prism menu.</small></div><span class="tg" id="tgSteamStart"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
           <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit Prism. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
         <div class="srow nohov"><span class="sic gi" data-ic="swap"></span>
@@ -1499,11 +1502,10 @@
           <div class="tx"><b>Game Boost <span class="spill" id="boostPill"></span></b><small>More performance while you play. Everything goes back to normal when the game closes.</small></div><span class="tg" id="tgBoost"></span></div>
         <button class="sexp" id="boostExp" aria-expanded="false"><span>What it does</span><svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M3 4.6l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="sfold"><div><div class="sfin blist">
-          <span class="bl"><i></i><span>Rocket League gets <em>high CPU priority</em> and stays on the <em>fast CPU cores</em> (only without Anti-Cheat)</span></span>
+          <span class="bl"><i></i><span>Rocket League gets <em>higher CPU priority</em> and stays on the <em>fast CPU cores</em> (only without Anti-Cheat)</span></span>
           <span class="bl"><i></i><span>Windows switches to <em>best performance</em> mode while you play</span></span>
           <span class="bl"><i></i><span>Laptops with two graphics chips use the <em>fast graphics card</em></span></span>
           <span class="bl"><i></i><span><em>Fullscreen optimizations off</em> for Rocket League, for less input lag in fullscreen</span></span>
-          <span class="bl"><i></i><span>Skips the <em>intro videos</em>, so the game starts faster</span></span>
           <span class="bl"><i></i><span>Prism <em>steps back</em> while you play: lower priority and power saving</span></span>
           <small>Your in-game settings are never changed. Everything is undone when you turn Boost off.</small>
         </div></div></div>
@@ -1817,6 +1819,7 @@ async function saveSetting(k, v){ try { if (has('setSetting')) await setSetting(
 function paintSettings(){
   paintKey(false);
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
+  $('tgSteamStart').classList.toggle('on', !settings.directStart); $('setSteamStart').setAttribute('aria-checked', !settings.directStart);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
   $('tgItemMod').classList.toggle('on', settings.itemMod !== false); $('setItemMod').setAttribute('aria-checked', settings.itemMod !== false);
   $('tgPlayTray').classList.toggle('on', settings.trayOnPlay !== false); $('setPlayTray').setAttribute('aria-checked', settings.trayOnPlay !== false);
@@ -1892,7 +1895,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setItemMod', 'itemMod'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
+[['setSteamStart', 'directStart'], ['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setItemMod', 'itemMod'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });
@@ -2643,6 +2646,7 @@ async function launch(eac, force){
   const mine = home.launching;
   try {
     if (has('launchRL')) await launchRL(eac);
+    if (!settings.directStart) toast(eac ? 'Steam asks how to start: pick the option with Anti-Cheat.' : 'Steam asks how to start: pick the option without Anti-Cheat.', true);
     if (settings.trayOnPlay !== false && has('autoTray')) autoTray();   // Prism geht in den Tray, kommt nach dem Spiel zurueck
     clearTimeout(home.lt); home.lt = setTimeout(() => { if (home.launching === mine){ home.launching = null; pollRL(); } }, 45000);
   } catch (e) {

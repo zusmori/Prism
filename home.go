@@ -55,6 +55,16 @@ func (a *App) RLStatus() RLStatus {
 	return st
 }
 
+// settings.json (vom Einstellungs-Menue) lesen
+func settingBool(key string, def bool) bool {
+	st := map[string]interface{}{}
+	loadJSON(filepath.Join(dataDir, "settings.json"), &st)
+	if v, ok := st[key].(bool); ok {
+		return v
+	}
+	return def
+}
+
 // Startet Rocket League direkt ueber die Spieldateien. Steam muss laufen;
 // die App-ID kommt ueber die Umgebung mit, so wie Steam es selbst macht.
 func (a *App) LaunchRL(eac bool) error {
@@ -78,6 +88,16 @@ func (a *App) LaunchRL(eac bool) error {
 	if _, err := os.Stat(exe); bin == "" || err != nil {
 		// Fallback: Steam starten lassen (fragt dann selbst nach Anti-Cheat)
 		open("steam://rungameid/" + appID)
+		return nil
+	}
+	// Ueber Steam starten (Standard): nur dann gelten die Steam-Input-Einstellungen des Spielers
+	// (Controller-Layout, Deadzone, Empfindlichkeit) und das Steam-Overlay. Direkt gestartet liest das
+	// Spiel den Controller roh aus - das fuehlt sich anders an als normal.
+	if !settingBool("directStart", false) {
+		open("steam://launch/" + appID + "/dialog")
+		if !eac {
+			modOnLaunch() // wartet, bis Rocket League laeuft; laedt nur, wenn ohne Anti-Cheat gestartet wurde
+		}
 		return nil
 	}
 	cmd := exec.Command(exe, args...)
