@@ -2090,8 +2090,13 @@ void Render(bool* open) {
 						int curDecal = items::overrides.count(1) ? items::overrides[1] : (items::ownItems.count(1) ? items::ownItems[1] : 0);
 						if (!curDecal) {
 							int pickId = (c.skinId > 0 && FindItem(c.skinId)) ? c.skinId : 0;
-							for (auto& it : items::list)
-								if (!pickId && it.slot == 1 && it.forCar && it.forCar == (c.bodyId ? c.bodyId : body)) pickId = it.id;
+							// ein ganz normales Decal (gewoehnlichste Seltenheit) - besondere Decals haben eigene Materialien
+							int bestRank = 99;
+							for (auto& it : items::list) {
+								if (it.slot != 1 || !it.forCar || it.forCar != (c.bodyId ? c.bodyId : body)) continue;
+								int rank = it.quality == 0 ? 0 : it.quality == 1 ? 1 : it.quality == 9 ? 2 : it.quality == 2 ? 3 : 10;
+								if (!pickId || rank < bestRank) { bestRank = rank; pickId = it.id; }
+							}
 							if (pickId) { autoDecalWant = pickId; autoDecal = pickId; }
 						}
 					} else if (curSlot == 1 && pickCustom.empty() && autoDecal && items::overrides.count(1) && items::overrides[1] == autoDecal) {

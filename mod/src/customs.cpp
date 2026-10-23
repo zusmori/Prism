@@ -209,6 +209,13 @@ static void ReadPackage(const std::wstring& dir, const std::wstring& json, const
 			if (!p.params.empty()) f.parts.push_back(std::move(p));
 		}
 		if (f.parts.empty()) continue;
+		// Ball erkennen: Teil "Ball", oder kein Auto angegeben und "ball" im Namen (Paket, Ordner oder Datei)
+		if (!f.c.ball && !f.c.bodyId) {
+			std::string hay = Lower(key + " " + folderName + " " + U8(dir));
+			for (auto& p : f.parts) { hay += " " + Lower(p.part); for (auto& [param, file] : p.params) hay += " " + Lower(param + " " + U8(file)); }
+			if (hay.find("ball") != std::string::npos) f.c.ball = true;
+		}
+		if (!f.c.ball && !f.c.bodyId) zl::Log("customs: %s has no BodyID - shown for every car", key.c_str());
 		// Vorschaubild: das groesste Bild (meist die Karosserie bzw. der Ball)
 		for (auto& p : f.parts)
 			for (auto& [param, file] : p.params)
@@ -533,6 +540,48 @@ static void SetTex(void* mic, int nameIdx, void* tex) {
 	ue::Call(mic, fnSetTex, p.data());
 }
 
+// Textur-Parameter, die die Materialien dieses Elements kennen (alle Instanzen der Kette)
+static int oTexParams = -1, tpStride = 32, tpName = 0;
+static std::vector<std::string> ChainTexParams(void* mat, std::string* desc) {
+	static bool init = false;
+	if (!init) {
+		init = true;
+		if (clsMIC) oTexParams = ue::PropOffset(clsMIC, "TextureParameterValues");
+		if (void* st = ue::FindObject("ScriptStruct Engine.MaterialInstanceConstant.TextureParameterValue")) {
+			tpStride = ue::StructSize(st);
+			tpName = ue::PropOffset(st, "ParameterName");
+		}
+	}
+	std::vector<std::string> out;
+	for (int d = 0; d < 6 && mat; d++) {
+		std::string here;
+		if (oTexParams >= 0 && clsMIC && ue::IsA(mat, clsMIC)) {
+			auto* arr = ue::Ptr<ue::TArray<uint8_t>>(mat, oTexParams);
+			for (int i = 0; arr->data && i < arr->count && i < 32; i++) {
+				std::string n = ue::NameOf(reinterpret_cast<ue::FName*>(arr->data + size_t(i) * tpStride + tpName)->index);
+				if (n.empty()) continue;
+				if (std::find(out.begin(), out.end(), n) == out.end()) out.push_back(n);
+				here += (here.empty() ? "" : ",") + n;
+			}
+		}
+		if (desc) *desc += ue::Name(mat) + "[" + here + "] > ";
+		mat = (oMicParent >= 0 && clsMIC && ue::IsA(mat, clsMIC)) ? ue::Read<void*>(mat, oMicParent) : nullptr;
+	}
+	return out;
+}
+
+// Parameter-Name aus dem Paket auf den Namen im Material abbilden (z. B. "Skin" -> "Skin" oder "DecalSkin")
+static std::string MapParam(const std::string& want, const std::vector<std::string>& have) {
+	std::string w = Lower(want);
+	for (auto& h : have) if (Lower(h) == w) return h;
+	std::vector<std::string> alts{w};
+	if (w == "skin") alts = {"skin", "decal"};
+	if (w == "diffuse") alts = {"diffuse", "albedo", "basecolor"};
+	for (auto& a : alts)
+		for (auto& h : have) if (Lower(h).find(a) != std::string::npos) return h;
+	return want;
+}
+
 // Welcher Teil ist dieses Material? (Name des Materials bzw. seiner Eltern)
 static std::string PartOf(void* mat, int element) {
 	std::string chain;
@@ -560,42 +609,42 @@ static void Restore(void* mesh, int i, Applied& a) {
 	if (ue::IsAlive(mesh) && a.mic && GetMat(mesh, i) == a.mic && a.orig && ue::IsValid(a.orig)) SetMat(mesh, i, a.orig);
 }
 
-// Ein Modell mit einem Custom versehen (oder zuruecksetzen, wenn id leer)
-static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& ps, bool& createdOne) {
+// Ein Modell mit einem Custom versehen (oder zuruecksetzen, wenn id leer). ball: alle Teile auf jedes Element
+static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& ps, bool& createdOne, bool ball) {
 	int n = NumElements(mesh);
-	static std::map<void*, bool> logged;
 	for (int i = 0; i < n; i++) {
 		auto key = std::make_pair(mesh, i);
 		auto ap = applied.find(key);
 		void* cur = GetMat(mesh, i);
-		if (!logged[mesh] && !id.empty()) {
-			std::string chain;
-			for (void* m = cur; m && chain.size() < 200; m = (oMicParent >= 0 && clsMIC && ue::IsA(m, clsMIC)) ? ue::Read<void*>(m, oMicParent) : nullptr)
-				chain += ue::Name(m) + " > ";
-			zl::Log("customs: %s element %d: %s(%s)", ue::Name(mesh).c_str(), i, chain.c_str(), PartOf(cur, i).c_str());
-		}
 		if (id.empty()) {
-			if (ap != applied.end()) { Restore(mesh, i, ap->second); applied.erase(ap); }
-			continue;
-		}
-		std::string part = PartOf(cur, i);
-		const Part* want = nullptr;
-		for (auto& p : ps) if (Lower(p.part) == part) want = &p;
-		if (!want) {
 			if (ap != applied.end()) { Restore(mesh, i, ap->second); applied.erase(ap); }
 			continue;
 		}
 		// schon unseres und noch dran?
 		if (ap != applied.end() && ap->second.id == id && ap->second.mic && cur == ap->second.mic && ue::IsAlive(ap->second.mic)) continue;
+		std::string part = ball ? "ball" : PartOf(cur, i);
+		std::vector<std::pair<std::string, std::wstring>> want;
+		for (auto& p : ps)
+			if (ball || Lower(p.part) == part)
+				for (auto& pr : p.params) want.push_back(pr);
+		if (want.empty() || part.empty()) {
+			if (ap != applied.end()) { Restore(mesh, i, ap->second); applied.erase(ap); }
+			continue;
+		}
 		// Texturen bereit?
+		std::string desc;
+		std::vector<std::string> have = ChainTexParams(cur, &desc);
 		std::vector<std::pair<int, void*>> texs2;
+		std::string mapped;
 		bool allReady = true;
-		for (auto& [param, file] : want->params) {
-			int ni = ue::FindName(param);
+		for (auto& [param, file] : want) {
+			std::string real = MapParam(param, have);
+			int ni = ue::FindName(real);
 			void* t = TexFor(file, createdOne);
-			if (ni < 0) { zl::Log("customs: unknown texture parameter %s", param.c_str()); continue; }
+			if (ni < 0) { zl::Log("customs: unknown texture parameter %s", real.c_str()); continue; }
 			if (!t) { allReady = false; continue; }
 			texs2.push_back({ni, t});
+			mapped += param + "->" + real + " ";
 		}
 		if (!allReady || texs2.empty()) continue;
 		void* orig = (ap != applied.end() && cur == ap->second.mic) ? ap->second.orig : cur;
@@ -603,10 +652,10 @@ static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& 
 		if (!mic) { zl::Log("customs: couldn't make material for %s/%d", ue::Name(mesh).c_str(), i); continue; }
 		for (auto& [ni, t] : texs2) SetTex(mic, ni, t);
 		applied[key] = Applied{orig, mic, id};
-		zl::Log("customs: %s on %s element %d (%s, %d textures)", id.c_str(), ue::Name(mesh).c_str(), i, part.c_str(), (int)texs2.size());
+		static int logs = 0;
+		if (logs++ < 40)
+			zl::Log("customs: %s on %s element %d (%s): %s| %s", id.c_str(), ue::Name(mesh).c_str(), i, part.c_str(), mapped.c_str(), desc.c_str());
 	}
-	if (!id.empty()) logged[mesh] = true;
-	if (logged.size() > 64) logged.clear();
 }
 
 void Tick(const std::vector<void*>& carMeshes, int body, const std::vector<void*>& balls) {
@@ -630,9 +679,9 @@ void Tick(const std::vector<void*>& carMeshes, int body, const std::vector<void*
 	// Decal nur auf dem passenden Auto (die Bilder passen nur zu dessen Form)
 	std::string useD = (dId.empty() || (dBody && body && dBody != body)) ? "" : dId;
 	for (void* m : carMeshes)
-		if (m && ue::IsAlive(m)) ApplyTo(m, useD, dParts, createdOne);
+		if (m && ue::IsAlive(m)) ApplyTo(m, useD, dParts, createdOne, false);
 	for (void* b : balls)
-		if (b && ue::IsAlive(b)) ApplyTo(b, bId, bParts, createdOne);
+		if (b && ue::IsAlive(b)) ApplyTo(b, bId, bParts, createdOne, true);
 	// Eintraege von geloeschten Modellen vergessen
 	for (auto it = applied.begin(); it != applied.end();) it = ue::IsAlive(it->first.first) ? std::next(it) : applied.erase(it);
 }
