@@ -47,6 +47,7 @@ extern bool killFlagCheck; // wird abgeschaltet, falls die Flag-Pruefung nicht p
 int ObjectCount();
 void* ObjectAt(int i);
 std::string NameOf(int index);
+int FindName(const std::string& name); // Index in der Namensliste, -1 = gibt es nicht (wird zwischengespeichert)
 std::string Name(const void* obj);
 void* ClassOf(const void* obj);
 void* OuterOf(const void* obj);

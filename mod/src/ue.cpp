@@ -2,6 +2,7 @@
 
 #include <psapi.h>
 #include <sstream>
+#include <map>
 #include <unordered_map>
 
 #include "log.h"
@@ -205,6 +206,23 @@ std::string NameOf(int index) {
 	} catch (...) {
 		return "";
 	}
+}
+
+int FindName(const std::string& name) {
+	static std::map<std::string, int> cache;
+	auto f = cache.find(name);
+	if (f != cache.end()) return f->second;
+	int found = -1;
+	for (int i = 0; GNames && i < GNames->count; i++) {
+		uint8_t* e = GNames->data[i];
+		if (!e) continue;
+		const wchar_t* w = reinterpret_cast<const wchar_t*>(e + off::NameEntryName);
+		size_t k = 0;
+		while (k < name.size() && w[k] && (wchar_t)(unsigned char)name[k] == w[k]) k++;
+		if (k == name.size() && !w[k]) { found = i; break; }
+	}
+	cache[name] = found;
+	return found;
 }
 
 std::string Name(const void* obj) {

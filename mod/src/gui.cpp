@@ -17,6 +17,7 @@
 #include "log.h"
 #include "maps.h"
 #include "tweaks.h"
+#include "customs.h"
 
 namespace gui {
 
@@ -31,6 +32,13 @@ static ImU32 U(ImVec4 c) { return ImGui::GetColorU32(c); }
 static ImVec4 Acc(float a) { return ImVec4(accent.x, accent.y, accent.z, a); }
 static ImVec4 Mix(ImVec4 a, ImVec4 b, float t) { return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t); }
 static ImVec4 Alpha(ImVec4 c, float a) { c.w *= a; return c; }
+
+// abgerundete Flaeche mit Farbverlauf (diagonal von c0 nach c1)
+static void GradRect(ImDrawList* d, ImVec2 a, ImVec2 b, float r, ImVec4 c0, ImVec4 c1, float alpha) {
+	int v0 = d->VtxBuffer.Size;
+	d->AddRectFilled(a, b, U(Rgb(255, 255, 255, alpha)), r);
+	ImGui::ShadeVertsLinearColorGradientKeepAlpha(d, v0, d->VtxBuffer.Size, a, b, U(ImVec4(c0.x, c0.y, c0.z, 1)), U(ImVec4(c1.x, c1.y, c1.z, 1)));
+}
 
 static const ImVec4 cBg = Hex(0x0c0c0f), cPanel = Hex(0x111115), cPanel2 = Hex(0x15151a), cHover = Hex(0x1a1a20);
 static const ImVec4 cLine = Hex(0x1f1f26), cLine2 = Hex(0x2a2a33);
@@ -271,6 +279,15 @@ static void Spinner(ImDrawList* d, ImVec2 c, float r) {
 	d->PathStroke(U(accent), 0, 2.5f);
 }
 
+// Name des gewaehlten eigenen Decals/Balls ("" = keins)
+static std::string CustomName(bool ball) {
+	std::lock_guard<std::mutex> lk(customs::mu);
+	const std::string& sel = ball ? customs::selBall : customs::selDecal;
+	for (auto& c : customs::list) if (c.ball == ball && c.id == sel) return c.name;
+	return "";
+}
+constexpr int kBallSlot = 100; // eigener Eintrag "Ball" (nur fuer eigene Baelle)
+
 // ---------- Links: ein Slot ----------
 static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 	ImGui::PushID(s.index);
@@ -316,8 +333,16 @@ static void SlotRow(const items::SlotInfo& s, ImVec2 size, float& selY) {
 		if (ow != items::ownItems.end()) ownIt = FindItem(ow->second);
 	}
 	const char* ownLabel = items::ownItems.count(s.index) ? "Nothing equipped" : "Your own"; // bekannt, aber leer
-	std::string name = Fit(fRegular, fRegular->FontSize, it ? it->name : (ownIt ? ownIt->name : ownLabel), size.x - 60);
-	Text(d, fRegular, ImVec2(tx, p.y + 22), it ? Mix(Hex(0xc9c9d3), cText, std::max(sa, h)) : Mix(cMuted, Hex(0xa9a9b5), h), name.c_str());
+	std::string shownName = it ? it->name : (ownIt ? ownIt->name : ownLabel);
+	bool custom = false;
+	if (s.index == 1 || s.index == kBallSlot) { // eigenes Decal / eigener Ball
+		std::string cn = CustomName(s.index == kBallSlot);
+		if (!cn.empty()) { shownName = cn; custom = true; }
+		else if (s.index == kBallSlot) shownName = "Default";
+	}
+	if (custom) d->AddCircleFilled(ImVec2(p.x + size.x - 18, p.y + size.y / 2), 3.5f, U(spec[2]), 16);
+	std::string name = Fit(fRegular, fRegular->FontSize, shownName, size.x - 60);
+	Text(d, fRegular, ImVec2(tx, p.y + 22), (it || custom) ? Mix(Hex(0xc9c9d3), cText, std::max(sa, h)) : Mix(cMuted, Hex(0xa9a9b5), h), name.c_str());
 	ImGui::PopID();
 }
 
@@ -350,6 +375,56 @@ static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cu
 	}
 	if (s > 0.01f) CheckMark(d, ImVec2(q.x - 22, p.y + rh / 2), s);
 	ImGui::PopID();
+}
+
+// Zeile fuer ein eigenes Decal/einen eigenen Ball: Vorschaubild, Name, Hinweis
+static bool CustomRow(const customs::Custom& c, bool sel, bool fits, const char* sub, float w) {
+	ImGui::PushID(c.id.c_str());
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	const float rh = 54;
+	bool click = ImGui::InvisibleButton("##c", ImVec2(w, rh));
+	float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
+	float s = Anim(ImGui::GetID("s"), sel ? 1.0f : 0.0f, 16.0f);
+	ImGui::PopID();
+	ImDrawList* d = ImGui::GetWindowDrawList();
+	ImVec2 q(p.x + w, p.y + rh);
+	if (h > 0.01f || s > 0.01f) d->AddRectFilled(p, q, U(Mix(Alpha(cHover, h), Acc(0.13f), s)), 12);
+	if (s > 0.01f) d->AddRect(p, q, U(Acc(0.35f * s)), 12, 0, 1.0f);
+	ImVec2 ta(p.x + 8, p.y + 7), tb(ta.x + 40, ta.y + 40);
+	if (unsigned long long t = customs::Thumb(c.id)) d->AddImageRounded((ImTextureID)t, ta, tb, ImVec2(0, 0), ImVec2(1, 1), U(Rgb(255, 255, 255, fits ? 1.0f : 0.45f)), 8);
+	else GradRect(d, ta, tb, 8, spec[0], spec[2], 0.25f);
+	d->AddRect(ta, tb, U(Rgb(255, 255, 255, 0.08f)), 8);
+	float tx = tb.x + 12;
+	std::string n = Fit(fRegular, fRegular->FontSize, c.name, w - 180);
+	Text(d, fRegular, ImVec2(tx + h * 2.0f, p.y + 9), fits ? Mix(Hex(0xd4d4dc), cText, std::max(h, s)) : cMuted, n.c_str());
+	Text(d, fSmall, ImVec2(tx + h * 2.0f, p.y + 29), fits ? Alpha(Mix(spec[1], Rgb(255, 255, 255), 0.4f), 0.9f) : cFaint, sub);
+	if (s > 0.01f) CheckMark(d, ImVec2(q.x - 22, p.y + rh / 2), s);
+	return click;
+}
+
+// Karte "eigene hinzufuegen": oeffnet den Ordner
+static bool AddCustomCard(const char* what, float w) {
+	ImVec2 p = ImGui::GetCursorScreenPos();
+	const float rh = 50;
+	bool click = ImGui::InvisibleButton(what, ImVec2(w, rh));
+	float h = Anim(ImGui::GetID(what), ImGui::IsItemHovered() ? 1.0f : 0.0f, 20.0f);
+	ImDrawList* d = ImGui::GetWindowDrawList();
+	ImVec2 q(p.x + w, p.y + rh);
+	d->AddRectFilled(p, q, U(Rgb(255, 255, 255, 0.02f + 0.03f * h)), 12);
+	// gestrichelter Rand
+	const float dash = 7, gap = 5;
+	ImU32 lc = U(Mix(cLine2, Acc(0.7f), h));
+	for (float x = p.x + 12; x < q.x - 12; x += dash + gap) {
+		d->AddLine(ImVec2(x, p.y + 0.5f), ImVec2(std::min(x + dash, q.x - 12), p.y + 0.5f), lc, 1.0f);
+		d->AddLine(ImVec2(x, q.y - 0.5f), ImVec2(std::min(x + dash, q.x - 12), q.y - 0.5f), lc, 1.0f);
+	}
+	ImVec2 c(p.x + 28, p.y + rh / 2);
+	d->AddCircle(c, 10, lc, 24, 1.4f);
+	d->AddLine(ImVec2(c.x - 4.5f, c.y), ImVec2(c.x + 4.5f, c.y), lc, 1.6f);
+	d->AddLine(ImVec2(c.x, c.y - 4.5f), ImVec2(c.x, c.y + 4.5f), lc, 1.6f);
+	Text(d, fBold, ImVec2(p.x + 50, p.y + 8), Mix(cMuted, cText, h), what);
+	Text(d, fSmall, ImVec2(p.x + 50, p.y + 27), cFaint, "Opens the folder - drop a .zip or folder in, it shows up here.");
+	return click;
 }
 
 // Eingabefeld im Prism-Stil, komplett selbst gebaut (ohne ImGui-InputText): Zeichen kommen direkt aus
@@ -1186,13 +1261,6 @@ static bool PillButton(ImDrawList* dl, const char* id, const char* label, ImVec2
 }
 static float PillW(const char* label, int icon) { return TextW(fBold, label) + 32 + (icon ? 18 : 0); }
 
-// abgerundete Flaeche mit Farbverlauf (diagonal von c0 nach c1)
-static void GradRect(ImDrawList* d, ImVec2 a, ImVec2 b, float r, ImVec4 c0, ImVec4 c1, float alpha) {
-	int v0 = d->VtxBuffer.Size;
-	d->AddRectFilled(a, b, U(Rgb(255, 255, 255, alpha)), r);
-	ImGui::ShadeVertsLinearColorGradientKeepAlpha(d, v0, d->VtxBuffer.Size, a, b, U(ImVec4(c0.x, c0.y, c0.z, 1)), U(ImVec4(c1.x, c1.y, c1.z, 1)));
-}
-
 // Platzhalter ohne Vorschaubild: dunkle Flaeche mit feinem Prisma-Schimmer
 static void ThumbHolder(ImDrawList* d, ImVec2 a, ImVec2 b, unsigned seed) {
 	d->AddRectFilled(a, b, U(cPanel2), 8);
@@ -1842,6 +1910,7 @@ void Render(bool* open) {
 	split.SetCurrentChannel(dl, 1);
 	for (int i = 0; i < items::kSlotCount; i++)
 		if (items::kSlots[i].index != 7 && items::kSlots[i].index != 12) SlotRow(items::kSlots[i], ImVec2(leftW, rowH), selY); // Lackierungen: Reiter Colors
+	SlotRow(items::SlotInfo{kBallSlot, "Ball"}, ImVec2(leftW, rowH), selY); // eigene Baelle
 	split.SetCurrentChannel(dl, 0);
 	if (selY >= 0) {
 		float rel = selY - o.y;
@@ -1855,9 +1924,21 @@ void Render(bool* open) {
 
 	// ---------- Rechts: Auswahl ----------
 	const float px = pad + leftW + 30, pw = W.x - px - pad;
-	const char* slotName = "";
+	const char* slotName = curSlot == kBallSlot ? "Ball" : "";
 	for (int i = 0; i < items::kSlotCount; i++)
 		if (items::kSlots[i].index == curSlot) slotName = items::kSlots[i].label;
+	// eigene Decals/Baelle fuer diesen Slot
+	std::vector<customs::Custom> myCustoms;
+	std::string selCustom, customStatus;
+	if (curSlot == 1 || curSlot == kBallSlot) {
+		std::lock_guard<std::mutex> ck(customs::mu);
+		for (auto& c : customs::list)
+			if (c.ball == (curSlot == kBallSlot)) myCustoms.push_back(c);
+		selCustom = curSlot == kBallSlot ? customs::selBall : customs::selDecal;
+		customStatus = customs::status;
+	}
+	std::string pickCustom = "\x01"; // \x01 = nichts geklickt
+	bool openFolder = false;
 	std::string q = Lower(search);
 	std::vector<const items::Item*> shown;
 	int total = 0;
@@ -1966,10 +2047,49 @@ void Render(bool* open) {
 	const float rw = pw - 8;
 	{
 		// ganz oben: dein echtes Item aus Rocket League
-		auto ow = items::ownItems.find(curSlot);
-		const items::Item* own = ow != items::ownItems.end() ? FindItem(ow->second) : nullptr;
-		if (own) ItemRow(0, own->name.c_str(), "Your item", QualityColor(own->quality), cur, pick, rw);
-		else ItemRow(0, items::ownItems.count(curSlot) ? "Nothing equipped" : "Your own", "", Rgb(80, 80, 92), cur, pick, rw);
+		bool customOn = !selCustom.empty();
+		if (curSlot == kBallSlot) {
+			int dummy = -1;
+			ItemRow(0, "Default ball", "", Rgb(80, 80, 92), customOn ? -999 : 0, dummy, rw);
+			if (dummy == 0) pickCustom = "";
+		} else {
+			auto ow = items::ownItems.find(curSlot);
+			const items::Item* own = ow != items::ownItems.end() ? FindItem(ow->second) : nullptr;
+			int shownCur = customOn ? -999 : cur;
+			if (own) ItemRow(0, own->name.c_str(), "Your item", QualityColor(own->quality), shownCur, pick, rw);
+			else ItemRow(0, items::ownItems.count(curSlot) ? "Nothing equipped" : "Your own", "", Rgb(80, 80, 92), shownCur, pick, rw);
+		}
+		// eigene Decals/Baelle (passende zuerst)
+		if (curSlot == 1 || curSlot == kBallSlot) {
+			ImGui::Dummy(ImVec2(0, 4));
+			ImVec2 hp = ImGui::GetCursorScreenPos();
+			Text(ImGui::GetWindowDrawList(), fTiny, ImVec2(hp.x + 12, hp.y), cFaint, curSlot == kBallSlot ? "YOUR BALLS" : "CUSTOM DECALS");
+			if (!customStatus.empty()) {
+				float sw = TextW(fTiny, customStatus.c_str());
+				Text(ImGui::GetWindowDrawList(), fTiny, ImVec2(hp.x + rw - 12 - sw, hp.y), cMuted, customStatus.c_str());
+			}
+			ImGui::Dummy(ImVec2(0, 18));
+			std::stable_sort(myCustoms.begin(), myCustoms.end(), [&](const customs::Custom& a, const customs::Custom& b) {
+				bool fa = !a.bodyId || !body || a.bodyId == body, fb = !b.bodyId || !body || b.bodyId == body;
+				return fa > fb;
+			});
+			for (auto& c : myCustoms) {
+				bool fits = c.ball || !c.bodyId || !body || c.bodyId == body;
+				std::string sub = c.ball ? "Custom ball" : "Custom decal";
+				if (!fits) {
+					const items::Item* car = FindItem(c.bodyId);
+					sub = "Only on " + (car ? car->name : "car " + std::to_string(c.bodyId));
+				}
+				if (CustomRow(c, c.id == selCustom, fits, sub.c_str(), rw)) pickCustom = c.id == selCustom ? "" : c.id;
+			}
+			if (AddCustomCard(curSlot == kBallSlot ? "Add your own balls" : "Add your own decals", rw)) openFolder = true;
+			ImGui::Dummy(ImVec2(0, 6));
+			if (curSlot == 1 && !shown.empty()) {
+				ImVec2 hp2 = ImGui::GetCursorScreenPos();
+				Text(ImGui::GetWindowDrawList(), fTiny, ImVec2(hp2.x + 12, hp2.y), cFaint, "GAME DECALS");
+				ImGui::Dummy(ImVec2(0, 18));
+			}
+		}
 	}
 	if (q.empty() || shown.size()) ImGui::Dummy(ImVec2(0, 2));
 	ImGuiListClipper clip;
@@ -2004,6 +2124,10 @@ void Render(bool* open) {
 	ImGui::PopFont();
 	ImGui::PopStyleVar();
 
+	if (curSlot == kBallSlot) pick = -1; // eigener Ball ist kein Spiel-Item
+	if (pick >= 0 && curSlot == 1 && !selCustom.empty()) customs::Select(false, ""); // Spiel-Decal gewaehlt: eigenes aus
+	if (pickCustom != "\x01") customs::Select(curSlot == kBallSlot, pickCustom);
+	if (openFolder) customs::OpenFolder();
 	if (pick >= 0 && pick != cur) items::Set(curSlot, pick);
 	if (pickPaint >= 0) items::SetPaint(curSlot, pickPaint);
 }

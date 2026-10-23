@@ -13,6 +13,7 @@
 #include "log.h"
 #include "tweaks.h"
 #include "camera.h"
+#include "customs.h"
 #include "ue.h"
 
 namespace items {
@@ -58,6 +59,7 @@ void RunQueue() {
 static void TickColors(void* previewActor, void* car);
 static void CarEventColors(void* car);
 static void RestoreSharedPrefs();
+static void TickCustoms();
 static std::atomic<void*> localPRIForColors{nullptr}; // PRI deines Autos (fuer die Farben)
 static void PatchColorEvent(void* mesh, void* params);
 static void *clsCarMesh = nullptr, *fnApplyColors = nullptr;
@@ -1488,6 +1490,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (tickFns.count(fn)) { // lokaler Spieler
 		try { TickBoostPaint(); } catch (...) {}
 		try { cam::Tick(); } catch (...) {}
+		try { TickCustoms(); } catch (...) {}
 		// LocalPlayer merken (gibt es auch schon im Hauptmenue)
 		try {
 			void* lp = ue::Read<void*>(caller, offPlayer);
@@ -2225,6 +2228,69 @@ void SetColors(bool on, bool both, const float (*cols)[2][3], bool save) {
 	colorGen++;
 	nextPreviewCheck = 0;
 	if (save) Save();
+}
+
+// ---------- Eigene Decals/Baelle: Modelle sammeln und anwenden ----------
+static void* BallMesh(void* ball) {
+	static void* clsBallC = ue::FindClass("Class TAGame.Ball_TA");
+	static void* clsSMC = ue::FindClass("Class Engine.StaticMeshComponent");
+	static int oSM = clsBallC ? ue::PropOffset(clsBallC, "StaticMesh") : -1;
+	static int oComps = -1;
+	static bool init = false;
+	if (!init) {
+		init = true;
+		if (void* clsActor = ue::FindClass("Class Engine.Actor")) oComps = ue::PropOffset(clsActor, "Components");
+		zl::Log("customs: ball mesh prop=%x components=%x", oSM, oComps);
+	}
+	if (oSM >= 0) {
+		void* m = ue::Read<void*>(ball, oSM);
+		if (m && ue::IsAlive(m)) return m;
+	}
+	if (oComps >= 0 && clsSMC) {
+		auto* arr = ue::Ptr<ue::TArray<void*>>(ball, oComps);
+		for (int i = 0; arr->data && i < arr->count && i < 32; i++)
+			if (arr->data[i] && ue::IsA(arr->data[i], clsSMC)) return arr->data[i];
+	}
+	return nullptr;
+}
+
+static void TickCustoms() {
+	static unsigned long long next = 0;
+	unsigned long long now = GetTickCount64();
+	if (now < next) return;
+	next = now + 200;
+	if (!EnsureColors()) return;
+	std::vector<void*> meshes, balls;
+	int body = 0;
+	void* car = LocalCar();
+	if (car && offCarMesh >= 0) {
+		if (void* m = ue::Read<void*>(car, offCarMesh)) meshes.push_back(m);
+		std::lock_guard<std::mutex> lk(mu);
+		body = overrides.count(0) ? overrides[0] : (ownItems.count(0) ? ownItems[0] : 0);
+	} else if (offPreviewMesh >= 0) {
+		for (void* a : previewActors) {
+			if (!ue::IsAlive(a)) continue;
+			if (void* m = ue::Read<void*>(a, offPreviewMesh)) meshes.push_back(m);
+			auto* pr = ue::Ptr<ue::TArray<int32_t>>(a, offPrevLoadout);
+			if (!body && pr->data && pr->count > 0) body = pr->data[0];
+		}
+	}
+	// Baelle im aktuellen Spiel
+	if (car) {
+		void* pri = LocalPRI();
+		void* ge = (pri && offPRIGameEvent >= 0) ? ue::Read<void*>(pri, offPRIGameEvent) : nullptr;
+		static int oBalls = -1;
+		if (ge && ue::IsValid(ge)) {
+			if (oBalls < 0) oBalls = ue::PropOffset(ue::ClassOf(ge), "GameBalls");
+			if (oBalls >= 0) {
+				auto* arr = ue::Ptr<ue::TArray<void*>>(ge, oBalls);
+				for (int i = 0; arr->data && i < arr->count && i < 8; i++)
+					if (arr->data[i] && ue::IsAlive(arr->data[i]))
+						if (void* bm = BallMesh(arr->data[i])) balls.push_back(bm);
+			}
+		}
+	}
+	customs::Tick(meshes, body, balls);
 }
 
 // ---------- Presets ----------

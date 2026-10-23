@@ -18,6 +18,7 @@ add_library(zlmod SHARED
     src/maps.cpp
     src/tweaks.cpp
     src/camera.cpp
+    src/customs.cpp
     ${IMGUI}/imgui.cpp
     ${IMGUI}/imgui_draw.cpp
     ${IMGUI}/imgui_tables.cpp
