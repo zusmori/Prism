@@ -37,6 +37,21 @@ static const ImVec4 cLine = Hex(0x1f1f26), cLine2 = Hex(0x2a2a33);
 static const ImVec4 cText = Hex(0xececf1), cMuted = Hex(0x8b8b97), cFaint = Hex(0x55555f);
 
 // ---------- Animation ----------
+// Abgerundete Flaeche mit weichem Verlauf der Deckkraft (statt AddRectFilledMultiColor, das ist eckig
+// und guckt an runden Ecken heraus). fade(x, y) bekommt 0..1 ueber die Flaeche und liefert 0..1.
+template <class F>
+static void FadeRect(ImDrawList* d, ImVec2 a, ImVec2 b, float r, ImDrawFlags fl, ImVec4 c, F fade) {
+	int v0 = d->VtxBuffer.Size;
+	d->AddRectFilled(a, b, ImGui::GetColorU32(c), r, fl);
+	float w = std::max(1.0f, b.x - a.x), h = std::max(1.0f, b.y - a.y);
+	for (int i = v0; i < d->VtxBuffer.Size; i++) {
+		ImDrawVert& v = d->VtxBuffer[i];
+		float t = std::clamp(fade((v.pos.x - a.x) / w, (v.pos.y - a.y) / h), 0.0f, 1.0f);
+		unsigned al = (v.col >> 24) & 0xFF;
+		v.col = (v.col & 0x00FFFFFF) | (unsigned(al * t + 0.5f) << 24);
+	}
+}
+
 static float Dt() { return std::min(ImGui::GetIO().DeltaTime, 0.05f); }
 static float Approach(float cur, float target, float speed) { return cur + (target - cur) * (1.0f - expf(-speed * Dt())); }
 static float EaseOut(float t) { t = std::clamp(t, 0.0f, 1.0f); return 1.0f - powf(1.0f - t, 4.0f); }
@@ -1148,8 +1163,8 @@ static bool PillButton(ImDrawList* dl, const char* id, const char* label, ImVec2
 	float en = enabled ? 1.0f : 0.4f;
 	if (strong) {
 		dl->AddRectFilled(a, b, U(Alpha(Mix(Mix(accent, Rgb(0, 0, 0), 0.06f), Mix(accent, Rgb(255, 255, 255), 0.10f), hv), en)), 11);
-		dl->AddRectFilledMultiColor(ImVec2(a.x + 1, a.y + 1), ImVec2(b.x - 1, a.y + (b.y - a.y) * 0.5f), U(Rgb(255, 255, 255, 0.10f * en)),
-			U(Rgb(255, 255, 255, 0.10f * en)), U(Rgb(255, 255, 255, 0)), U(Rgb(255, 255, 255, 0)));
+		FadeRect(dl, ImVec2(a.x + 1, a.y + 1), ImVec2(b.x - 1, b.y - 1), 10, 0, Rgb(255, 255, 255, 0.10f * en),
+			[](float, float y) { return 1.0f - y * 2.0f; });
 	} else {
 		dl->AddRectFilled(a, b, U(Rgb(255, 255, 255, (0.04f + 0.06f * hv) * en)), 11);
 		dl->AddRect(a, b, U(Rgb(255, 255, 255, (0.08f + 0.06f * hv) * en)), 11);
@@ -1608,7 +1623,8 @@ void Render(bool* open) {
 	for (int i = 1; i <= 4; i++)
 		dl->AddRectFilled(ImVec2(o.x - i * 3, o.y - i * 2), ImVec2(o.x + W.x + i * 3, o.y + W.y + i * 4), A(Rgb(0, 0, 0, 0.09f)), 20 + i * 3);
 	dl->AddRectFilled(o, ImVec2(o.x + W.x, o.y + W.y), A(cBg), 20);
-	dl->AddRectFilledMultiColor(ImVec2(o.x + 1, o.y + 1), ImVec2(o.x + 380, o.y + 150), A(Acc(0.10f)), A(Acc(0.0f)), A(Acc(0.0f)), A(Acc(0.0f)));
+	FadeRect(dl, ImVec2(o.x + 1, o.y + 1), ImVec2(o.x + W.x - 1, o.y + W.y - 1), 19, 0, Acc(0.10f),
+		[&](float x, float y) { return (1.0f - x * W.x / 380.0f) * (1.0f - y * W.y / 150.0f); });
 	dl->AddRect(o, ImVec2(o.x + W.x, o.y + W.y), A(cLine2), 20, 0, 1.0f);
 	dl->PopClipRect();
 
@@ -1628,7 +1644,7 @@ void Render(bool* open) {
 		const bool fp = items::InFreeplay();
 		if (!fp && tab == 4) { tab = 0; tabFade = 0.0f; }
 		const int N = fp ? 5 : 4;
-		const char* names[5] = {"Items", "Colors", "Presets", "Maps", "Tweaks"};
+		const char* names[5] = {"Items", "Colors", "Presets", "Maps", "Freeplay Tweaks"};
 		const int ids[5] = {0, 2, 1, 3, 4}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
 		float x0 = o.x + pad + 34 + TextW(fTitle, "Prism") + 22, y0 = o.y + 15;
 		float tws[5], tx[5], xx = x0 + 4;
@@ -2010,7 +2026,8 @@ void Toast(float t) {
 	for (int i = 1; i <= 3; i++)
 		d->AddRectFilled(ImVec2(p.x - i * 2, p.y - i + 3), ImVec2(p.x + sz.x + i * 2, p.y + sz.y + i * 3), C(Rgb(0, 0, 0, 0.12f)), 18 + i * 2);
 	d->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), C(Hex(0x111115, 0.98f)), 18);
-	d->AddRectFilledMultiColor(ImVec2(p.x + 1, p.y + 1), ImVec2(p.x + 160, p.y + sz.y - 1), C(Acc(0.12f)), C(Acc(0.0f)), C(Acc(0.0f)), C(Acc(0.12f)));
+	FadeRect(d, ImVec2(p.x + 1, p.y + 1), ImVec2(p.x + sz.x - 1, p.y + sz.y - 1), 17, 0, Alpha(Acc(0.12f), a),
+		[&](float x, float) { return 1.0f - x * sz.x / 160.0f; });
 	d->AddRect(p, ImVec2(p.x + sz.x, p.y + sz.y), C(cLine2), 18);
 	// Symbol: "F8"-Taste in der Akzentfarbe
 	ImVec2 k(p.x + 16, p.y + 15);

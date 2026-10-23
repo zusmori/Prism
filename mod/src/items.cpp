@@ -1393,9 +1393,79 @@ static void TickBoostPaint() {
 	grApplied = want;
 }
 
+// ---------- Analyse: Kamera-Einstellungen im Rocket-League-Menue ----------
+// Schreibt ins Log, welche Funktionen/Klassen das Spiel fuer die Kamera-Regler benutzt (fuer feinere Schritte).
+static std::unordered_map<void*, int> camSeen; // Funktion -> wie oft schon geloggt (-1 = uninteressant)
+static int camLines = 0;
+static bool camDumped = false;
+
+static void CamDumpClass(void* cls) {
+	std::string props;
+	for (void* s = cls; s; s = ue::Read<void*>(s, ue::off::StructSuper)) {
+		for (void* f = ue::Read<void*>(s, ue::off::StructChildren); f; f = ue::Read<void*>(f, ue::off::FieldNext)) {
+			std::string cn = ue::Name(ue::ClassOf(f));
+			if (cn.size() < 8 || cn.compare(cn.size() - 8, 8, "Property") != 0) continue;
+			props += ue::Name(f) + ":" + cn.substr(0, cn.size() - 8) + "@" + std::to_string(ue::Read<int32_t>(f, ue::off::PropOffset)) + " ";
+			if (props.size() > 1500) break;
+		}
+		if (ue::Name(s) == "Object" || props.size() > 1500) break;
+	}
+	zl::Log("cam: class %s: %s", ue::FullName(cls).c_str(), props.c_str());
+}
+
+static void CamDump() {
+	if (camDumped) return;
+	camDumped = true;
+	int n = 0;
+	for (int i = 0, c = ue::ObjectCount(); i < c && n < 40; i++) {
+		void* o = ue::ObjectAt(i);
+		if (!o) continue;
+		try {
+			if (ue::Name(ue::ClassOf(o)) != "Class") continue;
+			std::string nm = ue::Name(o), lo = nm;
+			for (auto& ch : lo) ch = (char)tolower((unsigned char)ch);
+			if (lo.find("camera") == std::string::npos && lo.find("slider") == std::string::npos) continue;
+			CamDumpClass(o);
+			n++;
+		} catch (...) {}
+	}
+}
+
+static void CamOnEvent(void* caller, void* fn, void* params) {
+	auto it = camSeen.find(fn);
+	if (it != camSeen.end() && (it->second < 0 || it->second >= 3)) return;
+	if (it == camSeen.end()) {
+		std::string full = ue::FullName(fn), lo = full;
+		for (auto& ch : lo) ch = (char)tolower((unsigned char)ch);
+		bool cam = lo.find("camera") != std::string::npos || lo.find("slider") != std::string::npos;
+		it = camSeen.emplace(fn, cam ? 0 : -1).first;
+		if (!cam) return;
+	}
+	if (camLines++ > 400) { it->second = -1; return; }
+	it->second++;
+	// Parameter mit Werten (Zahlen)
+	std::string args;
+	try {
+		for (void* f = ue::Read<void*>(fn, ue::off::StructChildren); f && params; f = ue::Read<void*>(f, ue::off::FieldNext)) {
+			std::string cn = ue::Name(ue::ClassOf(f));
+			int off = ue::Read<int32_t>(f, ue::off::PropOffset);
+			char b[96];
+			if (cn == "FloatProperty") snprintf(b, sizeof b, "%s=%.3f ", ue::Name(f).c_str(), *reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(params) + off));
+			else if (cn == "IntProperty") snprintf(b, sizeof b, "%s=%d ", ue::Name(f).c_str(), *reinterpret_cast<int32_t*>(reinterpret_cast<uint8_t*>(params) + off));
+			else snprintf(b, sizeof b, "%s:%s ", ue::Name(f).c_str(), cn.c_str());
+			args += b;
+			if (args.size() > 400) break;
+		}
+	} catch (...) {}
+	zl::Log("cam: %s on %s %s", ue::FullName(fn).c_str(), ue::Name(ue::ClassOf(caller)).c_str(), args.c_str());
+	CamDump();
+}
+
 void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (!ready || !caller || !fn) return;
 	if (fn == fnApplyColors && fnApplyColors) { try { PatchColorEvent(caller, params); } catch (...) {} }
+	tweaks::OnEvent(caller, fn);
+	CamOnEvent(caller, fn, params);
 	static unsigned long long nextCheck = 0;
 	unsigned long long now = GetTickCount64();
 	// Ereignisse eines Autos (z. B. beim Spawnen) -> sofort pruefen, bevor es sein Loadout baut

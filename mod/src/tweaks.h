@@ -22,5 +22,6 @@ bool Changed();                // irgendetwas nicht auf Standard?
 
 // Spiel-Thread (PlayerTick): Werte auf Ball/Welt anwenden. car = dein Auto, ge = GameEvent (Freeplay)
 void Tick(void* car, void* gameEvent, bool freeplay);
+void OnEvent(void* caller, void* fn); // aus dem ProcessEvent-Hook (z. B. Auto beruehrt den Ball)
 
 } // namespace tweaks

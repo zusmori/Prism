@@ -21,7 +21,7 @@ namespace tweaks {
 
 Setting list[] = {
 	{"speed", "Game speed", "Slow motion or faster than normal.", 1.0f, 0.1f, 2.0f, 0.05f, 1.0f},
-	{"ballspeed", "Ball speed", "How fast the ball can fly.", 1.0f, 0.25f, 4.0f, 0.05f, 1.0f},
+	{"ballspeed", "Ball speed", "How fast the ball flies when you hit it.", 1.0f, 0.25f, 4.0f, 0.05f, 1.0f},
 	{"ballsize", "Ball size", "Tiny or huge ball.", 1.0f, 0.3f, 4.0f, 0.05f, 1.0f},
 	{"ballgravity", "Ball gravity", "0 = the ball floats.", 1.0f, 0.0f, 3.0f, 0.05f, 1.0f},
 	{"bounce", "Ball bounce", "How much the ball bounces off walls and floor.", 1.0f, 0.0f, 3.0f, 0.05f, 1.0f},
@@ -96,6 +96,13 @@ static BallFn ballFns[] = {
 };
 static void *clsBall = nullptr, *clsActor = nullptr;
 static int offWorldInfo = -1, offDilation = -1, offGameBalls = -1;
+// Ballgeschwindigkeit: die Hoechstgeschwindigkeit allein merkt man kaum (sie wird fast nie erreicht).
+// Deshalb wird der Ball direkt nach jeder Beruehrung durch ein Auto entsprechend schneller (bzw. langsamer).
+static void *fnTouch = nullptr, *fnSetVel = nullptr;
+static int offVelocity = -1, offSetVel = -1;
+static std::atomic<bool> fpActive{false};
+static std::mutex touchMu;
+static std::vector<std::pair<void*, unsigned long long>> touched; // Ball, Zeitpunkt der Beruehrung
 static bool setupDone = false;
 
 static void SetupOnce(void* ge) {
@@ -116,7 +123,18 @@ static void SetupOnce(void* ge) {
 		b.offProp = ue::PropOffset(clsBall, b.prop);
 		have += std::string(b.fn) + (b.f ? "=yes " : "=no ");
 	}
-	zl::Log("tweaks: ball=%p worldInfo=%x dilation=%x gameBalls=%x %s", clsBall, offWorldInfo, offDilation, offGameBalls, have.c_str());
+	if (clsBall) {
+		for (const char* n : {"OnCarTouch", "EventCarTouch", "OnHitByCar", "CarTouch"})
+			if (!fnTouch) fnTouch = ue::FindFunction(clsBall, n);
+		for (const char* n : {"SetPhysicsVelocity", "SetVelocity"})
+			if (!fnSetVel) fnSetVel = ue::FindFunction(clsBall, n);
+		std::string type;
+		if (fnSetVel) offSetVel = ue::FirstParamOffset(fnSetVel, &type);
+		if (fnSetVel && type != "StructProperty") { fnSetVel = nullptr; offSetVel = -1; }
+	}
+	if (clsActor) offVelocity = ue::PropOffset(clsActor, "Velocity");
+	zl::Log("tweaks: ball=%p worldInfo=%x dilation=%x gameBalls=%x %s touch=%s setVel=%s(%d) velocity=%x", clsBall, offWorldInfo, offDilation, offGameBalls,
+		have.c_str(), fnTouch ? ue::Name(fnTouch).c_str() : "-", fnSetVel ? ue::Name(fnSetVel).c_str() : "-", offSetVel, offVelocity);
 }
 
 static std::vector<void*> Balls(void* ge) {
@@ -146,12 +164,57 @@ static void* lastWorld = nullptr;
 static float worldOrig = 1.0f;
 static bool worldTouched = false;
 
+// Spiel-Thread: Ereignis vor dem Original (aus dem ProcessEvent-Hook)
+void OnEvent(void* caller, void* fn) {
+	if (!fnTouch || fn != fnTouch || !fpActive.load()) return;
+	std::lock_guard<std::mutex> lk(touchMu);
+	for (auto& t : touched) if (t.first == caller) return; // schon vorgemerkt
+	touched.push_back({caller, GetTickCount64()});
+}
+
+static void ApplyTouches(float scale) {
+	std::vector<std::pair<void*, unsigned long long>> todo;
+	{
+		std::lock_guard<std::mutex> lk(touchMu);
+		todo.swap(touched);
+	}
+	if (fabsf(scale - 1.0f) < 0.001f || offVelocity < 0) return;
+	static std::map<void*, unsigned long long> last;
+	unsigned long long now = GetTickCount64();
+	for (auto& [b, at] : todo) {
+		if (!b || !ue::IsAlive(b)) continue;
+		auto l = last.find(b);
+		if (l != last.end() && now - l->second < 120) continue; // eine Beruehrung = ein Schub (Dribbeln nicht aufschaukeln)
+		last[b] = now;
+		float v[3];
+		memcpy(v, reinterpret_cast<uint8_t*>(b) + offVelocity, 12);
+		for (float& c : v) c *= scale;
+		if (fnSetVel && offSetVel >= 0) {
+			std::vector<uint8_t> p(size_t(ue::StructSize(fnSetVel)) + 16, 0);
+			memcpy(p.data() + offSetVel, v, 12);
+			ue::Call(b, fnSetVel, p.data());
+		} else memcpy(reinterpret_cast<uint8_t*>(b) + offVelocity, v, 12);
+		static int n = 0;
+		if (n++ < 6) zl::Log("tweaks: ball touched -> speed x%.2f (%.0f %.0f %.0f)", scale, v[0], v[1], v[2]);
+	}
+	if (last.size() > 16) last.clear();
+}
+
 void Tick(void* car, void* ge, bool freeplay) {
+	SetupOnce(ge);
+	fpActive = freeplay;
+	if (freeplay) { // jede Runde (Bild): nach einer Beruehrung sofort den Schub geben
+		float bs;
+		{
+			std::lock_guard<std::mutex> lk(mu);
+			bs = list[1].value;
+		}
+		ApplyTouches(bs);
+	}
 	static unsigned long long next = 0;
 	unsigned long long now = GetTickCount64();
 	if (now < next) return;
 	next = now + 250;
-	SetupOnce(ge);
 	float v[8];
 	{
 		std::lock_guard<std::mutex> lk(mu);
