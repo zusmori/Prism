@@ -2258,7 +2258,7 @@ static void TickCustoms() {
 	static unsigned long long next = 0;
 	unsigned long long now = GetTickCount64();
 	if (now < next) return;
-	next = now + 200;
+	next = now + 50;
 	if (!EnsureColors()) return;
 	std::vector<void*> meshes, balls;
 	int body = 0;

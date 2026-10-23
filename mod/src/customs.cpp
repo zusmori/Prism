@@ -476,16 +476,24 @@ static bool Setup() {
 static void* TexFor(const std::wstring& file, bool& createdOne) {
 	std::lock_guard<std::mutex> lk(tmu);
 	Tex& t = texs[file];
-	if (t.state == 3) return ue::IsValid(t.obj) ? t.obj : nullptr;
+	static void* clsDyn = ue::FindClass("Class Engine.Texture2DDynamic");
+	if (t.state == 3) {
+		if (ue::IsValid(t.obj) && (!clsDyn || ue::ClassOf(t.obj) == clsDyn)) return t.obj;
+		// vom Spiel weggeraeumt (z. B. beim Laden einer Map): aus den behaltenen Pixeln neu anlegen
+		zl::Log("customs: texture for %s was removed by the game - recreating", U8(file).c_str());
+		t.obj = nullptr;
+		t.state = t.px.empty() ? 0 : 2;
+		if (t.state == 0) return nullptr;
+	}
 	if (t.state == 0) {
 		t.state = 1;
 		tq.push_back(file);
-		if (!worker) { worker = true; std::thread(Worker).detach(); }
+		if (!worker) { worker = true; for (int k = 0; k < 3; k++) std::thread(Worker).detach(); }
 		tcv.notify_one();
 		return nullptr;
 	}
-	if (t.state != 2 || createdOne) return nullptr;
-	createdOne = true;
+	if (t.state != 2) return nullptr;
+	(void)createdOne; // Anlegen + Hochladen ist schnell (Dekodieren passiert vorher im Hintergrund)
 	std::vector<uint8_t> prm(size_t(ue::StructSize(fnCreateTex)) + 16, 0);
 	if (oCrX >= 0) *reinterpret_cast<int32_t*>(prm.data() + oCrX) = (int32_t)t.w;
 	if (oCrY >= 0) *reinterpret_cast<int32_t*>(prm.data() + oCrY) = (int32_t)t.h;
@@ -502,9 +510,7 @@ static void* TexFor(const std::wstring& file, bool& createdOne) {
 	arr->count = arr->max = (int32_t)t.px.size();
 	ue::Call(tex, fnUpdateMip, mp.data());
 	t.obj = tex;
-	t.state = 3;
-	t.px.clear();
-	t.px.shrink_to_fit();
+	t.state = 3; // Pixel bleiben im Speicher: falls das Spiel die Textur wegraeumt, ist sie sofort wieder da
 	zl::Log("customs: texture %s (%ux%u) -> %s", U8(file).c_str(), t.w, t.h, ue::Name(tex).c_str());
 	return tex;
 }
@@ -612,6 +618,22 @@ static void Restore(void* mesh, int i, Applied& a) {
 // Ein Modell mit einem Custom versehen (oder zuruecksetzen, wenn id leer). ball: alle Teile auf jedes Element
 static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& ps, bool& createdOne, bool ball) {
 	int n = NumElements(mesh);
+	// Ball: nur die Elemente, deren Material die Bild-Namen wirklich kennt (Glanz/Leuchten/Kanten bleiben unberuehrt)
+	std::vector<bool> ballOk(n, false);
+	if (ball && !id.empty()) {
+		bool any = false;
+		for (int i = 0; i < n; i++) {
+			auto ap = applied.find(std::make_pair(mesh, i));
+			void* m = GetMat(mesh, i);
+			if (ap != applied.end() && m == ap->second.mic) m = ap->second.orig;
+			std::vector<std::string> have = ChainTexParams(m, nullptr);
+			for (auto& p : ps)
+				for (auto& pr : p.params)
+					for (auto& h : have)
+						if (Lower(h) == Lower(MapParam(pr.first, have))) { ballOk[i] = true; any = true; }
+		}
+		if (!any && n > 0) ballOk[0] = true;
+	}
 	for (int i = 0; i < n; i++) {
 		auto key = std::make_pair(mesh, i);
 		auto ap = applied.find(key);
@@ -622,7 +644,7 @@ static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& 
 		}
 		// schon unseres und noch dran?
 		if (ap != applied.end() && ap->second.id == id && ap->second.mic && cur == ap->second.mic && ue::IsAlive(ap->second.mic)) continue;
-		std::string part = ball ? "ball" : PartOf(cur, i);
+		std::string part = ball ? (ballOk[i] ? "ball" : "") : PartOf(cur, i);
 		std::vector<std::pair<std::string, std::wstring>> want;
 		for (auto& p : ps)
 			if (ball || Lower(p.part) == part)
@@ -658,11 +680,32 @@ static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& 
 	}
 }
 
+// Bilder eines Customs schon im Voraus laden (beim Auswaehlen und beim Start), damit es im Spiel sofort da ist
+static void Prefetch(const std::string& id) {
+	std::vector<std::wstring> files;
+	{
+		std::lock_guard<std::mutex> lk(mu);
+		auto it = parts.find(id);
+		if (it == parts.end()) return;
+		for (auto& p : it->second)
+			for (auto& [param, file] : p.params) files.push_back(file);
+	}
+	std::lock_guard<std::mutex> lk(tmu);
+	for (auto& f : files) {
+		Tex& t = texs[f];
+		if (t.state != 0) continue;
+		t.state = 1;
+		tq.push_back(f);
+	}
+	if (!worker) { worker = true; for (int k = 0; k < 3; k++) std::thread(Worker).detach(); }
+	tcv.notify_all();
+}
+
 void Tick(const std::vector<void*>& carMeshes, int body, const std::vector<void*>& balls) {
 	static unsigned long long next = 0;
 	unsigned long long now = GetTickCount64();
 	if (now < next) return;
-	next = now + 200;
+	next = now + 60;
 	std::string dId, bId;
 	std::vector<Part> dParts, bParts;
 	int dBody = 0;
@@ -673,6 +716,8 @@ void Tick(const std::vector<void*>& carMeshes, int body, const std::vector<void*
 			if (c.ball && c.id == selBall) { bId = c.id; bParts = parts[c.id]; }
 		}
 	}
+	static std::string pre;
+	if (pre != dId + "|" + bId) { pre = dId + "|" + bId; Prefetch(dId); Prefetch(bId); }
 	bool need = !dId.empty() || !bId.empty() || !applied.empty();
 	if (!need || !Setup()) return;
 	bool createdOne = false;
