@@ -530,6 +530,8 @@ static void PaintList(ue::TArray<ue::TArray<void*>>* prods, ue::TArray<int32_t>*
 // Eigene (gekaufte) Items haben im PRI eine Inventar-ID (FullLoadouts[t].OnlineProducts). Mit dieser ID
 // laedt das Spiel das echte Produkt aus deinem Inventar - samt dessen Attributen (also ohne unsere Farbe).
 // Fuer eigene Items, die wir lackieren, nehmen wir die ID deshalb heraus (und setzen sie spaeter zurueck).
+struct OnlineId { uint64_t a = 0, b = 0; bool operator==(const OnlineId& o) const { return a == o.a && b == o.b; } };
+static bool PaintedId(int productId, int paintId, OnlineId& out);
 struct InstId { uint64_t a = 0, b = 0; };
 static int offLDOnline = -2;
 static std::map<std::pair<void*, int>, InstId> instOrig; // (Listen-Element) -> urspruengliche Inventar-ID
@@ -556,14 +558,20 @@ static bool OwnPaintIds(void* pri, const std::map<int, int>& ov, const std::map<
 			if (slot >= l->count || slot >= ids->count) continue;
 			InstId* e = &l->data[slot];
 			auto key = std::make_pair((void*)e, t);
-			bool want = !ov.count(slot) && WantedPaint(slot, ids->data[slot], pt) != 0;
-			if (want) {
-				if (e->a || e->b) {
+			int wantPaint = ov.count(slot) ? 0 : WantedPaint(slot, ids->data[slot], pt);
+			if (wantPaint) {
+				// Statt der Inventar-ID deines Items die ID einer lackierten Kopie eintragen (wie die Garage es macht).
+				// Nur die ID zu leeren reicht beim Auto nicht: dann bleibt es unlackiert.
+				InstId target{};
+				OnlineId oid;
+				if (PaintedId(ids->data[slot], wantPaint, oid)) target = InstId{oid.a, oid.b};
+				if (e->a != target.a || e->b != target.b) {
 					if (check) { ok = false; continue; }
-					instOrig[key] = *e;
-					*e = InstId{};
+					if (!instOrig.count(key)) instOrig[key] = *e;
+					*e = target;
 					static int n = 0;
-					if (n++ < 6) zl::Log("paint: your own item %d in slot %d -> painted copy", ids->data[slot], slot);
+					if (n++ < 8) zl::Log("paint: your own item %d in slot %d -> painted copy (paint %d, id %llx:%llx)", ids->data[slot], slot, wantPaint,
+						(unsigned long long)target.a, (unsigned long long)target.b);
 				}
 			} else {
 				auto o = instOrig.find(key);
@@ -1641,7 +1649,6 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 // ---------- Auto im Hauptmenue / in der Garage (CarPreviewActor_TA) ----------
 // Das Spiel setzt das Vorschau-Auto immer wieder aus deinem Profil. Wir schauen regelmaessig nach
 // und tauschen nur die Teile, die nicht passen, ueber die Garage-Funktion ChangeCarPart aus.
-struct OnlineId { uint64_t a = 0, b = 0; bool operator==(const OnlineId& o) const { return a == o.a && b == o.b; } };
 struct OwnPart { int id = 0; OnlineId online; };
 struct PreviewState {
 	std::map<int, OwnPart> orig;  // Slot -> eigenes Item (mit Online-ID, z. B. deine Lackierung)
@@ -1719,11 +1726,18 @@ static bool EnsureStore() {
 
 static bool PaintedId(int productId, int paintId, OnlineId& out) {
 	long long key = (long long)productId * 1000 + paintId;
+	static std::map<long long, void*> paintedOps; // Kopie lebt noch? (beim Laden einer Map kann sie weg sein)
 	auto it = paintedIds.find(key);
-	if (it != paintedIds.end()) { out = it->second; return true; }
-	static std::set<long long> failed;
-	if (failed.count(key)) return false;
-	failed.insert(key); // nur einmal versuchen; bei Erfolg unten wieder raus
+	if (it != paintedIds.end()) {
+		auto po = paintedOps.find(key);
+		if (po == paintedOps.end() || ue::IsAlive(po->second)) { out = it->second; return true; }
+		paintedIds.erase(it);
+		paintedOps.erase(po);
+	}
+	static std::map<long long, unsigned long long> failed; // nach einem Fehlschlag erst nach 3 s wieder versuchen
+	auto fl = failed.find(key);
+	if (fl != failed.end() && GetTickCount64() < fl->second) return false;
+	failed[key] = GetTickCount64() + 3000; // bei Erfolg unten wieder raus
 	if (!EnsureStore() || !fnTempId || !fnAddData || offAddData < 0 || offAddRet < 0 || offOPInstance < 0 || !fnAddAttribute) return false;
 	std::vector<uint8_t> t(size_t(ue::StructSize(fnTempId)) + 16, 0);
 	ue::Call(store, fnTempId, t.data());
@@ -1741,6 +1755,7 @@ static bool PaintedId(int productId, int paintId, OnlineId& out) {
 	ue::Call(op, fnAddAttribute, a.data());
 	out = ue::Read<OnlineId>(op, offOPInstance);
 	paintedIds[key] = out;
+	paintedOps[key] = op;
 	failed.erase(key);
 	zl::Log("paint menu: product %d in %d -> %s (id %llx:%llx)", productId, paintId, ue::Name(op).c_str(), (unsigned long long)out.a, (unsigned long long)out.b);
 	return true;
@@ -1858,6 +1873,7 @@ static void SyncPreview(void* actor, bool main) {
 		int ownId = f != forced.end() ? f->second : baseId(slot);
 		if (WantedPaint(slot, ownId, pt)) desired[slot] = ownId;
 	}
+	if (!bodyWant && desired.count(0) && 0 < prods->count) apply(0, desired[0]); // dein eigenes Auto lackiert
 	for (auto& [slot, id] : desired)
 		if (slot != 0 && slot < prods->count) apply(slot, id);
 	// Slots zurueck auf das eigene Item

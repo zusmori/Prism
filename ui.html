@@ -1489,8 +1489,6 @@
         <div class="srow nohov" id="rowKey"><span class="sic gi" data-ic="kbd"></span>
           <div class="tx"><b>Menu key</b><small id="keyHint">The key that opens the Prism menu in game.</small></div>
           <div class="kset"><button class="kreset hide" id="keyReset" title="Back to F8">Reset</button><button class="keycap" id="keyCap" aria-label="Change menu key"><span class="kl" id="keyLbl">F8</span></button></div></div>
-        <div class="srow" id="setSteamStart" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="play"></span>
-          <div class="tx"><b>Start through Steam</b><small>Keeps your Steam Input controller settings (deadzone, layout) and the Steam overlay. Steam asks how to start: pick <b>without Anti-Cheat</b> for the Prism menu.</small></div><span class="tg" id="tgSteamStart"></span></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
           <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit Prism. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
         <div class="srow nohov"><span class="sic gi" data-ic="swap"></span>
@@ -1819,7 +1817,6 @@ async function saveSetting(k, v){ try { if (has('setSetting')) await setSetting(
 function paintSettings(){
   paintKey(false);
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
-  $('tgSteamStart').classList.toggle('on', !settings.directStart); $('setSteamStart').setAttribute('aria-checked', !settings.directStart);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
   $('tgItemMod').classList.toggle('on', settings.itemMod !== false); $('setItemMod').setAttribute('aria-checked', settings.itemMod !== false);
   $('tgPlayTray').classList.toggle('on', settings.trayOnPlay !== false); $('setPlayTray').setAttribute('aria-checked', settings.trayOnPlay !== false);
@@ -1895,7 +1892,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setSteamStart', 'directStart'], ['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setItemMod', 'itemMod'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
+[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setItemMod', 'itemMod'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });
@@ -2646,7 +2643,7 @@ async function launch(eac, force){
   const mine = home.launching;
   try {
     if (has('launchRL')) await launchRL(eac);
-    if (!settings.directStart) toast(eac ? 'Steam asks how to start: pick the option with Anti-Cheat.' : 'Steam asks how to start: pick the option without Anti-Cheat.', true);
+    if (eac) toast('Starting through Steam. If Steam asks once, pick "Play Rocket League" and tick "Remember".', true);
     if (settings.trayOnPlay !== false && has('autoTray')) autoTray();   // Prism geht in den Tray, kommt nach dem Spiel zurueck
     clearTimeout(home.lt); home.lt = setTimeout(() => { if (home.launching === mine){ home.launching = null; pollRL(); } }, 45000);
   } catch (e) {

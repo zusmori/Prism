@@ -55,6 +55,29 @@ func (a *App) RLStatus() RLStatus {
 	return st
 }
 
+// Steam-Overlay (GameOverlayRenderer64.dll aus dem Steam-Ordner) frueh in Rocket League laden
+func steamOverlayInject(pid uint32) {
+	dll := filepath.Join(steamPath(), "GameOverlayRenderer64.dll")
+	if _, err := os.Stat(dll); err != nil {
+		return
+	}
+	for i := 0; i < 100; i++ { // bis zu 10 s: sobald der Prozess bereit ist
+		time.Sleep(100 * time.Millisecond)
+		if rlPID() != pid {
+			continue
+		}
+		if moduleLoaded(pid, "GameOverlayRenderer64.dll") {
+			return
+		}
+		if err := injectDLL(pid, dll); err == nil {
+			for j := 0; j < 20 && !moduleLoaded(pid, "GameOverlayRenderer64.dll"); j++ {
+				time.Sleep(50 * time.Millisecond)
+			}
+			return
+		}
+	}
+}
+
 // settings.json (vom Einstellungs-Menue) lesen
 func settingBool(key string, def bool) bool {
 	st := map[string]interface{}{}
@@ -90,23 +113,23 @@ func (a *App) LaunchRL(eac bool) error {
 		open("steam://rungameid/" + appID)
 		return nil
 	}
-	// Ueber Steam starten (Standard): nur dann gelten die Steam-Input-Einstellungen des Spielers
-	// (Controller-Layout, Deadzone, Empfindlichkeit) und das Steam-Overlay. Direkt gestartet liest das
-	// Spiel den Controller roh aus - das fuehlt sich anders an als normal.
-	if !settingBool("directStart", false) {
+	// Mit Anti-Cheat ueber Steam starten: nur so gelten Steam Input (Controller-Layout, Deadzone) und das
+	// Overlay - in den geschuetzten Prozess greift Prism nie ein. Steam fragt hoechstens einmal (Auswahl merken).
+	if eac {
 		open("steam://launch/" + appID + "/dialog")
-		if !eac {
-			modOnLaunch() // wartet, bis Rocket League laeuft; laedt nur, wenn ohne Anti-Cheat gestartet wurde
-		}
 		return nil
 	}
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = bin
-	cmd.Env = append(os.Environ(), "SteamAppId="+appID, "SteamGameId="+appID)
+	// dieselbe Umgebung, die Steam beim Starten setzt
+	cmd.Env = append(os.Environ(), "SteamAppId="+appID, "SteamGameId="+appID, "SteamOverlayGameId="+appID, "SteamClientLaunch=1", "SteamEnv=1")
 	if err := cmd.Start(); err != nil {
 		return errors.New("Couldn't start Rocket League.")
 	}
 	go cmd.Wait() // Prozess laeuft unabhaengig von ZLauncher weiter
+	// Ohne Anti-Cheat: das Steam-Overlay laden, wie Steam es beim Start macht. Darueber laufen Steam Input
+	// (deine Controller-Einstellungen, Deadzone) und das Overlay (Shift+Tab) - ohne Startauswahl von Steam.
+	go steamOverlayInject(uint32(cmd.Process.Pid))
 	if !eac {
 		modOnLaunch() // Item-Menue (F8), nur ohne Anti-Cheat
 	}

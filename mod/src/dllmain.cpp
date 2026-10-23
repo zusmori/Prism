@@ -11,7 +11,7 @@
 #include "ue.h"
 
 static DWORD WINAPI Start(LPVOID) {
-	zl::Log("Prism mod loaded");
+	zl::Log("Prism mod loaded (Steam overlay / Steam Input: %s)", GetModuleHandleW(L"GameOverlayRenderer64.dll") ? "loaded" : "not loaded");
 	// warten, bis die Engine ihre Objekte angelegt hat
 	bool ok = false;
 	for (int i = 0; i < 180 && !ok; i++) {
