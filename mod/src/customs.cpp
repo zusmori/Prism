@@ -353,7 +353,7 @@ static IWICImagingFactory* Factory() {
 }
 
 // Bild als BGRA laden; maxSide > 0: auf diese Groesse verkleinern (quadratisch zugeschnitten fuer Vorschauen)
-static bool Decode(const std::wstring& path, std::vector<uint8_t>& out, UINT& w, UINT& h, UINT thumbSide) {
+static bool Decode(const std::wstring& path, std::vector<uint8_t>& out, UINT& w, UINT& h, UINT thumbSide, UINT forceW = 0, UINT forceH = 0) {
 	IWICImagingFactory* f = Factory();
 	if (!f) return false;
 	IWICBitmapDecoder* dec = nullptr;
@@ -369,6 +369,7 @@ static bool Decode(const std::wstring& path, std::vector<uint8_t>& out, UINT& w,
 		IWICBitmapSource* src = fr;
 		UINT tw = w, th = h;
 		if (thumbSide) { tw = th = thumbSide; }
+		else if (forceW && forceH) { tw = forceW; th = forceH; }
 		else if (std::max(w, h) > 4096) { float s = 4096.0f / std::max(w, h); tw = UINT(w * s); th = UINT(h * s); }
 		if (tw != w || th != h) {
 			if (FAILED(f->CreateBitmapScaler(&sc)) || FAILED(sc->Initialize(fr, tw, th, WICBitmapInterpolationModeFant))) break;
@@ -413,7 +414,37 @@ static void Worker() {
 		}
 		std::vector<uint8_t> px;
 		UINT w = 0, h = 0;
-		bool ok = Decode(p, px, w, h, 0);
+		bool ok = false;
+		if (p == L"black") { // leeres Decal (keine Decal-Flaechen)
+			w = h = 4;
+			px.assign(64, 0);
+			ok = true;
+		} else if (p.rfind(L"composite:", 0) == 0) {
+			// Ebenen zusammenrechnen: Basis + (Decal-Bild ueber Maske)
+			std::wstring rest = p.substr(10);
+			std::wstring parts3[3];
+			for (int k = 0, a = 0; k < 3; k++) {
+				size_t b = rest.find(L'|', a);
+				parts3[k] = rest.substr(a, b == std::wstring::npos ? std::wstring::npos : b - a);
+				a = b == std::wstring::npos ? (int)rest.size() : (int)b + 1;
+			}
+			std::vector<uint8_t> over, base, mask;
+			if (Decode(parts3[1], over, w, h, 0)) {
+				UINT bw = 0, bh = 0;
+				bool hasBase = !parts3[0].empty() && Decode(parts3[0], base, bw, bh, 0, w, h);
+				bool hasMask = !parts3[2].empty() && Decode(parts3[2], mask, bw, bh, 0, w, h);
+				px.resize(over.size());
+				for (size_t i = 0; i + 3 < over.size(); i += 4) {
+					float m = hasMask ? std::max({mask[i], mask[i + 1], mask[i + 2]}) / 255.0f * (mask[i + 3] / 255.0f) : over[i + 3] / 255.0f;
+					for (int c = 0; c < 4; c++) {
+						float b = hasBase ? base[i + c] : (c == 3 ? 0.0f : over[i + c]);
+						float o = c == 3 ? 255.0f : over[i + c];
+						px[i + c] = (uint8_t)std::clamp(b + (o - b) * m + 0.5f, 0.0f, 255.0f);
+					}
+				}
+				ok = true;
+			}
+		} else ok = Decode(p, px, w, h, 0);
 		std::lock_guard<std::mutex> lk(tmu);
 		Tex& t = texs[p];
 		if (ok) { t.px = std::move(px); t.w = w; t.h = h; t.state = 2; }
@@ -615,6 +646,37 @@ static void Restore(void* mesh, int i, Applied& a) {
 	if (ue::IsAlive(mesh) && a.mic && GetMat(mesh, i) == a.mic && a.orig && ue::IsValid(a.orig)) SetMat(mesh, i, a.orig);
 }
 
+// Bilder eines Teils auf die Namen des Spiel-Materials umsetzen. Pakete benennen ihre Bilder unterschiedlich:
+//   klassisch:  Diffuse (Karosserie-Bild) + Skin (Decal-Maske, schwarz = keine Decal-Flaechen)
+//   in Ebenen:  1_Diffuse_Skin (Decal-Bild) + 2_Diffuse_Skin_Mask (wo es liegt) [+ Diffuse als Basis]
+// Karosserie ohne eigenes "Skin": schwarzes Skin, damit kein Spiel-Decal durchscheint.
+static std::vector<std::pair<std::string, std::wstring>> Resolve(const std::vector<std::pair<std::string, std::wstring>>& in, const std::string& part) {
+	std::vector<std::pair<std::string, std::wstring>> out;
+	std::wstring base, over, mask, skin;
+	for (auto& [name, file] : in) {
+		std::string n = Lower(name);
+		size_t k = 0;
+		while (k < n.size() && (isdigit((unsigned char)n[k]) || n[k] == '_')) k++;
+		n = n.substr(k);
+		std::string fl = Lower(U8(file));
+		if (part == "ball") {
+			bool isMask = n.find("mask") != std::string::npos || (fl.find("mask") != std::string::npos && n != "diffuse");
+			out.push_back({isMask ? "Masks" : name.substr(k), file});
+			continue;
+		}
+		if (n == "diffuse") base = file;
+		else if (n.find("skin") != std::string::npos && n.find("mask") != std::string::npos) mask = file;
+		else if (n.find("skin") != std::string::npos && n.find("diffuse") != std::string::npos) over = file;
+		else if (n == "skin") skin = file;
+		else out.push_back({name.substr(k), file});
+	}
+	if (part == "ball") return out;
+	if (!over.empty()) out.push_back({"Diffuse", L"composite:" + base + L"|" + over + L"|" + mask});
+	else if (!base.empty()) out.push_back({"Diffuse", base});
+	if (part == "body") out.push_back({"Skin", skin.empty() ? L"black" : skin});
+	return out;
+}
+
 // Ein Modell mit einem Custom versehen (oder zuruecksetzen, wenn id leer). ball: alle Teile auf jedes Element
 static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& ps, bool& createdOne, bool ball) {
 	int n = NumElements(mesh);
@@ -645,10 +707,11 @@ static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& 
 		// schon unseres und noch dran?
 		if (ap != applied.end() && ap->second.id == id && ap->second.mic && cur == ap->second.mic && ue::IsAlive(ap->second.mic)) continue;
 		std::string part = ball ? (ballOk[i] ? "ball" : "") : PartOf(cur, i);
-		std::vector<std::pair<std::string, std::wstring>> want;
+		std::vector<std::pair<std::string, std::wstring>> raw;
 		for (auto& p : ps)
 			if (ball || Lower(p.part) == part)
-				for (auto& pr : p.params) want.push_back(pr);
+				for (auto& pr : p.params) raw.push_back(pr);
+		std::vector<std::pair<std::string, std::wstring>> want = raw.empty() ? raw : Resolve(raw, part);
 		if (want.empty() || part.empty()) {
 			if (ap != applied.end()) { Restore(mesh, i, ap->second); applied.erase(ap); }
 			continue;
@@ -687,8 +750,12 @@ static void Prefetch(const std::string& id) {
 		std::lock_guard<std::mutex> lk(mu);
 		auto it = parts.find(id);
 		if (it == parts.end()) return;
-		for (auto& p : it->second)
-			for (auto& [param, file] : p.params) files.push_back(file);
+		bool isBall = false;
+		for (auto& c : list) if (c.id == id) isBall = c.ball;
+		for (auto& p : it->second) {
+			std::string part = isBall ? "ball" : Lower(p.part);
+			for (auto& [param, file] : Resolve(p.params, part)) files.push_back(file);
+		}
 	}
 	std::lock_guard<std::mutex> lk(tmu);
 	for (auto& f : files) {
