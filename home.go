@@ -113,10 +113,12 @@ func (a *App) LaunchRL(eac bool) error {
 		open("steam://rungameid/" + appID)
 		return nil
 	}
-	// Mit Anti-Cheat ueber Steam starten: nur so gelten Steam Input (Controller-Layout, Deadzone) und das
-	// Overlay - in den geschuetzten Prozess greift Prism nie ein. Steam fragt hoechstens einmal (Auswahl merken).
-	if eac {
+	// Einstellung "Start through Steam" (Standard an): Steam startet das Spiel und fragt selbst, ob mit oder
+	// ohne Anti-Cheat. Dann gelten Steam Input (Controller-Layout, Deadzone) und das Overlay wie immer.
+	// Prism laedt das F8-Menue danach automatisch, wenn ohne Anti-Cheat gestartet wurde.
+	if settingBool("steamStart", true) {
 		open("steam://launch/" + appID + "/dialog")
+		modOnLaunch()
 		return nil
 	}
 	cmd := exec.Command(exe, args...)
@@ -129,7 +131,9 @@ func (a *App) LaunchRL(eac bool) error {
 	go cmd.Wait() // Prozess laeuft unabhaengig von ZLauncher weiter
 	// Ohne Anti-Cheat: das Steam-Overlay laden, wie Steam es beim Start macht. Darueber laufen Steam Input
 	// (deine Controller-Einstellungen, Deadzone) und das Overlay (Shift+Tab) - ohne Startauswahl von Steam.
-	go steamOverlayInject(uint32(cmd.Process.Pid))
+	if !eac {
+		go steamOverlayInject(uint32(cmd.Process.Pid))
+	}
 	if !eac {
 		modOnLaunch() // Item-Menue (F8), nur ohne Anti-Cheat
 	}
