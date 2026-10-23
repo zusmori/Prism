@@ -351,6 +351,15 @@ void LoadProducts() {
 		paintList = std::move(pl);
 	}
 	zl::Log("items loaded: %d", (int)out.size());
+	{
+		std::vector<int> want;
+		{
+			std::lock_guard<std::mutex> lk(mu);
+			for (auto& [slot, id] : overrides) want.push_back(id);
+			for (auto& pr : presets) for (auto& [slot, id] : pr.items) want.push_back(id);
+		}
+		for (int id : want) Preload(id);
+	}
 	std::lock_guard<std::mutex> lk(mu);
 	list = std::move(out);
 	loaded = !list.empty();
@@ -1897,7 +1906,42 @@ void OnMenuOpened() {
 	});
 }
 
+// ---------- Items vorladen ----------
+// Rocket League laedt Modelle/Texturen eines Items erst, wenn es gebraucht wird (das dauert). Prism stoesst das
+// Laden schon vorher an: fuer deine gewaehlten Items beim Start und fuer Items, ueber die du im Menue faehrst.
+static std::set<int> preloaded;
+static std::mutex preMu;
+void Preload(int id) {
+	if (id <= 0) return;
+	{
+		std::lock_guard<std::mutex> lk(preMu);
+		if (!preloaded.insert(id).second) return;
+	}
+	Queue([id] {
+		static void* fn = clsProduct ? ue::FindFunction(clsProduct, "LoadAsset") : nullptr;
+		static bool logged = false;
+		if (!logged) {
+			logged = true;
+			std::string args;
+			for (void* f = fn ? ue::Read<void*>(fn, ue::off::StructChildren) : nullptr; f; f = ue::Read<void*>(f, ue::off::FieldNext))
+				args += ue::Name(f) + ":" + ue::Name(ue::ClassOf(f)) + " ";
+			zl::Log("preload: Product_TA.LoadAsset=%p (%s)", fn, args.c_str());
+		}
+		if (!fn) return;
+		auto dbs = ue::Instances(clsDB);
+		if (dbs.empty()) return;
+		auto* arr = ue::Ptr<ue::TArray<void*>>(dbs[0], offProducts);
+		void* prod = (arr->data && id < arr->count) ? arr->data[id] : nullptr;
+		if (!prod) return;
+		std::vector<uint8_t> p(size_t(ue::StructSize(fn)) + 16, 0); // ohne Rueckmeldung, im Hintergrund
+		int oa = ue::PropOffset(fn, "bAsync");
+		if (oa >= 0) p[oa] = 1;
+		ue::Call(prod, fn, p.data());
+	});
+}
+
 void Set(int slot, int id) {
+	Preload(id);
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		if (id > 0) overrides[slot] = id;

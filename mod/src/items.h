@@ -67,7 +67,8 @@ extern bool loaded;
 extern std::string status;
 extern std::atomic<bool> inGame;      // lokaler Spieler mit Auto vorhanden (Freeplay/Match)
 void OnMenuOpened();         // F8: Zustand neu pruefen
-void Set(int slot, int id);  // id 0 = eigenes Item
+void Set(int slot, int id);
+void Preload(int id);  // Modell/Texturen eines Items schon laden lassen (z. B. beim Drueberfahren)  // id 0 = eigenes Item
 
 // Presets: gespeicherte Item-Kombinationen
 struct Preset {

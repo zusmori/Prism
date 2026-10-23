@@ -352,6 +352,7 @@ static void ItemRow(int id, const char* name, const char* sub, ImVec4 qc, int cu
 	ImVec2 p = ImGui::GetCursorScreenPos();
 	const float rh = 46;
 	if (ImGui::InvisibleButton("##r", ImVec2(w, rh))) pick = id;
+	if (id > 0 && ImGui::IsItemHovered()) items::Preload(id); // schon laden, bevor du klickst
 	bool sel = cur == id;
 	float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
 	float s = Anim(ImGui::GetID("s"), sel ? 1.0f : 0.0f, 16.0f);
