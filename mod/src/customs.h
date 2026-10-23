@@ -29,4 +29,7 @@ unsigned long long Thumb(const std::string& id); // Render-Thread: Vorschaubild 
 // Spiel-Thread: auf diese Auto-Modelle (Menue/Spiel) und Baelle anwenden; body = aktuelles Auto (Produkt-ID)
 void Tick(const std::vector<void*>& carMeshes, int body, const std::vector<void*>& balls);
 
+// Spiel-Thread, aus dem ProcessEvent-Hook: ersetztes Ball-Material sofort wieder auf unseres setzen
+void Fast();
+
 } // namespace customs

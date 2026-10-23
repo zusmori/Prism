@@ -1478,6 +1478,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 	if (fn == fnApplyColors && fnApplyColors) { try { PatchColorEvent(caller, params); } catch (...) {} }
 	tweaks::OnEvent(caller, fn);
 	CamOnEvent(caller, fn, params);
+	try { customs::Fast(); } catch (...) {}
 	static unsigned long long nextCheck = 0;
 	unsigned long long now = GetTickCount64();
 	// Ereignisse eines Autos (z. B. beim Spawnen) -> sofort pruefen, bevor es sein Loadout baut
@@ -2302,7 +2303,7 @@ static void TickCustoms() {
 	static unsigned long long next = 0;
 	unsigned long long now = GetTickCount64();
 	if (now < next) return;
-	next = now + 50;
+	next = now + 15;
 	if (!EnsureColors()) return;
 	std::vector<void*> meshes, balls;
 	int body = 0;
@@ -2355,6 +2356,7 @@ void SavePresets() {
 			else fprintf(f, "%s%d:%d", first ? "" : ",", s, id);
 			first = false;
 		}
+		if (p.hasCustoms) fprintf(f, "\tcd=%s\tcb=%s", p.customDecal.c_str(), p.customBall.c_str());
 		fputc('\n', f);
 	}
 	fclose(f);
@@ -2364,13 +2366,25 @@ void LoadPresets() {
 	FILE* f = _wfopen(PresetFile().c_str(), L"rb");
 	if (!f) return;
 	std::vector<Preset> out;
-	char line[2048];
+	static char line[16384];
 	while (fgets(line, sizeof line, f)) {
+		for (size_t n = strlen(line); n && (line[n - 1] == '\n' || line[n - 1] == '\r');) line[--n] = 0;
 		char* tab = strchr(line, '\t');
 		if (!tab) continue;
 		*tab = 0;
 		Preset p;
 		p.name = line;
+		// Zusatzfelder (eigenes Decal/Ball) hinter weiteren Tabs
+		if (char* extra = strchr(tab + 1, '\t')) {
+			*extra = 0;
+			for (char* fld = extra + 1; fld;) {
+				char* nx = strchr(fld, '\t');
+				if (nx) *nx++ = 0;
+				if (!strncmp(fld, "cd=", 3)) { p.customDecal = fld + 3; p.hasCustoms = true; }
+				else if (!strncmp(fld, "cb=", 3)) { p.customBall = fld + 3; p.hasCustoms = true; }
+				fld = nx;
+			}
+		}
 		for (char* q = tab + 1; *q;) {
 			int s = 0, id = 0, used = 0;
 			if (sscanf(q, "%d:%d%n", &s, &id, &used) != 2) break;
@@ -2412,6 +2426,10 @@ static void FillPreset(Preset& p) {
 	p.paints.clear();
 	for (auto& [slot, pid] : paints)
 		if (overrides.count(slot)) p.paints[slot] = pid;
+	std::lock_guard<std::mutex> lk(customs::mu);
+	p.hasCustoms = true;
+	p.customDecal = customs::selDecal;
+	p.customBall = customs::selBall;
 }
 
 int FindPreset(const std::string& rawName) {
@@ -2478,9 +2496,14 @@ void DeletePreset(int i) {
 
 void ApplyPreset(int i) {
 	std::map<int, int> next, before;
+	bool hasCustoms = false;
+	std::string cDecal, cBall;
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		if (i < 0 || i >= (int)presets.size()) return;
+		hasCustoms = presets[i].hasCustoms;
+		cDecal = presets[i].customDecal;
+		cBall = presets[i].customBall;
 		next = presets[i].items;
 		before = overrides;
 		overrides = next;
@@ -2495,6 +2518,16 @@ void ApplyPreset(int i) {
 	nextPreviewCheck = 0;
 	applyAt = GetTickCount64() + 400;
 	Save();
+	if (hasCustoms) {
+		for (auto* id : {&cDecal, &cBall}) { // nur, wenn es das Custom noch gibt
+			std::lock_guard<std::mutex> lk(customs::mu);
+			bool found = false;
+			for (auto& c : customs::list) if (c.id == *id) found = true;
+			if (!found) id->clear();
+		}
+		customs::Select(false, cDecal);
+		customs::Select(true, cBall);
+	}
 }
 
 // Alles zurueck auf deine echten Items (Lackierungen, Finishes und eigene Farben aus)

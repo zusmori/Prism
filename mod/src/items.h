@@ -75,6 +75,8 @@ struct Preset {
 	std::string name;
 	std::map<int, int> items;  // Slot -> Produkt-ID
 	std::map<int, int> paints; // Slot -> Farb-ID
+	bool hasCustoms = false;             // aeltere Presets ohne diese Angabe lassen eigene Decals/Baelle wie sie sind
+	std::string customDecal, customBall; // eigenes Decal / eigener Ball ("" = keins)
 };
 extern std::vector<Preset> presets; // mit mu sperren
 void LoadPresets();

@@ -639,6 +639,8 @@ struct Applied {
 	void* orig = nullptr; // Material vorher
 	void* mic = nullptr;  // unsere Instanz
 	std::string id;       // welches Custom
+	bool ball = false;
+	std::vector<std::pair<int, void*>> tex; // gesetzte Bilder (Name, Textur) zum sofortigen Neu-Anwenden
 };
 static std::map<std::pair<void*, int>, Applied> applied; // (Modell, Element) -> Stand
 
@@ -736,7 +738,7 @@ static void ApplyTo(void* mesh, const std::string& id, const std::vector<Part>& 
 		void* mic = WrapMIC(mesh, i);
 		if (!mic) { zl::Log("customs: couldn't make material for %s/%d", ue::Name(mesh).c_str(), i); continue; }
 		for (auto& [ni, t] : texs2) SetTex(mic, ni, t);
-		applied[key] = Applied{orig, mic, id};
+		applied[key] = Applied{orig, mic, id, ball, texs2};
 		static int logs = 0;
 		if (logs++ < 40)
 			zl::Log("customs: %s on %s element %d (%s): %s| %s", id.c_str(), ue::Name(mesh).c_str(), i, part.c_str(), mapped.c_str(), desc.c_str());
@@ -772,7 +774,7 @@ void Tick(const std::vector<void*>& carMeshes, int body, const std::vector<void*
 	static unsigned long long next = 0;
 	unsigned long long now = GetTickCount64();
 	if (now < next) return;
-	next = now + 60;
+	next = now + 15;
 	std::string dId, bId;
 	std::vector<Part> dParts, bParts;
 	int dBody = 0;
@@ -796,6 +798,40 @@ void Tick(const std::vector<void*>& carMeshes, int body, const std::vector<void*
 		if (b && ue::IsAlive(b)) ApplyTo(b, bId, bParts, createdOne, true);
 	// Eintraege von geloeschten Modellen vergessen
 	for (auto it = applied.begin(); it != applied.end();) it = ue::IsAlive(it->first.first) ? std::next(it) : applied.erase(it);
+}
+
+// Sofort-Pruefung bei jedem Spiel-Ereignis: Das Spiel baut das Ball-Material bei jeder Beruehrung
+// (Dribbeln, Teleport) neu. Statt bis zum naechsten Tick zu warten (dann kurz der normale Ball),
+// wird es hier im selben Bild wieder ersetzt. Liest nur Speicher, ruft erst etwas auf, wenn es sich geaendert hat.
+static int oMaterials = -1;
+void Fast() {
+	static bool busy = false;
+	if (busy || applied.empty() || !setupOk) return;
+	if (oMaterials == -2) return;
+	if (oMaterials < 0) { oMaterials = clsMesh ? ue::PropOffset(clsMesh, "Materials") : -1; if (oMaterials < 0) { oMaterials = -2; return; } }
+	busy = true;
+	try {
+		for (auto& [key, a] : applied) {
+			if (!a.ball || !a.mic || a.tex.empty()) continue;
+			void* mesh = key.first;
+			int i = key.second;
+			if (!ue::IsValid(mesh)) continue;
+			auto* arr = ue::Ptr<ue::TArray<void*>>(mesh, oMaterials);
+			if (!arr->data || i >= arr->count) continue;
+			void* cur = arr->data[i];
+			if (cur == a.mic || !cur) continue;
+			if (!ue::IsAlive(mesh) || !ue::IsValid(cur)) continue;
+			bool texOk = true;
+			for (auto& [ni, t] : a.tex) if (!ue::IsValid(t)) texOk = false;
+			if (!texOk) continue; // Tick baut die Texturen neu
+			void* mic = WrapMIC(mesh, i);
+			if (!mic) continue;
+			for (auto& [ni, t] : a.tex) SetTex(mic, ni, t);
+			a.orig = cur;
+			a.mic = mic;
+		}
+	} catch (...) {}
+	busy = false;
 }
 
 // ---------- Vorschaubilder fuers Menue ----------

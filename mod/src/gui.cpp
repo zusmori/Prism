@@ -723,6 +723,14 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 	ImVec4 red = Rgb(235, 85, 85);
 	d->ChannelsSplit(2); // 0 = Karten-Hintergrund, 1 = alles darauf (auch das Namensfeld)
 	d->ChannelsSetCurrent(1);
+	std::string curDecal, curBall;
+	std::map<std::string, std::string> cNames;
+	{
+		std::lock_guard<std::mutex> lk(customs::mu);
+		curDecal = customs::selDecal;
+		curBall = customs::selBall;
+		for (auto& c : customs::list) cNames[c.id] = c.name;
+	}
 	for (int i = 0; i < count; i++) {
 		const items::Preset& pr = items::presets[i];
 		ImGui::PushID(i);
@@ -747,7 +755,9 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 		ImGui::SetCursorScreenPos(p);
 		bool click = ImGui::InvisibleButton("##card", ImVec2(cw, ch));
 		bool hov = ImGui::IsItemHovered() || del.hov || ren.hov || upd.hov;
-		bool active = pr.items == items::overrides && pr.paints == items::paints && !pr.items.empty();
+		bool hasC = pr.hasCustoms && (!pr.customDecal.empty() || !pr.customBall.empty());
+		bool active = pr.items == items::overrides && pr.paints == items::paints && (!pr.items.empty() || hasC) &&
+			(!pr.hasCustoms || (pr.customDecal == curDecal && pr.customBall == curBall));
 		float h = Anim(ImGui::GetID("h"), hov ? 1.0f : 0.0f);
 		float ac = Anim(ImGui::GetID("a"), active ? 1.0f : 0.0f);
 		float vis = std::max({h, confirmDel || confirmUpd || renaming || justUpd ? 1.0f : 0.0f});
@@ -763,7 +773,14 @@ static void PresetsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad
 				d->AddRectFilled(ImVec2(nx, p.y + 13), ImVec2(nx + tw + 16, p.y + 32), U(Acc(0.2f * ac)), 9);
 				Text(d, fTiny, ImVec2(nx + 8, p.y + 16), Alpha(Mix(accent, Rgb(255, 255, 255), 0.5f), ac), "Active");
 			}
-			std::string sum = pr.items.empty() ? std::string("Your own items") : Summary(pr.items, 3);
+			std::string sum = pr.items.empty() ? std::string(hasC ? "" : "Your own items") : Summary(pr.items, 3);
+			if (pr.hasCustoms)
+				for (auto* cid : {&pr.customDecal, &pr.customBall}) {
+					if (cid->empty()) continue;
+					auto cn = cNames.find(*cid);
+					if (!sum.empty()) sum += "  \xC2\xB7  ";
+					sum += (cn != cNames.end() ? cn->second : std::string("Custom")) + (cid == &pr.customBall ? " (ball)" : " (custom)");
+				}
 			Text(d, fSmall, ImVec2(p.x + 18, p.y + 36), cMuted, Fit(fSmall, fSmall->FontSize, sum, upd.p.x - p.x - 30).c_str());
 		}
 		float vh = std::max(vis, 0.55f); // Knoepfe immer sichtbar, beim Drueberfahren deutlicher
