@@ -113,14 +113,6 @@ func (a *App) LaunchRL(eac bool) error {
 		open("steam://rungameid/" + appID)
 		return nil
 	}
-	// Einstellung "Start through Steam" (Standard an): Steam startet das Spiel und fragt selbst, ob mit oder
-	// ohne Anti-Cheat. Dann gelten Steam Input (Controller-Layout, Deadzone) und das Overlay wie immer.
-	// Prism laedt das F8-Menue danach automatisch, wenn ohne Anti-Cheat gestartet wurde.
-	if settingBool("steamStart", true) {
-		open("steam://launch/" + appID + "/dialog")
-		modOnLaunch()
-		return nil
-	}
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = bin
 	// dieselbe Umgebung, die Steam beim Starten setzt

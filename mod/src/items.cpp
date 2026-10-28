@@ -2130,7 +2130,10 @@ static void MarkOurs(void* mesh) {
 	if (offColorPrefs >= 0 && cleanPrefs) {
 		void* cur = ue::Read<void*>(mesh, offColorPrefs);
 		if (cur != cleanPrefs) {
-			if (!prefsOrig.count(mesh)) prefsOrig[mesh] = cur;
+			// Original merken - auch nachholen, wenn das Modell beim ersten Mal noch keine Einstellungen hatte
+			// (sonst findet das Freeplay die geteilte Einstellung "Standard-Teamfarben" nicht mehr)
+			auto po = prefsOrig.find(mesh);
+			if (po == prefsOrig.end() || (!po->second && cur)) prefsOrig[mesh] = cur;
 			*ue::Ptr<void*>(mesh, offColorPrefs) = cleanPrefs;
 			static int n = 0;
 			if (n++ < 12) zl::Log("colors: %s uses its own color settings (was %p, bits %x)", ue::Name(mesh).c_str(), cur,
