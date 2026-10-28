@@ -92,8 +92,8 @@ func (a *App) LaunchRL(eac bool) error {
 	}
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = bin
-	// dieselbe Umgebung, die Steam beim Starten setzt
-	cmd.Env = append(os.Environ(), "SteamAppId="+appID, "SteamGameId="+appID, "SteamOverlayGameId="+appID, "SteamClientLaunch=1", "SteamEnv=1")
+	// App-ID fuer Steam (wie frueher; KEINE Steam-Start-Kennungen, sonst laedt Steam Input spaet nach und der Controller erscheint doppelt -> Splitscreen)
+	cmd.Env = append(os.Environ(), "SteamAppId="+appID, "SteamGameId="+appID)
 	if err := cmd.Start(); err != nil {
 		return errors.New("Couldn't start Rocket League.")
 	}

@@ -1529,6 +1529,24 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			if (lp && clsLocalPlayer && std::find(localPlayers.begin(), localPlayers.end(), lp) == localPlayers.end() && ue::IsA(lp, clsLocalPlayer)) {
 				localPlayers.push_back(lp);
 				zl::Log("local player: %p (%s)", lp, ue::Name(lp).c_str());
+				// Zweiter Spieler (Splitscreen) - z. B. wenn der Controller doppelt erkannt wird: gleich wieder entfernen
+				void* first = PrimaryLP();
+				if (first && lp != first) {
+					Queue([lp] {
+						if (!ue::IsValid(lp)) return;
+						static void* clsLP = ue::FindClass("Class Engine.Player");
+						static int offVC = clsLP ? ue::PropOffset(clsLocalPlayer, "ViewportClient") : -1;
+						void* vc = offVC >= 0 ? ue::Read<void*>(lp, offVC) : nullptr;
+						void* fn = vc ? ue::FindFunction(ue::ClassOf(vc), "RemovePlayer") : nullptr;
+						int off = fn ? ue::FirstParamOffset(fn, nullptr) : -1;
+						if (!vc || !fn || off < 0) { zl::Log("splitscreen: couldn't remove 2nd player (vc %p fn %p)", vc, fn); return; }
+						std::vector<uint8_t> p(size_t(ue::StructSize(fn)) + 16, 0);
+						*reinterpret_cast<void**>(p.data() + off) = lp;
+						ue::Call(vc, fn, p.data());
+						localPlayers.erase(std::remove(localPlayers.begin(), localPlayers.end(), lp), localPlayers.end());
+						zl::Log("splitscreen: 2nd player removed (%s)", ue::Name(lp).c_str());
+					});
+				}
 			}
 		} catch (...) {}
 		// Im Hauptmenue tickt auch ein Controller - der zaehlt nur, wenn er wirklich ein Auto faehrt
@@ -2170,7 +2188,8 @@ static bool ColorsIntact(void* mesh) {
 
 // Eigene Farben aus: auf allen Modellen, die wir angefasst haben, Overrides loeschen, die echten
 // Farb-Einstellungen zurueckgeben und die Lackierung neu anwenden lassen
-static std::unordered_map<void*, unsigned long long> myMeshes; // Modell -> zuletzt neu angewendet
+struct MyMesh { unsigned long long last = 0, born = 0; bool pending = false, copy = false; int step = 0; };
+static std::unordered_map<void*, MyMesh> myMeshes; // deine Modelle (auch Replay-Kopien) -> Stand
 static void ClearOurColors() {
 	std::set<void*> meshes;
 	for (auto& [m, g] : colorsApplied) meshes.insert(m);
@@ -2277,19 +2296,36 @@ static void CarEventColors(void* car) {
 	if (!IsMyCar(car)) return;
 	void* m = ue::Read<void*>(car, offCarMesh);
 	if (!m) return;
+	unsigned long long now = GetTickCount64();
 	auto it = myMeshes.find(m);
 	bool fresh = it == myMeshes.end();
 	if (fresh) {
 		if (!ue::IsAlive(m) || !ue::IsA(m, clsCarMesh)) return;
 		if (myMeshes.size() > 32)
 			for (auto i = myMeshes.begin(); i != myMeshes.end();) i = ue::IsAlive(i->first) ? std::next(i) : myMeshes.erase(i);
-		it = myMeshes.emplace(m, 0).first;
+		MyMesh st;
+		st.born = now;
+		st.copy = ue::Read<void*>(car, offPawnPRI) != localPRIForColors.load(); // z. B. dein Auto im Tor-Replay (eigener Replay-Spieler)
+		it = myMeshes.emplace(m, st).first;
 		MarkOurs(m);
+		if (st.copy) {
+			static int n = 0;
+			if (n++ < 6) zl::Log("colors: your car in a replay (%s) -> your colors", ue::Name(car).c_str());
+		}
 	}
-	if (fresh || !ColorsIntact(m)) {
-		unsigned long long now = GetTickCount64();
-		if (!fresh && now - it->second < 30) { MarkOurs(m); return; } // nur Speicher, Neu-Lackieren hoechstens alle 30 ms
-		it->second = now;
+	MyMesh& st = it->second;
+	if (!fresh && !ColorsIntact(m)) { MarkOurs(m); st.pending = true; } // Spiel hat unsere Farben ersetzt
+	// Replay-Kopien: das Replay lackiert das Auto beim Abspielen neu -> anfangs mehrmals, danach regelmaessig
+	bool copyDue = false;
+	if (st.copy) {
+		static const unsigned long long at[] = {120, 400, 1000, 2000};
+		unsigned long long age = now - st.born;
+		if (st.step < 4 && age >= at[st.step]) { copyDue = true; st.step++; }
+		else if (st.step >= 4 && now - st.last >= 500) copyDue = true;
+	}
+	if (fresh || copyDue || (st.pending && now - st.last >= 30)) { // Neu-Lackieren hoechstens alle 30 ms
+		st.last = now;
+		st.pending = false;
 		ApplyColorsTo(m, true);
 	}
 }
