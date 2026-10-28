@@ -2259,6 +2259,73 @@ static void ApplyColorsTo(void* mesh, bool force) {
 
 // Ereignis eines Autos: ist es deins und hat es ein neues Modell (Reset/Respawn), sofort markieren.
 // So baut das Spiel das neue Auto direkt in deinen Farben auf.
+// ---- Farben der Replay-Kopie: Farb-Parameter der Materialien von deinem echten Auto uebernehmen ----
+// Das Replay lackiert seine Kopie mit den aufgezeichneten Spiel-Farben und schaut dabei nicht auf unsere
+// Overrides. Dein echtes Auto hat die richtigen Farben in seinen Materialien - genau diese Werte werden
+// auf die Kopie geschrieben (gleiches Auto = gleiche Materialien).
+struct ColorParam { int nameIdx, nameNum; float v[4]; };
+static std::map<int, std::vector<ColorParam>> liveColorParams; // Element -> Farb-Parameter deines Autos
+static void* MeshMaterial(void* mesh, int i) {
+	static void* fn = nullptr;
+	static int oIdx = -1, oRet = -1;
+	if (!fn) {
+		void* cls = ue::FindClass("Class Engine.MeshComponent");
+		fn = cls ? ue::FindFunction(cls, "GetMaterial") : nullptr;
+		if (fn) { oIdx = ue::PropOffset(fn, "ElementIndex"); oRet = ue::PropOffset(fn, "ReturnValue"); }
+	}
+	if (!fn || oIdx < 0 || oRet < 0) return nullptr;
+	std::vector<uint8_t> p(size_t(ue::StructSize(fn)) + 16, 0);
+	*reinterpret_cast<int32_t*>(p.data() + oIdx) = i;
+	ue::Call(mesh, fn, p.data());
+	return *reinterpret_cast<void**>(p.data() + oRet);
+}
+static bool ColorName(const std::string& n) {
+	std::string l = LowerS(n);
+	for (const char* k : {"color", "colour", "paint", "tint", "team", "accent", "primary", "secondary"})
+		if (l.find(k) != std::string::npos) return true;
+	return false;
+}
+static void SnapshotLiveColors(void* mesh) {
+	if (!MicSetup()) return;
+	std::map<int, std::vector<ColorParam>> snap;
+	for (int i = 0; i < 12; i++) {
+		void* m = MeshMaterial(mesh, i);
+		if (!m) continue;
+		if (!ue::IsA(m, clsMIC)) continue;
+		auto* arr = ue::Ptr<ue::TArray<uint8_t>>(m, oVecParams);
+		for (int k = 0; arr->data && k < arr->count && k < 96; k++) {
+			uint8_t* e = arr->data + size_t(k) * vpStride;
+			ue::FName n = *reinterpret_cast<ue::FName*>(e + vpName);
+			if (!ColorName(ue::NameOf(n.index))) continue;
+			ColorParam cp{n.index, n.number, {}};
+			memcpy(cp.v, e + vpValue, 16);
+			snap[i].push_back(cp);
+		}
+	}
+	if (!snap.empty()) liveColorParams.swap(snap);
+}
+static int CopyLiveColors(void* mesh) {
+	if (liveColorParams.empty() || !MicSetup()) return 0;
+	int n = 0;
+	for (auto& [i, params] : liveColorParams) {
+		void* m = MeshMaterial(mesh, i);
+		if (!m || !ue::IsA(m, clsMIC)) continue;
+		auto* arr = ue::Ptr<ue::TArray<uint8_t>>(m, oVecParams);
+		for (auto& cp : params) {
+			bool same = false;
+			for (int k = 0; arr->data && k < arr->count && k < 96; k++) {
+				uint8_t* e = arr->data + size_t(k) * vpStride;
+				ue::FName fn = *reinterpret_cast<ue::FName*>(e + vpName);
+				if (fn.index == cp.nameIdx && fn.number == cp.nameNum) { same = memcmp(e + vpValue, cp.v, 16) == 0; break; }
+			}
+			if (same) continue;
+			MicSet(m, ue::FName{cp.nameIdx, cp.nameNum}, cp.v);
+			n++;
+		}
+	}
+	return n;
+}
+
 // Ist das dein Auto? Auch die Kopie deines Autos im Tor-Replay (eigener Replay-Spieler mit deinem Namen).
 static bool IsMyCar(void* car) {
 	static std::unordered_map<void*, std::pair<void*, bool>> cache; // Auto -> (PRI, deins?)
@@ -2308,12 +2375,13 @@ static void CarEventColors(void* car) {
 		st.copy = ue::Read<void*>(car, offPawnPRI) != localPRIForColors.load(); // z. B. dein Auto im Tor-Replay (eigener Replay-Spieler)
 		it = myMeshes.emplace(m, st).first;
 		MarkOurs(m);
-		if (st.copy) {
+		if (st.copy && ue::Read<void*>(car, offPawnPRI)) {
 			static int n = 0;
 			if (n++ < 6) zl::Log("colors: your car in a replay (%s) -> your colors", ue::Name(car).c_str());
 		}
 	}
 	MyMesh& st = it->second;
+	st.copy = ue::Read<void*>(car, offPawnPRI) != localPRIForColors.load(); // jedes Mal neu (beim Spawn ist der Spieler kurz noch leer)
 	if (!fresh && !ColorsIntact(m)) { MarkOurs(m); st.pending = true; } // Spiel hat unsere Farben ersetzt
 	// Replay-Kopien: das Replay lackiert das Auto beim Abspielen neu -> anfangs mehrmals, danach regelmaessig
 	bool copyDue = false;
@@ -2327,7 +2395,14 @@ static void CarEventColors(void* car) {
 		st.last = now;
 		st.pending = false;
 		ApplyColorsTo(m, true);
+		if (st.copy) {
+			int n = CopyLiveColors(m);
+			static int logs = 0;
+			if (n && logs++ < 6) zl::Log("colors: replay car %s -> %d color value(s) from your car", ue::Name(car).c_str(), n);
+		}
 	}
+	// Kopie: jedes Bild pruefen (nur Speicher lesen), ob das Replay die Farben wieder ueberschrieben hat
+	else if (st.copy && now - st.last >= 50) { st.last = now; CopyLiveColors(m); }
 }
 
 // Dein Auto im Spiel: nicht mehr jedes Bild (das war teuer und hat bei Resets kurz eingefroren), sondern
@@ -2389,11 +2464,16 @@ static void TickCarColors(void* car) {
 	static int earlyStep = 0;
 	if (fresh) earlyStep = 0;
 	bool due = fresh || gen != lastGen || !ColorsIntact(m) || (earlyStep == 0 && age >= 300) || (earlyStep == 1 && age >= 1000);
+	// Farbwerte deines echten Autos fuer Replay-Kopien merken (nicht vom Replay-Auto selbst)
+	bool live = offPawnPRI >= 0 && ue::Read<void*>(car, offPawnPRI) == localPRIForColors.load();
+	static unsigned long long lastSnap = 0;
+	if (!due && live && now - lastSnap > 2000) { lastSnap = now; try { SnapshotLiveColors(m); } catch (...) {} }
 	if (!due) return;
 	if (!fresh && age >= 300 && earlyStep < 2) earlyStep = age >= 1000 ? 2 : 1;
 	lastGen = gen;
 	lastFull = now;
 	ApplyColorsTo(m, true);
+	if (live) try { SnapshotLiveColors(m); } catch (...) {}
 }
 
 static void TickColors(void* previewActor, void* car) {
