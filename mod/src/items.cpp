@@ -1563,7 +1563,18 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 				}
 			}
 			// Hauptmenue/Garage: sicherer Moment (einmal pro Frame), um das Vorschau-Auto anzupassen
-			try { RestoreSharedPrefs(); } catch (...) {}
+			// Gerade kein Auto - im Freeplay passiert das bei jedem Tor (Explosion + Replay). Dann die Einstellung
+			// "Standard-Teamfarben" NICHT zuruecksetzen, sonst lackiert das Replay dein Auto blau/orange.
+			// Erst wenn du das Freeplay wirklich verlaesst (kein Spiel mehr) kommt sie zurueck.
+			{
+				bool stillInGame = false;
+				try {
+					void* cpri = offPRI >= 0 ? ue::Read<void*>(caller, offPRI) : nullptr;
+					void* ge = (cpri && offPRIGameEvent >= 0 && ue::IsValid(cpri)) ? ue::Read<void*>(cpri, offPRIGameEvent) : nullptr;
+					stillInGame = ge && ue::IsAlive(ge) && inFreeplay.load();
+				} catch (...) {}
+				if (!stillInGame) try { RestoreSharedPrefs(); } catch (...) {}
+			}
 			try { TickPreview(); } catch (...) {}
 			// Item-Liste schon im Hauptmenue laden (wird fuer Farben gebraucht, auch ohne F8)
 			static unsigned long long nextLoad = 0;
@@ -2302,6 +2313,12 @@ static void SnapshotLiveColors(void* mesh) {
 			snap[i].push_back(cp);
 		}
 	}
+	static int logs = 0;
+	if (logs++ < 3) {
+		size_t n = 0;
+		for (auto& [i, v] : snap) n += v.size();
+		zl::Log("colors: your car's color values: %d on %d material(s)", (int)n, (int)snap.size());
+	}
 	if (!snap.empty()) liveColorParams.swap(snap);
 }
 static int CopyLiveColors(void* mesh) {
@@ -2398,7 +2415,7 @@ static void CarEventColors(void* car) {
 		if (st.copy) {
 			int n = CopyLiveColors(m);
 			static int logs = 0;
-			if (n && logs++ < 6) zl::Log("colors: replay car %s -> %d color value(s) from your car", ue::Name(car).c_str(), n);
+			if (logs++ < 6) zl::Log("colors: replay car %s -> %d color value(s) from your car (known %d material(s))", ue::Name(car).c_str(), n, (int)liveColorParams.size());
 		}
 	}
 	// Kopie: jedes Bild pruefen (nur Speicher lesen), ob das Replay die Farben wieder ueberschrieben hat
