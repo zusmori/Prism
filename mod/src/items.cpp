@@ -368,6 +368,12 @@ void LoadProducts() {
 
 // ---------- Loadout ----------
 // Lokaler PlayerController: per PlayerTick erkannt, sonst ueber LocalPlayer.Actor bzw. Player != null
+// Nur der erste lokale Spieler zaehlt (ein Splitscreen-Gast bekommt nie deine Items/Farben)
+static void* PrimaryLP() {
+	for (void* lp : localPlayers)
+		if (lp && ue::IsValid(lp)) return lp;
+	return nullptr;
+}
 static void* LocalPC() {
 	if (void* pc = localPC.load()) {
 		if (ue::IsAlive(pc)) return pc;
@@ -375,7 +381,7 @@ static void* LocalPC() {
 	}
 	try {
 		if (clsLocalPlayer && offLPActor >= 0)
-			for (void* lp : localPlayers)
+			if (void* lp = PrimaryLP())
 				if (void* a = ue::Read<void*>(lp, offLPActor)) return a;
 		for (void* pc : ue::Instances(clsPC))
 			if (ue::Read<void*>(pc, offPlayer)) return pc;
@@ -728,8 +734,7 @@ static void PatchParams(void* params) {
 // Gehoert der PRI dem lokalen Spieler? (Controller des PRI hat einen LocalPlayer)
 static bool IsLocalPRI(void* pri) {
 	try {
-		for (void* lp : localPlayers) {
-			if (!ue::IsValid(lp)) continue;
+		if (void* lp = PrimaryLP()) {
 			void* pc = ue::Read<void*>(lp, offLPActor);
 			if (pc && ue::IsValid(pc) && ue::Read<void*>(pc, offPRI) == pri) return true;
 		}
@@ -764,6 +769,7 @@ static void EnsureLocalLoadout() {
 	static void* lastPRI = nullptr;
 	static int lastCount = -1;
 	for (void* lp : localPlayers) {
+		if (lp != PrimaryLP()) continue; // nur Spieler 1
 		void* pc = ue::Read<void*>(lp, offLPActor);
 		if (!pc || !ue::IsAlive(pc)) continue;
 		void* pri = ue::Read<void*>(pc, offPRI);
@@ -1549,6 +1555,11 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			}
 			return;
 		}
+		{ // Splitscreen-Gast: nicht dein Auto
+			void* plp = PrimaryLP();
+			void* ppc = (plp && offLPActor >= 0) ? ue::Read<void*>(plp, offLPActor) : nullptr;
+			if (ppc && caller != ppc) return;
+		}
 		if (ue::killFlagCheck && !ue::IsAlive(caller)) { // ein tickender Controller wird nicht geloescht
 			ue::killFlagCheck = false;
 			zl::Log("WARNING: delete flag check doesn't fit this game version - turned off");
@@ -2234,8 +2245,16 @@ static bool IsMyCar(void* car) {
 	static std::unordered_map<void*, std::pair<void*, bool>> cache; // Auto -> (PRI, deins?)
 	void* local = localPRIForColors.load();
 	void* pri = ue::Read<void*>(car, offPawnPRI);
+	if (pri && pri == local) return true;
+	// Tor-Replay im Freeplay: dort faehrt nur dein Auto - die Replay-Kopie ist also deine
+	if (inFreeplay.load() && ue::IsA(car, clsCar) && !(clsPreview && ue::IsA(car, clsPreview))) {
+		if (localPlayers.size() <= 1 || !pri) {
+			static int n = 0;
+			if (pri != local && n++ < 4) zl::Log("colors: replay copy of your car: %s", ue::Name(car).c_str());
+			return true;
+		}
+	}
 	if (!pri) return false;
-	if (pri == local) return true;
 	auto c = cache.find(car);
 	if (c != cache.end() && c->second.first == pri) return c->second.second;
 	bool mine = false;
