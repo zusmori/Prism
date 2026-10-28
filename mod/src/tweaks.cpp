@@ -64,12 +64,14 @@ void Set(int i, float v) {
 	gen++;
 }
 
+static std::atomic<int> resetGen{0};
 void ResetAll() {
 	{
 		std::lock_guard<std::mutex> lk(mu);
 		for (int i = 0; i < count; i++) list[i].value = list[i].def;
 	}
 	gen++;
+	resetGen++; // Spiel-Thread: alle Baelle und die Spielgeschwindigkeit sicher zuruecksetzen
 	Save();
 }
 
@@ -251,6 +253,14 @@ void Tick(void* car, void* ge, bool freeplay) {
 		for (int i = 0; i < count; i++) v[i] = list[i].value;
 	}
 	int g = gen.load();
+	static int seenReset = 0;
+	bool doReset = seenReset != resetGen.load();
+	seenReset = resetGen.load();
+	if (doReset) // "Reset all": alles, was wir je angefasst haben, wieder auf Standard schicken
+		for (auto& [b, st] : ballState) {
+			for (int k = 0; k < 8; k++) if (st.sent[k]) st.mod[k] = true;
+			if (st.carSent) st.carMod = true;
+		}
 	// Spielgeschwindigkeit
 	void* wi = (car && offWorldInfo >= 0) ? ue::Read<void*>(car, offWorldInfo) : nullptr;
 	if (wi && offDilation >= 0 && ue::IsAlive(wi)) {
@@ -260,7 +270,10 @@ void Tick(void* car, void* ge, bool freeplay) {
 		if (freeplay && !isDef) {
 			if (fabsf(*d - v[0]) > 0.001f) *d = v[0];
 			worldTouched = true;
-		} else if (worldTouched) { *d = worldOrig; worldTouched = false; } // Standard oder kein Freeplay: Wert des Spiels
+		} else if (worldTouched || (doReset && freeplay && fabsf(*d - 1.0f) > 0.001f)) { // Standard oder kein Freeplay: Wert des Spiels
+			*d = (worldOrig > 0.05f && worldOrig < 5.0f) ? worldOrig : 1.0f;
+			worldTouched = false;
+		}
 	}
 	if (!freeplay) return;
 	// Ball: neue Baelle (nach Reset/Tor) und geaenderte Werte. Ein Ball wird nur angefasst, wenn du etwas
@@ -275,7 +288,7 @@ void Tick(void* car, void* ge, bool freeplay) {
 			bool isDef = fabsf(want - list[k].def) < 0.001f;
 			if (isDef && !st.mod[k]) continue; // nie verstellt: nicht anfassen
 			float cur = f.offProp >= 0 ? ue::Read<float>(b, f.offProp) : -999.0f;
-			if (f.offProp >= 0 ? fabsf(cur - want) < 0.001f : st.sent[k] == g) continue;
+			if (!doReset && (f.offProp >= 0 ? fabsf(cur - want) < 0.001f : st.sent[k] == g)) continue;
 			std::vector<uint8_t> p(size_t(ue::StructSize(f.f)) + 16, 0);
 			*reinterpret_cast<float*>(p.data() + f.param) = want;
 			ue::Call(b, f.f, p.data());
@@ -290,7 +303,7 @@ void Tick(void* car, void* ge, bool freeplay) {
 			if (!isDef || st.carMod) {
 				float want = isDef ? st.base : (st.base > 0.01f ? st.base * v[1] : st.base + (v[1] - 1.0f));
 				float cur = offCarBounce >= 0 ? ue::Read<float>(b, offCarBounce) : -999.0f;
-				if (offCarBounce >= 0 ? fabsf(cur - want) > 0.001f : st.carSent != g) {
+				if (doReset || (offCarBounce >= 0 ? fabsf(cur - want) > 0.001f : st.carSent != g)) {
 					std::vector<uint8_t> p(size_t(ue::StructSize(fnCarBounce)) + 16, 0);
 					*reinterpret_cast<float*>(p.data() + offCarBounceArg) = want;
 					ue::Call(b, fnCarBounce, p.data());

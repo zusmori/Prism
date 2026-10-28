@@ -83,7 +83,7 @@ func TestStatsAndActivity(t *testing.T) {
 		t.Fatal(a.Details)
 	}
 	pm := MatchState{InMatch: true, Playlist: 6, Seen: now, Players: []statsPlayer{{TeamNum: 0}, {TeamNum: 0}, {TeamNum: 1}, {TeamNum: 1}}}
-	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &pm}); a.Details != "Rocket League · 2s" {
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &pm}); a.Details != "Rocket League · Private Match" {
 		t.Fatal(a.Details)
 	}
 	cfg.Launcher = false
@@ -124,5 +124,41 @@ func TestIni(t *testing.T) {
 	}
 	if o3, p3, c3 := enableStatsIni(""); !c3 || p3 != 49123 || !strings.HasPrefix(o3, "[TAGame.MatchStatsExporter_TA]") {
 		t.Fatal(o3)
+	}
+}
+
+func TestLaunchLog(t *testing.T) {
+	now := time.Now()
+	l := LogState{Playlist: -1}
+	for _, s := range []string{
+		"[0022.02] Log: LoadMap: MENU_Main_p",
+		"[0060.28] JoinGame: StartJoin ip45-32-73-75.datahound.com:7786 JoinSettings.PlaylistID:'11' JoinSettings.bFriendJoin=False",
+		"[0179.03] Log: LoadMap: 104.156.237.127:7772/stadium_p?Name=Dra%27nakyuek?game=TAGame.GameInfo_Soccar_TA",
+		"[0184.01] DevOnline: Set rich presence to: Doubles in DFH Stadium data: Playlist-11",
+	} {
+		l.Line(s, now)
+	}
+	if l.Playlist != 11 || l.Arena != "stadium_p" || l.ModeOnly() != "Doubles" {
+		t.Fatalf("got %+v", l)
+	}
+	cfg := PresenceCfg{On: true, Match: true}
+	a := BuildActivity(cfg, PresenceInput{RLRunning: true, Log: &l})
+	if a.Details != "Rocket League · 2s Ranked" || a.State != "DFH Stadium" {
+		t.Fatalf("activity %q / %q", a.Details, a.State)
+	}
+	// Private Match mit Stats API: Spielstand bleibt, Name aus dem Log
+	l.Line("[0300.00] DevOnline: Set rich presence to: Private Match in Mannfield data: Playlist-6", now)
+	m := MatchState{InMatch: true, Seen: now, Teams: []statsTeam{{TeamNum: 0, Score: 1}, {TeamNum: 1, Score: 3}}}
+	a = BuildActivity(cfg, PresenceInput{RLRunning: true, Match: &m, Log: &l})
+	if a.Details != "Rocket League · Private Match" || a.State != "1 : 3" {
+		t.Fatalf("private %q / %q", a.Details, a.State)
+	}
+	l.Line("[0400.00] Log: LoadMap: MENU_Main_p?closed", now)
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, Log: &l}); a.Details != "Rocket League · Menu" {
+		t.Fatal("menu", a.Details)
+	}
+	l.Line("[0067.52] Log: LoadMap: Park_p?Game=TAGame.GameInfo_Tutorial_TA?Freeplay", now)
+	if a = BuildActivity(cfg, PresenceInput{RLRunning: true, Log: &l}); a.Details != "Rocket League · Freeplay" {
+		t.Fatal("freeplay", a.Details)
 	}
 }

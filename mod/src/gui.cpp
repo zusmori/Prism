@@ -1730,11 +1730,16 @@ void Render(bool* open) {
 	// Reiter "Items" / "Presets" mit gleitender Markierung
 	{
 		// "Tweaks" gibt es nur im Freeplay
+		// Im Freeplay: kein "Maps" (Maps tauscht man im Hauptmenue), dafuer "Freeplay Tweaks" gleich nach "Items"
 		const bool fp = items::InFreeplay();
 		if (!fp && tab == 4) { tab = 0; tabFade = 0.0f; }
-		const int N = fp ? 5 : 4;
-		const char* names[5] = {"Items", "Colors", "Presets", "Maps", "Freeplay Tweaks"};
-		const int ids[5] = {0, 2, 1, 3, 4}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
+		if (fp && tab == 3) { tab = 0; tabFade = 0.0f; }
+		const int N = 4;
+		static const char* namesMenu[4] = {"Items", "Colors", "Presets", "Maps"};
+		static const char* namesFp[4] = {"Items", "Freeplay Tweaks", "Colors", "Presets"};
+		static const int idsMenu[4] = {0, 2, 1, 3}, idsFp[4] = {0, 4, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
+		const char* const* names = fp ? namesFp : namesMenu;
+		const int* ids = fp ? idsFp : idsMenu;
 		float x0 = o.x + pad + 34 + TextW(fTitle, "Prism") + 22, y0 = o.y + 15;
 		float tws[5], tx[5], xx = x0 + 4;
 		for (int i = 0; i < N; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
@@ -1771,6 +1776,10 @@ void Render(bool* open) {
 	// Zuruecksetzen (zweimal klicken): alles wieder auf deine echten Items (nicht im Reiter Maps)
 	if (tab != 3 && tab != 4) {
 		bool any = !items::overrides.empty() || !items::paints.empty() || items::colorsOn;
+		{
+			std::lock_guard<std::mutex> ck(customs::mu);
+			any = any || !customs::selDecal.empty() || !customs::selBall.empty();
+		}
 		if (resetArmed && (ImGui::GetTime() - resetArmedAt > 3.0 || !any)) resetArmed = false;
 		const char* label = resetArmed ? "Reset all?" : "Reset";
 		float want = TextW(fBold, label) + (resetArmed ? 28.0f : 46.0f);

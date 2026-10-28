@@ -239,6 +239,55 @@ type presenceMgr struct {
 	steamID    string
 	steamName  string
 	steamAt    time.Time
+	rlog       logTail
+}
+
+// Launch.log von Rocket League mitlesen (nur neue Zeilen)
+type logTail struct {
+	off   int64
+	state LogState
+	rest  string
+}
+
+func launchLogPath() string {
+	return filepath.Join(documentsDir(), "My Games", "Rocket League", "TAGame", "Logs", "Launch.log")
+}
+
+func (t *logTail) poll(now, gameStart time.Time) {
+	f, err := os.Open(launchLogPath())
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return
+	}
+	if !gameStart.IsZero() && fi.ModTime().Before(gameStart.Add(-10*time.Second)) {
+		return // noch das Log vom letzten Start
+	}
+	size := fi.Size()
+	if size < t.off { // neues Spiel = neue Datei
+		t.off, t.rest, t.state = 0, "", LogState{Playlist: -1}
+	}
+	if t.off == 0 && size > 4<<20 { // sehr grosse Datei: nur das Ende lesen
+		t.off = size - 4<<20
+	}
+	if size == t.off {
+		return
+	}
+	if size-t.off > 8<<20 {
+		t.off = size - 8<<20
+	}
+	buf := make([]byte, size-t.off)
+	n, _ := f.ReadAt(buf, t.off)
+	t.off += int64(n)
+	text := t.rest + string(buf[:n])
+	lines := strings.Split(text, "\n")
+	t.rest = lines[len(lines)-1]
+	for _, ln := range lines[:len(lines)-1] {
+		t.state.Line(strings.TrimRight(ln, "\r"), now)
+	}
 }
 
 var presence = &presenceMgr{
@@ -307,9 +356,17 @@ func (p *presenceMgr) tick() {
 		p.steamAt = time.Now()
 	}
 	match, live := p.stats.snapshot()
+	var lg *LogState
+	if running {
+		p.rlog.poll(time.Now(), p.gameStart)
+		st := p.rlog.state
+		lg = &st
+	} else {
+		p.rlog = logTail{state: LogState{Playlist: -1}}
+	}
 	in := PresenceInput{Version: appVersion, RLRunning: running, GameStart: p.gameStart, Match: &match,
 		MyIDs: []string{p.steamID}, MyName: p.steamName, Tab: p.tab, LaunchOpen: p.opened,
-		Hidden: p.hidden, Starting: p.starting && !running, MapCount: p.mapCount}
+		Hidden: p.hidden, Starting: p.starting && !running, MapCount: p.mapCount, Log: lg}
 	if running {
 		in.EAC = eacRunning()
 		if p.cfg.Maps {

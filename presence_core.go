@@ -49,6 +49,81 @@ type MatchState struct {
 	Winner    string
 	Started   time.Time
 	Seen      time.Time // letzte Nachricht
+	ModeText  string    // Modus-Name aus dem Spiel-Log (Fallback fuer unbekannte Listen)
+	NoStats   bool      // nur aus dem Log bekannt (kein Spielstand)
+}
+
+// ---------- Launch.log: wo ist man gerade? ----------
+// Die Stats API sagt nicht, ob Ranked, Casual oder Private. Das Spiel schreibt es aber selbst ins Log:
+//   "DevOnline: Set rich presence to: Doubles in DFH Stadium data: Playlist-11"
+//   "JoinGame: StartJoin ... JoinSettings.PlaylistID:'11'"   "Log: LoadMap: 1.2.3.4:7777/stadium_p?..."
+type LogState struct {
+	Playlist int    // -1 = unbekannt, 0 = Hauptmenue
+	Text     string // Anzeigetext des Spiels ("Doubles in DFH Stadium")
+	Arena    string // geladene Map-Datei ("stadium_p")
+	At       time.Time
+}
+
+var (
+	reRich     = regexp.MustCompile(`Set rich presence to: (.*?) data: (\S+)`)
+	reJoinPL   = regexp.MustCompile(`PlaylistID[:=]'?(\d+)`)
+	reLoadMap  = regexp.MustCompile(`LoadMap: (?:[^/\s]*/)?([^?\s]+)(\S*)`)
+)
+
+// Eine Log-Zeile auswerten
+func (l *LogState) Line(s string, now time.Time) {
+	prev := l.Playlist
+	defer func() {
+		if l.Playlist != prev {
+			l.At = now // Beginn dieses Modus (fuer die Zeit in Discord)
+		}
+	}()
+	if m := reRich.FindStringSubmatch(s); m != nil {
+		l.Text = strings.TrimSpace(m[1])
+		key := m[2]
+		switch {
+		case strings.HasPrefix(key, "Playlist-"):
+			if n, err := strconv.Atoi(strings.TrimPrefix(key, "Playlist-")); err == nil {
+				l.Playlist = n
+			}
+		case strings.EqualFold(key, "Menu"):
+			l.Playlist, l.Arena = 0, ""
+		}
+		return
+	}
+	if strings.Contains(s, "StartJoin") {
+		if m := reJoinPL.FindStringSubmatch(s); m != nil {
+			if n, err := strconv.Atoi(m[1]); err == nil {
+				l.Playlist = n
+			}
+		}
+		return
+	}
+	if m := reLoadMap.FindStringSubmatch(s); m != nil {
+		mapName, opts := strings.ToLower(m[1]), strings.ToLower(m[2])
+		switch {
+		case strings.HasPrefix(mapName, "menu_"):
+			l.Playlist, l.Arena, l.Text = 0, "", ""
+		case strings.HasPrefix(mapName, "joingametransition"):
+			// Uebergang, gleich kommt die echte Map
+		default:
+			l.Arena = m[1]
+			if strings.Contains(opts, "gameinfo_tutorial_ta") && l.Playlist <= 0 {
+				l.Playlist = 9 // Freeplay / Training
+			}
+		}
+	}
+}
+
+// Modus-Text ohne Map ("Doubles in DFH Stadium" -> "Doubles")
+func (l *LogState) ModeOnly() string {
+	t := l.Text
+	for _, sep := range []string{" in ", " auf ", " im ", " en ", " à "} {
+		if i := strings.Index(t, sep); i > 0 {
+			return t[:i]
+		}
+	}
+	return t
 }
 
 type statsMsg struct {
@@ -142,10 +217,10 @@ func (m *MatchState) Apply(raw []byte, now time.Time) {
 
 // Einfache Namen: "2s Ranked", "3s Casual", "Freeplay" ...
 var playlistNames = map[int]string{
-	1: "1s Casual", 2: "2s Casual", 3: "3s Casual", 4: "4s Casual", 7: "Season", 8: "Exhibition",
+	1: "1s Casual", 2: "2s Casual", 3: "3s Casual", 4: "4s Casual", 6: "Private Match", 7: "Season", 8: "Exhibition",
 	9: "Freeplay", 10: "1s Ranked", 11: "2s Ranked", 12: "3s Ranked", 13: "3s Ranked",
 	15: "Snow Day", 16: "Rocket Labs", 17: "Hoops", 18: "Rumble", 19: "Freeplay", 20: "Training",
-	21: "Training", 22: "Tournament", 23: "Dropshot", 24: "Exhibition", 26: "Ranked",
+	21: "Training", 22: "Tournament", 23: "Dropshot", 24: "LAN Match", 26: "Ranked",
 	27: "Hoops Ranked", 28: "Rumble Ranked", 29: "Dropshot Ranked", 30: "Snow Day Ranked", 34: "Tournament",
 	38: "Heatseeker", 41: "Boomer Ball", 43: "Heatseeker", 44: "Winter Breakaway", 46: "Gridiron",
 	47: "Super Cube", 48: "Tactical Rumble", 49: "Spring Loaded", 50: "Speed Demon", 54: "Knockout",
@@ -157,6 +232,9 @@ func noScore(mode string) bool { return mode == "Freeplay" || mode == "Training"
 func modeName(m *MatchState) string {
 	if n, ok := playlistNames[m.Playlist]; ok {
 		return n
+	}
+	if m.ModeText != "" { // Name, den das Spiel selbst anzeigt (z. B. "Doubles")
+		return m.ModeText
 	}
 	// unbekannte Liste: aus der Teamgroesse ableiten
 	size := 0
@@ -242,6 +320,7 @@ type PresenceInput struct {
 	Hidden     bool // ZLauncher liegt im Tray
 	Starting   bool // Play wurde gedrueckt, Spiel startet gerade
 	MapCount   int  // heruntergeladene Workshop-Maps
+	Log        *LogState // aus Launch.log (Ranked/Casual/Private ...)
 }
 
 type Activity struct {
@@ -319,6 +398,25 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 		start = in.GameStart
 		m := in.Match
 		fresh := m != nil && m.InMatch && time.Since(m.Seen) < 30*time.Second
+		lg := in.Log
+		if lg != nil && lg.Playlist > 0 {
+			if fresh {
+				// Stats API kennt die Liste nicht: aus dem Log nehmen
+				mc := *m
+				if _, ok := playlistNames[mc.Playlist]; !ok {
+					mc.Playlist = lg.Playlist
+				}
+				mc.ModeText = lg.ModeOnly()
+				if mc.Arena == "" {
+					mc.Arena = lg.Arena
+				}
+				m = &mc
+			} else {
+				// keine Stats (z. B. Freeplay/Training ohne API): nur Modus und Map
+				mc := MatchState{InMatch: true, NoStats: true, Playlist: lg.Playlist, ModeText: lg.ModeOnly(), Arena: lg.Arena, Seen: time.Now(), Started: lg.At}
+				m, fresh = &mc, true
+			}
+		}
 		// Workshop-Map im Freeplay
 		if fresh && cfg.Maps && in.Swaps != nil && m.Arena != "" {
 			if t := swapTitleFor(in.Swaps, m.Arena); t != "" {
@@ -333,6 +431,10 @@ func BuildActivity(cfg PresenceCfg, in PresenceInput) *Activity {
 				start = m.Started
 			}
 			if noScore(mode) {
+				break
+			}
+			if m.NoStats {
+				a.State = arenaPretty(m.Arena)
 				break
 			}
 			my := myTeam(m, in.MyIDs, in.MyName)

@@ -2097,10 +2097,19 @@ static bool EnsureColors() {
 static void LinearColors(void* mesh, float lin[2][4]) {
 	int team = 0;
 	if (!colorsBoth && offMeshTeam >= 0) team = std::clamp(ue::Read<int32_t>(mesh, offMeshTeam), 0, 1);
-	for (int c = 0; c < 2; c++) {
-		for (int k = 0; k < 3; k++) lin[c][k] = std::max(powf(std::clamp(colors[team][c][k], 0.0f, 1.0f), 2.2f), 0.0004f); // nie ganz 0 (reines Schwarz)
-		lin[c][3] = 1.0f;
+	// zwischengespeichert (wird bei jedem Auto-Ereignis gebraucht)
+	static float cache[2][2][4];
+	static int cacheGen = -1;
+	int g = colorGen.load();
+	if (cacheGen != g) {
+		for (int t = 0; t < 2; t++)
+			for (int c = 0; c < 2; c++) {
+				for (int k = 0; k < 3; k++) cache[t][c][k] = std::max(powf(std::clamp(colors[t][c][k], 0.0f, 1.0f), 2.2f), 0.0004f); // nie ganz 0 (reines Schwarz)
+				cache[t][c][3] = 1.0f;
+			}
+		cacheGen = g;
 	}
+	memcpy(lin, cache[team], sizeof cache[team]);
 }
 
 // Das Spiel legt Farben ueber das Ereignis ApplyColorsToCar an: dort direkt unsere Farben einsetzen
@@ -2147,6 +2156,7 @@ static bool ColorsIntact(void* mesh) {
 
 // Eigene Farben aus: auf allen Modellen, die wir angefasst haben, Overrides loeschen, die echten
 // Farb-Einstellungen zurueckgeben und die Lackierung neu anwenden lassen
+static std::unordered_map<void*, unsigned long long> myMeshes; // Modell -> zuletzt neu angewendet
 static void ClearOurColors() {
 	std::set<void*> meshes;
 	for (auto& [m, g] : colorsApplied) meshes.insert(m);
@@ -2174,6 +2184,7 @@ static void ClearOurColors() {
 	RestoreSharedPrefs();
 	prefsOrig.clear();
 	colorsApplied.clear();
+	myMeshes.clear();
 	ourMeshes[0] = nullptr;
 	ourMeshes[1] = nullptr;
 	zl::Log("colors: off -> game colors back on %d model(s) (clear=%p)", n, fnClear);
@@ -2215,13 +2226,50 @@ static void ApplyColorsTo(void* mesh, bool force) {
 
 // Ereignis eines Autos: ist es deins und hat es ein neues Modell (Reset/Respawn), sofort markieren.
 // So baut das Spiel das neue Auto direkt in deinen Farben auf.
+// Ist das dein Auto? Auch die Kopie deines Autos im Tor-Replay (eigener Replay-Spieler mit deinem Namen).
+static bool IsMyCar(void* car) {
+	static std::unordered_map<void*, std::pair<void*, bool>> cache; // Auto -> (PRI, deins?)
+	void* local = localPRIForColors.load();
+	void* pri = ue::Read<void*>(car, offPawnPRI);
+	if (!pri) return false;
+	if (pri == local) return true;
+	auto c = cache.find(car);
+	if (c != cache.end() && c->second.first == pri) return c->second.second;
+	bool mine = false;
+	static int offName = clsPRI ? ue::PropOffset(clsPRI, "PlayerName") : -1;
+	if (local && offName >= 0 && ue::IsValid(pri) && ue::IsValid(local)) {
+		auto* a = ue::Ptr<ue::FString>(pri, offName);
+		auto* b = ue::Ptr<ue::FString>(local, offName);
+		mine = a->data && b->data && a->count > 1 && a->count == b->count && wcsncmp(a->data, b->data, a->count) == 0;
+	}
+	if (cache.size() > 64) cache.clear();
+	cache[car] = {pri, mine};
+	return mine;
+}
+
+// Bei jedem Ereignis eines Autos (auch beim Neuaufbau nach Reset, Tor-Replay): sobald das Spiel deine Farben
+// ersetzt hat, sofort wieder unsere setzen - im selben Bild, bevor es angezeigt wird.
+static void ApplyColorsTo(void* mesh, bool force);
 static void CarEventColors(void* car) {
 	if (!colorsOn || offCarMesh < 0 || offPawnPRI < 0 || !clsCarMesh) return;
-	void* pri = localPRIForColors.load();
-	if (!pri || ue::Read<void*>(car, offPawnPRI) != pri) return;
+	if (!IsMyCar(car)) return;
 	void* m = ue::Read<void*>(car, offCarMesh);
-	if (!m || m == ourMeshes[1].load() || !ue::IsAlive(m) || !ue::IsA(m, clsCarMesh)) return;
-	MarkOurs(m);
+	if (!m) return;
+	auto it = myMeshes.find(m);
+	bool fresh = it == myMeshes.end();
+	if (fresh) {
+		if (!ue::IsAlive(m) || !ue::IsA(m, clsCarMesh)) return;
+		if (myMeshes.size() > 32)
+			for (auto i = myMeshes.begin(); i != myMeshes.end();) i = ue::IsAlive(i->first) ? std::next(i) : myMeshes.erase(i);
+		it = myMeshes.emplace(m, 0).first;
+		MarkOurs(m);
+	}
+	if (fresh || !ColorsIntact(m)) {
+		unsigned long long now = GetTickCount64();
+		if (!fresh && now - it->second < 30) { MarkOurs(m); return; } // nur Speicher, Neu-Lackieren hoechstens alle 30 ms
+		it->second = now;
+		ApplyColorsTo(m, true);
+	}
 }
 
 // Dein Auto im Spiel: nicht mehr jedes Bild (das war teuer und hat bei Resets kurz eingefroren), sondern
@@ -2279,7 +2327,7 @@ static void TickCarColors(void* car) {
 	// unsere Farben ersetzt hat (kein staendiges Neu-Lackieren -> keine kleinen Ruckler)
 	unsigned long long age = now - seenAt;
 	bool early = age < 1500;
-	next = now + (early ? 100 : 1000);
+	next = now + (early ? 0 : 250);
 	static int earlyStep = 0;
 	if (fresh) earlyStep = 0;
 	bool due = fresh || gen != lastGen || !ColorsIntact(m) || (earlyStep == 0 && age >= 300) || (earlyStep == 1 && age >= 1000);
@@ -2605,6 +2653,8 @@ void ResetAll() {
 		paintFailed.clear();
 	});
 	SetColors(false, colorsBoth, nullptr, false);
+	customs::Select(false, ""); // eigenes Decal und eigener Ball aus
+	customs::Select(true, "");
 	nextPreviewCheck = 0;
 	applyAt = GetTickCount64() + 400;
 	Save();
