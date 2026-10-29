@@ -73,6 +73,8 @@ int FirstParamOffset(void* fn, std::string* type = nullptr); // erster Parameter
 int StructSize(void* strct);
 
 std::string Narrow(const FString& s);
+// alle Text-Eigenschaften eines Objekts (StrProperty/NameProperty): Name -> Wert
+std::vector<std::pair<std::string, std::string>> TextProps(void* obj);
 
 template <class T> inline T Read(const void* p, int offset) { return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(p) + offset); }
 template <class T> inline T* Ptr(void* p, int offset) { return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(p) + offset); }

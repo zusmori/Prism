@@ -40,7 +40,8 @@ void Queue(std::function<void()> fn);
 void RunQueue();
 void TickPreview();
 bool InMatch();
-bool InFreeplay(); // gerade im Freeplay (fuer den Reiter Tweaks) // gerade im Freeplay/Match (eigenes Auto faehrt) // Auto im Hauptmenue/Garage nachziehen (Spiel-Thread)
+bool InFreeplay(); // gerade im Freeplay
+bool InTweaksMode(); // Freeplay oder Training (Reiter "Tweaks")
 
 // im Spiel-Thread
 bool Setup();          // Klassen/Eigenschaften suchen

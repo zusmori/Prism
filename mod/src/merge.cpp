@@ -7,6 +7,7 @@
 #include <map>
 
 #include "log.h"
+#include "ue.h"
 
 namespace merge {
 
@@ -146,6 +147,49 @@ void RestoreAll() {
 	WriteLines(File(L"merge_requests.txt"), {});
 	std::lock_guard<std::mutex> lk(mu);
 	for (auto& a : list) { a.want.clear(); a.state.clear(); }
+}
+
+// ---------- Map-Namen aus dem Spiel ----------
+// Die Arenen-Daten (MapData_TA) kennen den Namen, den das Spiel anzeigt. Prism liest die Datei und benennt
+// die Arenen im Katalog so. Je Zeile: Objektname \t Eigenschaft=Wert \t ...
+void TickNames() {
+	static void* cls = nullptr;
+	static bool searched = false;
+	static ue::SlicedScan scan;
+	static unsigned long long next = 0;
+	static std::string last;
+	if (!searched) {
+		searched = true;
+		cls = ue::FindClass("Class TAGame.MapData_TA");
+		zl::Log("merge: MapData_TA %s", cls ? "found" : "not found");
+	}
+	if (!cls) return;
+	if (!scan.running) {
+		if (GetTickCount64() < next) return;
+		scan.Start(cls);
+	}
+	if (!scan.Step(8000)) return;
+	next = GetTickCount64() + 60000;
+	std::vector<std::string> lines;
+	for (void* o : scan.result) {
+		if (!ue::IsAlive(o)) continue;
+		std::string l = ue::Name(o);
+		for (auto& kv : ue::TextProps(o)) {
+			std::string v = kv.second;
+			for (auto& c : v)
+				if (c == '\t' || c == '\n' || c == '\r') c = ' ';
+			l += "\t" + kv.first + "=" + v;
+		}
+		lines.push_back(l);
+	}
+	if (lines.empty()) return;
+	std::sort(lines.begin(), lines.end());
+	std::string all;
+	for (auto& l : lines) all += l + "\n";
+	if (all == last) return;
+	last = all;
+	WriteLines(File(L"map_names.txt"), lines);
+	zl::Log("merge: %d map names written", (int)lines.size());
 }
 
 } // namespace merge

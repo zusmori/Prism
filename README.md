@@ -19,7 +19,7 @@
 - **Custom decals & balls**: drop your own decal or ball pack into the Customs folder and use it in game.
 - **Presets**: save your whole loadout, custom decal and ball included, and switch with one click.
 - **Swap maps**: put workshop maps into Freeplay arenas and play them.
-- **Freeplay Tweaks**: change game speed, ball speed, size, gravity and bounce in Freeplay.
+- **Tweaks**: change game speed, ball speed, size, gravity and bounce in Freeplay and Training.
 - **Finer camera**: set your camera settings in exact steps, like height 201 instead of 210.
 - **Looks good**: a fast, clean launcher with your Steam friends, map browser and themes.
 

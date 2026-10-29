@@ -305,6 +305,31 @@ bool SlicedScan::Step(int budget) {
 	return true;
 }
 
+std::vector<std::pair<std::string, std::string>> TextProps(void* obj) {
+	std::vector<std::pair<std::string, std::string>> out;
+	try {
+		for (void* s = ClassOf(obj); s; s = Read<void*>(s, off::StructSuper)) {
+			for (void* f = Read<void*>(s, off::StructChildren); f; f = Read<void*>(f, off::FieldNext)) {
+				std::string cn = Name(ClassOf(f));
+				if (cn != "StrProperty" && cn != "NameProperty") continue;
+				if (Read<int32_t>(f, off::PropArrayDim) != 1) continue;
+				int o = Read<int32_t>(f, off::PropOffset);
+				if (o <= 0 || o > 0x4000) continue;
+				std::string v;
+				if (cn == "StrProperty") {
+					FString fs = Read<FString>(obj, o);
+					if (fs.count > 0 && fs.count < 512 && fs.data) v = Narrow(fs);
+				} else {
+					FName n = Read<FName>(obj, o);
+					if (n.index > 0) v = NameOf(n.index);
+				}
+				if (!v.empty() && v != "None") out.push_back({Name(f), v});
+			}
+		}
+	} catch (...) {}
+	return out;
+}
+
 static void* FindChild(void* strct, const char* name, bool function) {
 	for (void* s = strct; s; s = Read<void*>(s, off::StructSuper)) {
 		for (void* f = Read<void*>(s, off::StructChildren); f; f = Read<void*>(f, off::FieldNext)) {

@@ -81,6 +81,7 @@ type Package struct {
 	Imports []Import
 	Exports []Export
 	plain   bool // unverschluesselt/unkomprimiert (z. B. Workshop-Map)
+	newGUID bool // beim Speichern eine neue Paket-GUID vergeben
 }
 
 type rd struct {
@@ -878,6 +879,9 @@ func (p *Package) Bytes() ([]byte, error) {
 		put32(prefix, g+4, int32(len(p.Names)))
 	}
 	put32(prefix, p.metaOff+4, int32(tableOff))
+	if p.newGUID {
+		copy(prefix[p.offGenCount-16:p.offGenCount], randomGUID())
+	}
 
 	// Fuellbereich aus dem Original (beginnt hinter dem unaufgefuellten verschluesselten Teil)
 	origEnc := int(p.totalHeader - p.garbage - p.nameOffset)
@@ -966,30 +970,44 @@ func IsBackdropLevel(name string) bool {
 	return false
 }
 
-// MergeFiles: Kulisse von backdropPath in basePath einbauen; Ergebnis = neue Datei fuer basePath
-func MergeFiles(basePath, backdropPath string, replace bool) ([]byte, []string, error) {
-	var add []string
-	if backdropPath != "" { // "" = nur die eigene Kulisse entfernen
-		bl, err := ScanStreaming(backdropPath)
-		if err != nil {
-			return nil, nil, fmt.Errorf("backdrop map: %v", err)
-		}
-		add = Backdrop(bl)
-		if len(add) == 0 {
-			return nil, nil, errors.New("this map has no separate backdrop")
-		}
-	}
+// MergeInto: diese Unter-Level in der Arena zusaetzlich laden. replace: die eigene Kulisse der Arena abschalten
+// (eigene OOB-Unter-Level und die Kulissen-Teile, die direkt in der Map stecken).
+func MergeInto(basePath string, add []string, replace bool) ([]byte, error) {
 	p, err := Open(basePath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("arena: %v", err)
+		return nil, fmt.Errorf("arena: %v", err)
 	}
 	var drop func(string) bool
+	removed := 0
 	if replace {
 		drop = IsBackdropLevel
+		removed, _ = p.RemoveEmbeddedBackdrop() // Maps ohne erkennbares Level: nur die OOB-Unter-Level abschalten
 	}
-	if err := p.AddStreaming(add, drop); err != nil {
-		return nil, nil, err
+	if err := p.AddStreaming(add, drop); err != nil && (len(add) > 0 || removed == 0) {
+		return nil, err
+	}
+	return p.Bytes()
+}
+
+// BuildBackdropPackage: Kopie der Map nur mit ihrer eingebauten Kulisse (als Unter-Level fuer andere Arenen)
+func BuildBackdropPackage(srcPath string) ([]byte, int, error) {
+	p, err := Open(srcPath)
+	if err != nil {
+		return nil, 0, err
+	}
+	n, err := p.MakeBackdropPackage()
+	if err != nil {
+		return nil, 0, err
 	}
 	b, err := p.Bytes()
-	return b, add, err
+	return b, n, err
+}
+
+// EmbeddedCount: wie viele Kulissen-Teile direkt in der Map stecken (liest die ganze Datei)
+func EmbeddedCount(path string) (int, error) {
+	p, err := Open(path)
+	if err != nil {
+		return 0, err
+	}
+	return p.EmbeddedBackdrop(), nil
 }

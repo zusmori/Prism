@@ -27,5 +27,6 @@ extern unsigned long long launcherSeen; // letzte Aenderung von Prism (ms), 0 = 
 void Refresh();                                                   // Dateien neu lesen (hoechstens alle 700 ms)
 void Request(const std::string& file, const std::string& backdrop, bool replace); // backdrop "" = zuruecksetzen
 void RestoreAll();
+void TickNames(); // Spiel-Thread: Map-Namen aus dem Spiel lesen (map_names.txt fuer Prism)
 
 } // namespace merge

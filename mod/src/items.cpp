@@ -14,6 +14,7 @@
 #include "tweaks.h"
 #include "camera.h"
 #include "customs.h"
+#include "merge.h"
 #include "ue.h"
 
 namespace items {
@@ -76,6 +77,8 @@ static void *clsPreview = nullptr, *fnChangePart = nullptr;
 static int offPrevLoadout = -1, offCPSlot = -1, offCPProduct = -1, offCPOnline = -1, offCPPaint = -1;
 static std::atomic<unsigned long long> applyAt{0};
 static std::atomic<bool> inFreeplay{false};
+static std::atomic<bool> inTweaks{false}; // Freeplay oder Training (eigene/fremde Trainings-Packs, Tutorials): Tweaks erlaubt
+static void *clsTrainingEditor = nullptr, *clsTutorial = nullptr;
 // Kontrolle nach dem Spawn: hat das Auto wirklich unsere Items bekommen?
 static int offCarLoadout = -1, offLoaderRemaining = -1, offAIdId = -1, offAIdRet = -1;
 static void* fnAssetById = nullptr;
@@ -173,6 +176,9 @@ bool Setup() {
 	clsGameEvent = ue::FindClass("Class TAGame.GameEvent_TA");
 	clsFreeplay = ue::FindClass("Class TAGame.GameEvent_Tutorial_FreePlay_TA");
 	clsFreeplayCar = ue::FindClass("Class TAGame.Car_Freeplay_TA");
+	clsTrainingEditor = ue::FindClass("Class TAGame.GameEvent_TrainingEditor_TA");
+	clsTutorial = ue::FindClass("Class TAGame.GameEvent_Tutorial_TA");
+	zl::Log("training: editor=%p tutorial=%p", clsTrainingEditor, clsTutorial);
 	offPRIGameEvent = ue::PropOffset(clsPRI, "GameEvent");
 	if (clsGameEvent) {
 		fnDestroyCars = ue::FindFunction(clsGameEvent, "DestroyCars");
@@ -1576,6 +1582,7 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 				if (!stillInGame) try { RestoreSharedPrefs(); } catch (...) {}
 			}
 			try { TickPreview(); } catch (...) {}
+			try { merge::TickNames(); } catch (...) {}
 			// Item-Liste schon im Hauptmenue laden (wird fuer Farben gebraucht, auch ohne F8)
 			static unsigned long long nextLoad = 0;
 			if (!loaded && GetTickCount64() >= nextLoad) {
@@ -1624,7 +1631,13 @@ void OnProcessEvent(void* caller, void* fn, void* params) {
 			void* tge = (tpri && offPRIGameEvent >= 0) ? ue::Read<void*>(tpri, offPRIGameEvent) : nullptr;
 			bool fp = clsFreeplayCar && ue::IsA(pawn, clsFreeplayCar);
 			inFreeplay = fp;
-			tweaks::Tick(pawn, ue::IsValid(tge) ? tge : nullptr, fp);
+			bool vge = ue::IsValid(tge);
+			// Training (Custom Training, Trainings-Packs von Spielern, Tutorials) ist wie Freeplay offline: Tweaks gehen dort auch
+			bool training = vge && ((clsTrainingEditor && ue::IsA(tge, clsTrainingEditor)) || (clsTutorial && ue::IsA(tge, clsTutorial)));
+			static bool lastTraining = false;
+			if (training != lastTraining) { lastTraining = training; zl::Log("training: %s", training ? "yes" : "no"); }
+			inTweaks = fp || training;
+			tweaks::Tick(pawn, vge ? tge : nullptr, fp || training);
 		} catch (...) {}
 		// Das Auto kann schon gebaut sein, bevor unsere Items im Loadout stehen (dann faehrt man kurz das eigene
 		// Auto). Am fertigen Auto nachsehen und im Freeplay einmal sauber neu spawnen.
@@ -1940,6 +1953,7 @@ static void SyncPreview(void* actor, bool main) {
 
 bool InMatch() { return GetTickCount64() - lastPlayerTick.load() < 1500; }
 bool InFreeplay() { return inFreeplay.load() && InMatch(); }
+bool InTweaksMode() { return inTweaks.load() && InMatch(); }
 
 void TickPreview() {
 	if (!ready || !clsPreview || offPrevLoadout < 0 || !fnChangePart) return;

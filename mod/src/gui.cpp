@@ -83,6 +83,26 @@ static float listFade = 1.0f;     // Liste nach Slot-Wechsel einblenden
 static float scrollTarget = 0.0f, scrollLast = -1.0f;
 static float indicatorY = -1.0f;  // gleitende Markierung links
 static int tab = 0;               // 0 = Items, 1 = Presets
+// Zuletzt benutzter Reiter: einer fuers Hauptmenue, einer fuers Freeplay/Training (bleibt auch nach Neustart)
+static int tabMenu = 0, tabFp = 0;
+static bool tabLoaded = false;
+static void LoadTabs() {
+	tabLoaded = true;
+	FILE* f = _wfopen((zl::DataDir() + L"\\menu_tab.txt").c_str(), L"r");
+	if (!f) return;
+	int a = 0, b = 0;
+	if (fscanf(f, "%d %d", &a, &b) == 2) {
+		if (a >= 0 && a <= 5 && a != 4) tabMenu = a;
+		if (b >= 0 && b <= 4 && b != 3) tabFp = b;
+	}
+	fclose(f);
+}
+static void SaveTabs() {
+	FILE* f = _wfopen((zl::DataDir() + L"\\menu_tab.txt").c_str(), L"w");
+	if (!f) return;
+	fprintf(f, "%d %d\n", tabMenu, tabFp);
+	fclose(f);
+}
 static float tabX = -1.0f, tabW = 0.0f, tabFade = 1.0f;
 static char presetName[48] = {0};
 static bool focusName = false;
@@ -1791,8 +1811,8 @@ static float SliderPos(int i) {
 
 static void TweaksBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, bool& resetAll) {
 	const float listTop = top + 14;
-	Text(dl, fTitle, ImVec2(o.x + pad + 2, o.y + listTop - 2), cText, "Freeplay tweaks");
-	Text(dl, fSmall, ImVec2(o.x + pad + 2, o.y + listTop + 30), cMuted, "Only in Freeplay. Everything is back to normal when you leave.");
+	Text(dl, fTitle, ImVec2(o.x + pad + 2, o.y + listTop - 2), cText, "Tweaks");
+	Text(dl, fSmall, ImVec2(o.x + pad + 2, o.y + listTop + 30), cMuted, "In Freeplay and Training. Everything is back to normal when you leave.");
 	{
 		bool any = tweaks::Changed();
 		float w = PillW("Reset all", 2);
@@ -1910,14 +1930,17 @@ void Render(bool* open) {
 	Text(dl, fTitle, ImVec2(o.x + pad + 34, o.y + 21), cText, "Prism");
 	// Reiter "Items" / "Presets" mit gleitender Markierung
 	{
-		// "Tweaks" gibt es nur im Freeplay
-		// Im Freeplay: kein "Maps" (Maps tauscht man im Hauptmenue), dafuer "Freeplay Tweaks" gleich nach "Items"
-		const bool fp = items::InFreeplay();
-		if (!fp && tab == 4) { tab = 0; tabFade = 0.0f; }
-		if (fp && (tab == 3 || tab == 5)) { tab = 0; tabFade = 0.0f; }
+		// Im Freeplay/Training: kein "Maps"/"Merge" (macht man im Hauptmenue), dafuer "Tweaks" gleich nach "Items".
+		// Jede Umgebung merkt sich ihren zuletzt benutzten Reiter, so geht beim Schliessen/Oeffnen nichts verloren.
+		if (!tabLoaded) LoadTabs();
+		const bool fp = items::InTweaksMode();
+		{
+			int want = fp ? tabFp : tabMenu;
+			if (want != tab) { tab = want; tabFade = 0.0f; if (tab == 3) maps::Refresh(); }
+		}
 		const int N = fp ? 4 : 5;
 		static const char* namesMenu[5] = {"Items", "Colors", "Presets", "Maps", "Merge"};
-		static const char* namesFp[4] = {"Items", "Freeplay Tweaks", "Colors", "Presets"};
+		static const char* namesFp[4] = {"Items", "Tweaks", "Colors", "Presets"};
 		static const int idsMenu[5] = {0, 2, 1, 3, 5}, idsFp[4] = {0, 4, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
 		const char* const* names = fp ? namesFp : namesMenu;
 		const int* ids = fp ? idsFp : idsMenu;
@@ -1935,6 +1958,10 @@ void Render(bool* open) {
 			if (ImGui::InvisibleButton("##tab", ImVec2(tws[i], 30)) && tab != ids[i]) {
 				tab = ids[i];
 				tabFade = 0.0f;
+				// Items/Colors/Presets gibt es ueberall: dort weitermachen, egal wo man das Menue als Naechstes oeffnet
+				if (tab != 4) tabMenu = tab;
+				if (tab != 3 && tab != 5) tabFp = tab;
+				SaveTabs();
 				pendingDelete = -1;
 				renameIdx = -1;
 				if (tab == 3) maps::Refresh();
