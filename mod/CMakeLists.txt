@@ -16,6 +16,7 @@ add_library(zlmod SHARED
     src/hooks.cpp
     src/gui.cpp
     src/maps.cpp
+    src/merge.cpp
     src/tweaks.cpp
     src/camera.cpp
     src/customs.cpp

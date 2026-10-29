@@ -77,6 +77,15 @@ func (a *App) LaunchRL(eac bool) error {
 	if a.cooked == "" {
 		a.cooked = findCooked()
 	}
+	if eac {
+		// Mit Anti-Cheat nur mit Original-Dateien: gemergte Kulissen vorher zuruecksetzen
+		mergeMu.Lock()
+		mergeHoldUntil = time.Now().Add(3 * time.Minute)
+		mergeMu.Unlock()
+		if err := mergeRestoreAll(a.cooked); err != nil {
+			return fmt.Errorf("Couldn't restore merged arenas: %v", err)
+		}
+	}
 	bin := rlBinDir(a.cooked)
 	exe := filepath.Join(bin, "RocketLeague.exe")
 	args := []string{"-noeac"}
@@ -89,6 +98,9 @@ func (a *App) LaunchRL(eac bool) error {
 		// Fallback: Steam starten lassen (fragt dann selbst nach Anti-Cheat)
 		open("steam://rungameid/" + appID)
 		return nil
+	}
+	if !eac {
+		mergeBeforeLaunch(a.cooked) // gewuenschte Kulissen einbauen, bevor das Spiel die Arenen oeffnet
 	}
 	cmd := exec.Command(exe, args...)
 	cmd.Dir = bin

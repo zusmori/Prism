@@ -605,6 +605,7 @@ void Swap(const std::wstring& arenaFile, const std::wstring& mapPath) {
 		if (!Exists(target)) { Say("Arena file not found.", true); return; }
 		if (!Exists(mapPath)) { Say("This map file is gone. Download it again in Prism.", true); return; }
 		if (!Replaceable(target)) { Say(FriendlyErr(ERROR_SHARING_VIOLATION), true); return; }
+		if (Exists(DataDir() + L"\\backup_merge\\" + arenaFile)) { Say("This arena has a merged backdrop. Restore it in the Merge tab first.", true); return; }
 		CreateDirectoryW(BackupDir().c_str(), nullptr);
 		auto st = LoadState();
 		std::string key = StateKey(st, fileU8);

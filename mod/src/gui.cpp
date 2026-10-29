@@ -18,6 +18,7 @@
 #include "maps.h"
 #include "tweaks.h"
 #include "customs.h"
+#include "merge.h"
 
 namespace gui {
 
@@ -1293,6 +1294,179 @@ static void ThumbHolder(ImDrawList* d, ImVec2 a, ImVec2 b, unsigned seed) {
 	d->AddTriangle(ImVec2(c.x, c.y - s), ImVec2(c.x + s * 1.05f, c.y + s * 0.8f), ImVec2(c.x - s * 1.05f, c.y + s * 0.8f), U(Rgb(255, 255, 255, 0.22f)), 1.4f);
 }
 
+
+// ---------- Merge: Kulisse einer Map in eine Arena einbauen ----------
+static int mgSel = -1;                 // gewaehlte Arena (Index in merge::list)
+static char mgSearch[64] = {0};
+static bool mgFocus = false;
+static bool mgReplace = false;         // eigene Kulisse der Arena entfernen
+static float mgScrollA = 0, mgLastA = -1, mgScrollB = 0, mgLastB = -1;
+struct MergeAction { int kind = 0; std::string file, backdrop, arenaU8; bool replace = false; };
+
+static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, MergeAction& act) {
+	merge::Refresh();
+	std::lock_guard<std::mutex> lk(merge::mu);
+	auto& L = merge::list;
+	const float leftW = 290, listTop = top + 14;
+	if (!merge::loaded) {
+		ImVec2 c(o.x + W.x / 2, o.y + top + (W.y - top) / 2 - 30);
+		Spinner(dl, c, 15);
+		const char* a = "Prism is reading your arenas …";
+		const char* b = "Keep the Prism launcher open (it can sit in the tray).";
+		Text(dl, fRegular, ImVec2(c.x - TextW(fRegular, a) / 2, c.y + 28), cMuted, a);
+		Text(dl, fSmall, ImVec2(c.x - TextW(fSmall, b) / 2, c.y + 52), cFaint, b);
+		return;
+	}
+	if (mgSel >= (int)L.size()) mgSel = -1;
+	if (mgSel < 0)
+		for (int i = 0; i < (int)L.size(); i++) if (L[i].base) { mgSel = i; break; }
+	int merged = 0;
+	for (auto& a : L) if (!a.want.empty()) merged++;
+
+	// ---------- Links: Arenen ----------
+	dl->AddLine(ImVec2(o.x + pad + leftW + 14, o.y + top + 1), ImVec2(o.x + pad + leftW + 14, o.y + W.y - 1), U(cLine));
+	Field(dl, "##mgq", "Search arenas", mgSearch, sizeof mgSearch, ImVec2(o.x + pad, o.y + listTop - 2), ImVec2(o.x + pad + leftW, o.y + listTop + 38), mgFocus, true, true);
+	std::string q = Lower(mgSearch);
+	float ly = listTop + 48;
+	float bottom = merged ? 54.0f : 14.0f;
+	ImGui::SetCursorScreenPos(ImVec2(o.x + pad - 4, o.y + ly));
+	ImGui::BeginChild("mgarenas", ImVec2(leftW + 8, W.y - ly - bottom), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
+	SmoothScroll(mgScrollA, mgLastA);
+	ImDrawList* cd = ImGui::GetWindowDrawList();
+	const float rh = 52;
+	for (int i = 0; i < (int)L.size(); i++) {
+		auto& a = L[i];
+		if (!a.base || (!q.empty() && a.lower.find(q) == std::string::npos)) continue;
+		ImGui::PushID(i + 31000);
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		bool click = ImGui::InvisibleButton("##a", ImVec2(leftW, rh));
+		bool sel = mgSel == i;
+		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() && !sel ? 1.0f : 0.0f);
+		float sa = Anim(ImGui::GetID("s"), sel ? 1.0f : 0.0f);
+		ImGui::PopID();
+		if (click) mgSel = i;
+		ImVec2 q2(p.x + leftW, p.y + rh);
+		if (h > 0.01f || sa > 0.01f) cd->AddRectFilled(p, q2, U(Mix(Alpha(cHover, h), Acc(0.12f), sa)), 12);
+		if (sa > 0.01f) cd->AddRectFilled(ImVec2(p.x, p.y + 13), ImVec2(p.x + 3, q2.y - 13), U(Alpha(accent, sa)), 2);
+		bool on = !a.want.empty();
+		ImVec2 ic(p.x + 14, p.y + 11), iq(ic.x + 30, ic.y + 30);
+		if (on) { GradRect(cd, ic, iq, 9, spec[0], spec[2], 0.32f); cd->AddRect(ic, iq, U(Alpha(spec[1], 0.45f)), 9, 0, 1.0f); }
+		else { cd->AddRectFilled(ic, iq, U(Mix(cPanel2, cHover, h)), 9); cd->AddRect(ic, iq, U(cLine2), 9, 0, 1.0f); }
+		// Symbol: zwei Berge (Kulisse)
+		{
+			ImVec2 c(ic.x + 15, ic.y + 17);
+			ImU32 lc = U(on ? Rgb(255, 255, 255, 0.92f) : Mix(cFaint, cMuted, std::max(h, sa)));
+			cd->AddTriangleFilled(ImVec2(c.x - 9, c.y + 5), ImVec2(c.x - 3, c.y - 5), ImVec2(c.x + 3, c.y + 5), lc);
+			cd->AddTriangleFilled(ImVec2(c.x - 1, c.y + 5), ImVec2(c.x + 4, c.y - 2), ImVec2(c.x + 9, c.y + 5), lc);
+		}
+		float tx = p.x + 56;
+		Text(cd, fBold, ImVec2(tx, p.y + 9), Mix(Hex(0xc9c9d3), cText, std::max(sa, h)), Fit(fBold, fBold->FontSize, a.name, leftW - 66).c_str());
+		std::string sub = "Original";
+		ImVec4 sc = cFaint;
+		if (on) {
+			sub = "+ " + a.wantName;
+			sc = Mix(spec[0], Rgb(255, 255, 255), 0.35f);
+			if (a.state == "pending") sub += "  \xC2\xB7  waiting";
+			else if (a.state == "error") { sub = "Couldn't merge"; sc = Rgb(255, 140, 140); }
+		}
+		Text(cd, fSmall, ImVec2(tx, p.y + 29), sc, Fit(fSmall, fSmall->FontSize, sub, leftW - 66).c_str());
+	}
+	ImGui::Dummy(ImVec2(0, 6));
+	ImGui::EndChild();
+	if (merged) {
+		if (PillButton(dl, "##mgrestall", "Restore all", ImVec2(o.x + pad + 4, o.y + W.y - 46), 34, false, true, 2)) act.kind = 3;
+	}
+
+	// ---------- Rechts ----------
+	const float px = pad + leftW + 30, pw = W.x - px - pad;
+	if (mgSel < 0) { Text(dl, fRegular, ImVec2(o.x + px, o.y + listTop + 4), cMuted, "No arenas found."); return; }
+	auto& cur = L[mgSel];
+	bool curOn = !cur.want.empty();
+	Text(dl, fTitle, ImVec2(o.x + px, o.y + listTop - 2), cText, Fit(fTitle, fTitle->FontSize, cur.name, pw - 220).c_str());
+	{
+		float bx = o.x + px + pw;
+		float w1 = PillW("Play", 1);
+		bx -= w1;
+		if (PillButton(dl, "##mgplay", "Play", ImVec2(bx, o.y + listTop - 6), 34, true, true, 1)) { act.kind = 4; act.arenaU8 = cur.file; }
+		if (curOn) {
+			float w2 = PillW("Restore", 2);
+			bx -= w2 + 8;
+			if (PillButton(dl, "##mgrest", "Restore", ImVec2(bx, o.y + listTop - 6), 34, false, true, 2)) { act.kind = 2; act.file = cur.file; }
+		}
+	}
+	// Zustand
+	{
+		float y = o.y + listTop + 30, x = o.x + px;
+		std::string line;
+		ImVec4 col = cMuted;
+		if (!curOn) line = "Original. Pick a backdrop below to merge it in.";
+		else if (cur.state == "applied") { line = "Merged with " + cur.wantName + ". Start Freeplay here to see it."; col = Rgb(120, 220, 160); }
+		else if (cur.state == "pending") { line = cur.stateMsg.empty() ? "Waiting …" : cur.stateMsg; col = Rgb(255, 200, 120); }
+		else if (cur.state == "error") { line = cur.stateMsg; col = Rgb(255, 140, 140); }
+		else { Spinner(dl, ImVec2(x + 7, y + 8), 6); x += 22; line = "Prism is merging … (the Prism launcher has to be open)"; }
+		if (col.x != cMuted.x || cur.state == "applied") { dl->AddCircleFilled(ImVec2(x + 4, y + 8), 3.5f, U(col), 12); x += 14; }
+		Text(dl, fSmall, ImVec2(x, y), col, Fit(fSmall, fSmall->FontSize, line, o.x + px + pw - x).c_str());
+	}
+	// Schalter: eigene Kulisse entfernen
+	{
+		float y = o.y + listTop + 58;
+		ImGui::SetCursorScreenPos(ImVec2(o.x + px, y));
+		bool tog = ImGui::InvisibleButton("##mgrepl", ImVec2(pw, 30));
+		float hv = Anim(ImGui::GetID("mgreplh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+		bool val = curOn ? cur.replace : mgReplace;
+		if (tog) {
+			val = !val;
+			mgReplace = val;
+			if (curOn) { act.kind = 1; act.file = cur.file; act.backdrop = cur.want; act.replace = val; }
+		}
+		float k = Anim(ImGui::GetID("mgreplk"), val ? 1.0f : 0.0f, 16.0f);
+		ImVec2 t0(o.x + px, y + 6), t1(t0.x + 34, t0.y + 18);
+		dl->AddRectFilled(t0, t1, U(Mix(Rgb(255, 255, 255, 0.10f + 0.05f * hv), accent, k)), 9);
+		dl->AddCircleFilled(ImVec2(t0.x + 9 + 16 * k, t0.y + 9), 6.5f, U(Rgb(255, 255, 255)), 16);
+		Text(dl, fBold, ImVec2(t1.x + 12, y + 6), Mix(cMuted, cText, std::max(hv, k)), "Remove the arena's own backdrop");
+	}
+	Text(dl, fTiny, ImVec2(o.x + px, o.y + listTop + 96), cFaint, "BACKDROPS");
+	float by = listTop + 116;
+	ImGui::SetCursorScreenPos(ImVec2(o.x + px - 4, o.y + by));
+	ImGui::BeginChild("mgbackdrops", ImVec2(pw + 8, W.y - by - 30), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
+	SmoothScroll(mgScrollB, mgLastB);
+	cd = ImGui::GetWindowDrawList();
+	const float rw = pw - 8, rh2 = 46;
+	int shown = 0;
+	for (int i = 0; i < (int)L.size(); i++) {
+		auto& b = L[i];
+		if (!b.backdrop || i == mgSel) continue;
+		shown++;
+		ImGui::PushID(i + 32000);
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		bool click = ImGui::InvisibleButton("##b", ImVec2(rw, rh2));
+		bool here = Lower(cur.want) == Lower(b.file);
+		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
+		float s = Anim(ImGui::GetID("s"), here ? 1.0f : 0.0f, 16.0f);
+		ImGui::PopID();
+		if (click && !here) { act.kind = 1; act.file = cur.file; act.backdrop = b.file; act.replace = curOn ? cur.replace : mgReplace; }
+		ImVec2 q2(p.x + rw, p.y + rh2);
+		if (h > 0.01f || s > 0.01f) cd->AddRectFilled(p, q2, U(Mix(Alpha(cHover, h), Acc(0.13f), s)), 11);
+		if (s > 0.01f) cd->AddRect(p, q2, U(Acc(0.35f * s)), 11, 0, 1.0f);
+		Text(cd, fBold, ImVec2(p.x + 14 + 2 * h, p.y + 13), Mix(Hex(0xd4d4dc), cText, std::max(h, s)), Fit(fBold, fBold->FontSize, b.name, rw - 150).c_str());
+		const char* badge = here ? (cur.state == "applied" ? "Active" : "Selected") : (h > 0.5f ? "Merge" : nullptr);
+		if (badge) {
+			float bw = TextW(fTiny, badge) + 18;
+			ImVec2 b0(q2.x - 12 - bw, p.y + rh2 / 2 - 11), b1(q2.x - 12, p.y + rh2 / 2 + 11);
+			cd->AddRectFilled(b0, b1, U(here ? Acc(0.22f) : Alpha(accent, h)), 11);
+			Text(cd, fTiny, ImVec2(b0.x + 9, b0.y + 4), here ? Mix(accent, Rgb(255, 255, 255), 0.55f) : Rgb(255, 255, 255), badge);
+		}
+	}
+	if (!shown) {
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		Text(cd, fSmall, ImVec2(p.x + 14, p.y + 14), cMuted, "No backdrops found yet.");
+		ImGui::Dummy(ImVec2(0, 40));
+	}
+	ImGui::Dummy(ImVec2(0, 6));
+	ImGui::EndChild();
+	Text(dl, fTiny, ImVec2(o.x + px, o.y + W.y - 24), cFaint, "Only without Anti-Cheat. Prism puts everything back before you play with Anti-Cheat.");
+}
+
 static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, MapAction& act) {
 	std::lock_guard<std::mutex> mk(maps::mu);
 	const float leftW = 250, listTop = top + 14, rowH = 58;
@@ -1733,11 +1907,11 @@ void Render(bool* open) {
 		// Im Freeplay: kein "Maps" (Maps tauscht man im Hauptmenue), dafuer "Freeplay Tweaks" gleich nach "Items"
 		const bool fp = items::InFreeplay();
 		if (!fp && tab == 4) { tab = 0; tabFade = 0.0f; }
-		if (fp && tab == 3) { tab = 0; tabFade = 0.0f; }
-		const int N = 4;
-		static const char* namesMenu[4] = {"Items", "Colors", "Presets", "Maps"};
+		if (fp && (tab == 3 || tab == 5)) { tab = 0; tabFade = 0.0f; }
+		const int N = fp ? 4 : 5;
+		static const char* namesMenu[5] = {"Items", "Colors", "Presets", "Maps", "Merge"};
 		static const char* namesFp[4] = {"Items", "Freeplay Tweaks", "Colors", "Presets"};
-		static const int idsMenu[4] = {0, 2, 1, 3}, idsFp[4] = {0, 4, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
+		static const int idsMenu[5] = {0, 2, 1, 3, 5}, idsFp[4] = {0, 4, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
 		const char* const* names = fp ? namesFp : namesMenu;
 		const int* ids = fp ? idsFp : idsMenu;
 		float x0 = o.x + pad + 34 + TextW(fTitle, "Prism") + 22, y0 = o.y + 15;
@@ -1774,7 +1948,7 @@ void Render(bool* open) {
 	}
 
 	// Zuruecksetzen (zweimal klicken): alles wieder auf deine echten Items (nicht im Reiter Maps)
-	if (tab != 3 && tab != 4) {
+	if (tab != 3 && tab != 4 && tab != 5) {
 		bool any = !items::overrides.empty() || !items::paints.empty() || items::colorsOn;
 		{
 			std::lock_guard<std::mutex> ck(customs::mu);
@@ -1851,6 +2025,23 @@ void Render(bool* open) {
 		ImGui::PopFont();
 		ImGui::PopStyleVar();
 		if (resetTw) tweaks::ResetAll();
+		return;
+	}
+	// Merge: braucht die Items nicht
+	if (tab == 5) {
+		tabFade = Approach(tabFade, 1.0f, 12.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e * EaseOut(tabFade));
+		MergeAction ma;
+		MergeBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, ma);
+		ImGui::PopStyleVar();
+		lk.unlock();
+		ImGui::End();
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+		if (ma.kind == 1) merge::Request(ma.file, ma.backdrop, ma.replace);
+		if (ma.kind == 2) merge::Request(ma.file, "", false);
+		if (ma.kind == 3) merge::RestoreAll();
+		if (ma.kind == 4) { maps::Play(ma.arenaU8); *open = false; }
 		return;
 	}
 	// Maps: braucht die Items nicht

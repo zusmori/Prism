@@ -411,6 +411,9 @@ func (a *App) Swap(arenaFile, mapPath string) error {
 	if rlRunning() && fileLocked(target) {
 		return errors.New("Rocket League has this arena loaded right now (often it's your main-menu background). Pick another arena, or close Rocket League to swap this one.")
 	}
+	if fileExists(filepath.Join(mergeBackupDir, arenaFile)) {
+		return errors.New("This arena has a merged backdrop right now. Restore it in the Merge tab first.")
+	}
 	swaps := loadSwaps()
 	if _, already := swaps[arenaFile]; !already {
 		if err := copyFile(target, filepath.Join(backupDir, arenaFile)); err != nil {
@@ -582,6 +585,16 @@ func main() {
 	bindWindow(w, hwnd)
 
 	app := &App{}
+	go func() {
+		var cooked string
+		var at time.Time
+		mergeLoop(func() string {
+			if cooked == "" || time.Since(at) > 30*time.Second {
+				cooked, at = findCooked(), time.Now()
+			}
+			return cooked
+		})
+	}()
 	w.Bind("getState", func() State { return app.GetState() })
 	w.Bind("getPreview", func(id, mapPath string) string { return previewFor(id, mapPath) })
 
@@ -789,6 +802,11 @@ func main() {
 		w.SetHtml(uiHTML)
 	}
 	w.Run()
+	// Prism endet: gemergte Arenen zuruecksetzen (beim naechsten Start ohne Anti-Cheat wieder da)
+	mergeMu.Lock()
+	mergeHold = true
+	mergeMu.Unlock()
+	_ = mergeRestoreAll(app.cooked)
 	trayRemove()
 	boostShutdown()
 	presenceShutdown()
