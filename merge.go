@@ -34,7 +34,7 @@ var (
 	mergeReqFile   = filepath.Join(dataDir, "merge_requests.txt")
 	mergeStatFile  = filepath.Join(dataDir, "merge_status.txt")
 	mergeCatFile   = filepath.Join(dataDir, "merge_catalog.txt")
-	mergeCacheFile = filepath.Join(dataDir, "merge_cache.json")
+	mergeCacheFile = filepath.Join(dataDir, "merge_cache2.json")
 )
 
 type mergeWant struct {
@@ -123,11 +123,40 @@ func saveMergeStats(m map[string]mergeStat) {
 // ---------- Katalog: welche Maps haben eine eigene Kulisse? ----------
 
 type mergeCacheEntry struct {
-	Size     int64    `json:"size"`
-	Mod      int64    `json:"mod"`
-	Backdrop []string `json:"backdrop"`
-	Base     bool     `json:"base"`
-	Err      string   `json:"err,omitempty"`
+	Size   int64    `json:"size"`
+	Mod    int64    `json:"mod"`
+	Levels []string `json:"levels"` // immer geladene Unter-Level (in der Liste)
+	Base   bool     `json:"base"`
+	Err    string   `json:"err,omitempty"`
+}
+
+// Arenen aus dem normalen Fussball-Modus (Soccar) mit ihren Varianten. Andere Modi (Hoops, Dropshot,
+// Snow Day, Knockout, Rocket Labs) und Menue-Hintergruende werden nicht angeboten.
+var soccarArenas = map[string]string{
+	"stadium_p": "DFH Stadium", "stadium_day_p": "DFH Stadium (Day)", "stadium_foggy_p": "DFH Stadium (Stormy)",
+	"stadium_winter_p": "DFH Stadium (Snowy)", "stadium_10a_p": "DFH Stadium (10th Anniversary)",
+	"eurostadium_p": "Mannfield", "eurostadium_night_p": "Mannfield (Night)", "eurostadium_rainy_p": "Mannfield (Stormy)",
+	"eurostadium_snownight_p": "Mannfield (Snowy)", "eurostadium_dusk_p": "Mannfield (Dusk)",
+	"park_p": "Beckwith Park", "park_night_p": "Beckwith Park (Midnight)", "park_rainy_p": "Beckwith Park (Stormy)",
+	"park_snowy_p": "Beckwith Park (Snowy)", "park_bman_p": "Beckwith Park (Gotham Night)",
+	"trainstation_p": "Urban Central", "trainstation_night_p": "Urban Central (Night)", "trainstation_dawn_p": "Urban Central (Dawn)",
+	"haunted_trainstation_p": "Urban Central (Haunted)",
+	"utopiastadium_p":        "Utopia Coliseum", "utopiastadium_dusk_p": "Utopia Coliseum (Dusk)", "utopiastadium_snow_p": "Utopia Coliseum (Snowy)",
+	"utopiastadium_lux_p": "Utopia Coliseum (Gilded)",
+	"beach_p":             "Salty Shores", "beach_night_p": "Salty Shores (Night)", "beach_night_grs_p": "Salty Shores (GRS)",
+	"chn_stadium_p": "Forbidden Temple", "chn_stadium_day_p": "Forbidden Temple (Day)",
+	"cs_p": "Champions Field", "cs_day_p": "Champions Field (Day)", "cs_hw_p": "Champions Field (Spooky)",
+	"farm_p": "Farmstead", "farm_night_p": "Farmstead (Night)", "farm_hw_p": "Farmstead (Spooky)", "farm_grs_p": "Farmstead (GRS)",
+	"neotokyo_standard_p": "Neo Tokyo", "neotokyo_arcade_p": "Neo Tokyo (Arcade)", "neotokyo_hax_p": "Neo Tokyo (Hacked)",
+	"neotokyo_toon_p": "Neo Tokyo (Comic)",
+	"outlaw_p":        "Deadeye Canyon", "outlaw_oasis_p": "Deadeye Canyon (Oasis)",
+	"wasteland_s_p": "Wasteland", "wasteland_night_s_p": "Wasteland (Night)",
+	"underwater_p": "AquaDome", "underwater_grs_p": "AquaDome (Salty Shallows)",
+	"music_p": "Neon Fields", "street_p": "Sovereign Heights", "ff_dusk_p": "Estadio Vida (Dusk)",
+	"woods_p": "Drift Woods", "woods_night_p": "Drift Woods (Night)", "arc_standard_p": "Starbase ARC",
+	"throwbackstadium_p": "Throwback Stadium", "mall_day_p": "Boostfield Mall", "uf_day_p": "Futura Garden",
+	"uf_night_p": "Futura Garden (Night)", "paname_dusk_p": "Paname (Dusk)", "fni_stadium_p": "FNI Stadium",
+	"swoosh_p": "Champions Field (Nike FC)", "bb_p": "BB Arena",
 }
 
 var reVariant = regexp.MustCompile(`(?i)_(p)$`)
@@ -154,14 +183,15 @@ func buildMergeCatalog(cooked string) {
 	cache := map[string]mergeCacheEntry{}
 	loadJSON(mergeCacheFile, &cache)
 	files, _ := filepath.Glob(filepath.Join(cooked, "*_P.upk"))
-	type row struct{ file, name, bd, base string }
+	type row struct{ file, name, bd, base, own string }
 	var rows []row
 	changed := false
 	for _, f := range files {
 		name := filepath.Base(f)
-		lo := strings.ToLower(name)
-		if strings.HasPrefix(lo, "menu_") {
-			continue
+		lo := strings.ToLower(strings.TrimSuffix(name, filepath.Ext(name)))
+		nice, ok := soccarArenas[lo]
+		if !ok {
+			continue // nur normale Fussball-Arenen
 		}
 		// gemergte/getauschte Arena: das Original aus der Sicherung lesen
 		src := f
@@ -180,10 +210,12 @@ func buildMergeCatalog(cooked string) {
 			if lv, err := upk.ScanStreaming(src); err != nil {
 				c.Err = err.Error()
 			} else {
-				c.Backdrop = upk.Backdrop(lv)
 				for _, l := range lv {
 					if l.Class == "LevelStreamingAlwaysLoaded" {
 						c.Base = true
+						if l.Listed {
+							c.Levels = append(c.Levels, l.PackageName)
+						}
 					}
 				}
 			}
@@ -196,7 +228,12 @@ func buildMergeCatalog(cooked string) {
 			}
 			return "0"
 		}
-		rows = append(rows, row{name, prettyArena(name), b(len(c.Backdrop) > 0), b(c.Base)})
+		var lv []upk.Streaming
+		for _, n := range c.Levels {
+			lv = append(lv, upk.Streaming{Class: "LevelStreamingAlwaysLoaded", PackageName: n, Listed: true})
+		}
+		hasBD := len(upk.Backdrop(lv)) > 0 // eigene Kulisse in eigenen Unter-Leveln: kann Kulisse sein und abgeschaltet werden
+		rows = append(rows, row{name, nice, b(hasBD), b(c.Base), b(hasBD)})
 	}
 	if changed {
 		_ = saveJSON(mergeCacheFile, cache)
@@ -204,7 +241,7 @@ func buildMergeCatalog(cooked string) {
 	sort.Slice(rows, func(i, j int) bool { return strings.ToLower(rows[i].name) < strings.ToLower(rows[j].name) })
 	var lines []string
 	for _, r := range rows {
-		lines = append(lines, strings.Join([]string{r.file, r.name, r.bd, r.base}, "\t"))
+		lines = append(lines, strings.Join([]string{r.file, r.name, r.bd, r.base, r.own}, "\t"))
 	}
 	writeLines(mergeCatFile, lines)
 }
@@ -233,7 +270,9 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 		}
 	}
 	bdPath := filepath.Join(cooked, w.Backdrop)
-	if alt := filepath.Join(mergeBackupDir, w.Backdrop); fileExists(alt) {
+	if w.Backdrop == "-" {
+		bdPath = "" // keine fremde Kulisse, nur die eigene entfernen
+	} else if alt := filepath.Join(mergeBackupDir, w.Backdrop); fileExists(alt) {
 		bdPath = alt // Kulissen-Map ist selbst gemergt: ihr Original nehmen
 	} else if alt := filepath.Join(backupDir, w.Backdrop); fileExists(alt) {
 		bdPath = alt
@@ -252,6 +291,9 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 			return "pending", "Rocket League has this arena open right now. Restart the game from Prism to see the backdrop."
 		}
 		return "error", friendlyErr(err).Error()
+	}
+	if len(added) == 0 {
+		return "applied", "Own backdrop removed"
 	}
 	return "applied", "Backdrop: " + strings.Join(added, ", ")
 }

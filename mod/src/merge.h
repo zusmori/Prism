@@ -12,8 +12,8 @@ namespace merge {
 
 struct Arena {
 	std::string file, name;
-	bool backdrop = false, base = false;
-	std::string want, wantName;   // gewuenschte Kulisse (Datei/Name), "" = keine
+	bool backdrop = false, base = false, own = false; // own: eigene Kulisse laesst sich abschalten
+	std::string want, wantName;   // gewuenschte Kulisse (Datei/Name), "" = Original, "-" = keine fremde Kulisse
 	bool replace = false;
 	std::string state, stateMsg;  // applied | pending | error | "" (noch nicht bearbeitet)
 	std::string lower;

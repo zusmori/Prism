@@ -1299,7 +1299,6 @@ static void ThumbHolder(ImDrawList* d, ImVec2 a, ImVec2 b, unsigned seed) {
 static int mgSel = -1;                 // gewaehlte Arena (Index in merge::list)
 static char mgSearch[64] = {0};
 static bool mgFocus = false;
-static bool mgReplace = false;         // eigene Kulisse der Arena entfernen
 static float mgScrollA = 0, mgLastA = -1, mgScrollB = 0, mgLastB = -1;
 struct MergeAction { int kind = 0; std::string file, backdrop, arenaU8; bool replace = false; };
 
@@ -1364,7 +1363,7 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 		std::string sub = "Original";
 		ImVec4 sc = cFaint;
 		if (on) {
-			sub = "+ " + a.wantName;
+			sub = a.want == "-" ? "Own backdrop off" : "+ " + a.wantName + (a.replace ? " (own off)" : "");
 			sc = Mix(spec[0], Rgb(255, 255, 255), 0.35f);
 			if (a.state == "pending") sub += "  \xC2\xB7  waiting";
 			else if (a.state == "error") { sub = "Couldn't merge"; sc = Rgb(255, 140, 140); }
@@ -1400,7 +1399,10 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 		std::string line;
 		ImVec4 col = cMuted;
 		if (!curOn) line = "Original. Pick a backdrop below to merge it in.";
-		else if (cur.state == "applied") { line = "Merged with " + cur.wantName + ". Start Freeplay here to see it."; col = Rgb(120, 220, 160); }
+		else if (cur.state == "applied") {
+			line = cur.want == "-" ? "Own backdrop is off. Start Freeplay here to see it." : "Backdrop of " + cur.wantName + " is in. Start Freeplay here to see it.";
+			col = Rgb(120, 220, 160);
+		}
 		else if (cur.state == "pending") { line = cur.stateMsg.empty() ? "Waiting …" : cur.stateMsg; col = Rgb(255, 200, 120); }
 		else if (cur.state == "error") { line = cur.stateMsg; col = Rgb(255, 140, 140); }
 		else { Spinner(dl, ImVec2(x + 7, y + 8), 6); x += 22; line = "Prism is merging … (the Prism launcher has to be open)"; }
@@ -1411,19 +1413,24 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 	{
 		float y = o.y + listTop + 58;
 		ImGui::SetCursorScreenPos(ImVec2(o.x + px, y));
-		bool tog = ImGui::InvisibleButton("##mgrepl", ImVec2(pw, 30));
-		float hv = Anim(ImGui::GetID("mgreplh"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
-		bool val = curOn ? cur.replace : mgReplace;
+		bool tog = ImGui::InvisibleButton("##mgrepl", ImVec2(pw, 30)) && cur.own;
+		float hv = Anim(ImGui::GetID("mgreplh"), ImGui::IsItemHovered() && cur.own ? 1.0f : 0.0f);
+		bool val = curOn && (cur.replace || cur.want == "-");
 		if (tog) {
 			val = !val;
-			mgReplace = val;
-			if (curOn) { act.kind = 1; act.file = cur.file; act.backdrop = cur.want; act.replace = val; }
+			act.file = cur.file;
+			bool foreign = curOn && cur.want != "-";
+			if (foreign) { act.kind = 1; act.backdrop = cur.want; act.replace = val; }
+			else if (val) { act.kind = 1; act.backdrop = "-"; act.replace = true; } // nur die eigene Kulisse aus
+			else act.kind = 2;                                                      // wieder Original
 		}
+		if (!cur.own) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.4f);
 		float k = Anim(ImGui::GetID("mgreplk"), val ? 1.0f : 0.0f, 16.0f);
 		ImVec2 t0(o.x + px, y + 6), t1(t0.x + 34, t0.y + 18);
 		dl->AddRectFilled(t0, t1, U(Mix(Rgb(255, 255, 255, 0.10f + 0.05f * hv), accent, k)), 9);
 		dl->AddCircleFilled(ImVec2(t0.x + 9 + 16 * k, t0.y + 9), 6.5f, U(Rgb(255, 255, 255)), 16);
-		Text(dl, fBold, ImVec2(t1.x + 12, y + 6), Mix(cMuted, cText, std::max(hv, k)), "Remove the arena's own backdrop");
+		Text(dl, fBold, ImVec2(t1.x + 12, y + 6), Mix(cMuted, cText, std::max(hv, k)), cur.own ? "Turn off the arena's own backdrop" : "Own backdrop is part of the arena (can't be turned off)");
+		if (!cur.own) ImGui::PopStyleVar();
 	}
 	Text(dl, fTiny, ImVec2(o.x + px, o.y + listTop + 96), cFaint, "BACKDROPS");
 	float by = listTop + 116;
@@ -1444,7 +1451,7 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 		float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
 		float s = Anim(ImGui::GetID("s"), here ? 1.0f : 0.0f, 16.0f);
 		ImGui::PopID();
-		if (click && !here) { act.kind = 1; act.file = cur.file; act.backdrop = b.file; act.replace = curOn ? cur.replace : mgReplace; }
+		if (click && !here) { act.kind = 1; act.file = cur.file; act.backdrop = b.file; act.replace = curOn && (cur.replace || cur.want == "-"); }
 		ImVec2 q2(p.x + rw, p.y + rh2);
 		if (h > 0.01f || s > 0.01f) cd->AddRectFilled(p, q2, U(Mix(Alpha(cHover, h), Acc(0.13f), s)), 11);
 		if (s > 0.01f) cd->AddRect(p, q2, U(Acc(0.35f * s)), 11, 0, 1.0f);

@@ -654,8 +654,14 @@ func (p *Package) AddStreaming(add []string, drop func(name string) bool) error 
 			break
 		}
 	}
-	if tpl < 0 {
+	if tpl < 0 && len(add) > 0 {
 		return errors.New("this arena has no always-loaded sub-level to copy")
+	}
+	if tpl < 0 {
+		if len(levels) == 0 {
+			return errors.New("this arena has no sub-levels")
+		}
+		tpl = levels[0].Export
 	}
 	tplE := p.Exports[tpl]
 	tplData := append([]byte(nil), p.Data(&tplE)...)
@@ -940,7 +946,8 @@ func Backdrop(levels []Streaming) []string {
 		if !l.Listed || l.Class != "LevelStreamingAlwaysLoaded" {
 			continue
 		}
-		if strings.Contains(n, "sfx") || strings.Contains(n, "audio") || strings.Contains(n, "sound") {
+		// nur, was ausserhalb des Spielfelds liegt (OOB = "out of bounds"): kein Stadion, Licht, Spielfeld oder Ton
+		if !IsBackdropLevel(n) || strings.Contains(n, "sfx") || strings.Contains(n, "audio") {
 			continue
 		}
 		out = append(out, l.PackageName)
@@ -951,7 +958,7 @@ func Backdrop(levels []Streaming) []string {
 // Gehoert dieses Unter-Level zur Kulisse? (fuer "eigene Kulisse entfernen")
 func IsBackdropLevel(name string) bool {
 	n := strings.ToLower(name)
-	for _, k := range []string{"oob", "terrain", "sky", "mountain", "foliage", "fish"} {
+	for _, k := range []string{"oob", "terrain", "mountain", "sky"} {
 		if strings.Contains(n, k) {
 			return true
 		}
@@ -961,13 +968,16 @@ func IsBackdropLevel(name string) bool {
 
 // MergeFiles: Kulisse von backdropPath in basePath einbauen; Ergebnis = neue Datei fuer basePath
 func MergeFiles(basePath, backdropPath string, replace bool) ([]byte, []string, error) {
-	bl, err := ScanStreaming(backdropPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("backdrop map: %v", err)
-	}
-	add := Backdrop(bl)
-	if len(add) == 0 {
-		return nil, nil, errors.New("this map has no separate backdrop")
+	var add []string
+	if backdropPath != "" { // "" = nur die eigene Kulisse entfernen
+		bl, err := ScanStreaming(backdropPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("backdrop map: %v", err)
+		}
+		add = Backdrop(bl)
+		if len(add) == 0 {
+			return nil, nil, errors.New("this map has no separate backdrop")
+		}
 	}
 	p, err := Open(basePath)
 	if err != nil {

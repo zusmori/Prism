@@ -96,13 +96,14 @@ void Refresh() {
 		a.name = c[1];
 		a.backdrop = c[2] == "1";
 		a.base = c[3] == "1";
+		a.own = c.size() > 4 && c[4] == "1";
 		a.lower = Lower(a.name + " " + a.file);
 		auto r = reqM.find(Lower(a.file));
 		if (r != reqM.end()) {
 			a.want = r->second[1];
 			a.replace = r->second.size() > 2 && r->second[2] == "1";
 			auto n = names.find(Lower(a.want));
-			a.wantName = n != names.end() ? n->second : a.want;
+			a.wantName = a.want == "-" ? "no backdrop" : n != names.end() ? n->second : a.want;
 		}
 		auto s = stM.find(Lower(a.file));
 		if (s != stM.end()) {
@@ -136,6 +137,7 @@ void Request(const std::string& file, const std::string& backdrop, bool replace)
 			a.replace = replace;
 			a.state = backdrop.empty() ? "" : "working";
 			a.stateMsg.clear();
+			if (backdrop == "-") a.wantName = "no backdrop";
 			for (auto& b : list) if (Lower(b.file) == Lower(backdrop)) a.wantName = b.name;
 		}
 }
