@@ -146,8 +146,99 @@ func ecbCrypt(key, data []byte, enc bool) []byte {
 
 type CameraState struct {
 	Found  bool               `json:"found"`
-	Values map[string]float64 `json:"values"`
+	Values map[string]float64 `json:"values"` // was gerade im Profil steht
+	On     bool               `json:"on"`     // eigene Kamera an (Prism setzt die Werte vor jedem Start)
+	Want   map[string]float64 `json:"want"`   // gewuenschte Werte (wenn an)
+	Preset string             `json:"preset"` // Kamera-Vorlage im Spiel, z. B. "Custom"
 	Err    string             `json:"err,omitempty"`
+}
+
+// Eigene Kamera: an/aus, gewuenschte Werte und die Werte von vorher (fuer "aus")
+type camConfig struct {
+	On     bool               `json:"on"`
+	Want   map[string]float64 `json:"want"`
+	Before map[string]float64 `json:"before"`
+}
+
+var camCfgFile = filepath.Join(dataDir, "camera.json")
+
+func loadCamCfg() camConfig {
+	var c camConfig
+	loadJSON(camCfgFile, &c)
+	return c
+}
+
+func camValues(s *camSave) map[string]float64 {
+	vals := map[string]float64{}
+	for k, o := range s.offs {
+		v := float64(math.Float32frombits(binary.LittleEndian.Uint32(s.plain[o:])))
+		vals[k] = math.Round(v*100) / 100
+	}
+	return vals
+}
+
+// Kamera-Vorlage im Profil (bei einer Pro-Vorlage nutzt das Spiel deren Werte statt der eigenen)
+func camPreset(s *camSave) string {
+	i := bytes.Index(s.plain, []byte("ECameraSettingsPreset\x00"))
+	if i < 0 {
+		return ""
+	}
+	j := bytes.Index(s.plain[i:min(len(s.plain), i+120)], []byte("CameraSettingsPreset_"))
+	if j < 0 {
+		return ""
+	}
+	v := s.plain[i+j+len("CameraSettingsPreset_"):]
+	if k := bytes.IndexByte(v, 0); k >= 0 && k < 64 {
+		return string(v[:k])
+	}
+	return ""
+}
+
+// Schritte der Regler im Spiel (ohne Prism-Mod): darauf rundet das Spiel, wenn man dort etwas verstellt
+var camGameStep = map[string]float64{"fov": 1, "height": 10, "angle": 1, "distance": 10, "stiffness": 0.05, "swivel": 0.1, "transition": 0.1}
+
+func camSame(a, b float64) bool { return math.Abs(a-b) < 0.005 }
+
+// Vor jedem Spielstart und nachdem das Spiel zu ist: wenn die eigene Kamera an ist, die Werte ins Profil schreiben.
+// Hat das Spiel einen Wert nur auf seinen Schritt gerundet, gilt wieder der eigene; hat man ihn im Spiel
+// wirklich verstellt, wird der neue Wert uebernommen.
+func cameraEnsure(reason string) {
+	if rlRunning() {
+		return
+	}
+	c := loadCamCfg()
+	if !c.On || len(c.Want) == 0 {
+		return
+	}
+	s, err := newestCamSave()
+	if err != nil {
+		return
+	}
+	cur := camValues(s)
+	changed, adopted := false, false
+	for k, want := range c.Want {
+		v, ok := cur[k]
+		if !ok || camSame(v, want) {
+			continue
+		}
+		st := camGameStep[k]
+		if st > 0 && camSame(v, math.Round(want/st)*st) {
+			changed = true // nur gerundet: eigenen Wert wieder setzen
+		} else {
+			c.Want[k] = v // im Spiel verstellt: uebernehmen
+			adopted = true
+		}
+	}
+	if adopted {
+		_ = saveJSON(camCfgFile, c)
+	}
+	if changed {
+		if err := setCameraFiles(cameraSaveFiles(), c.Want); err != nil {
+			logf("camera (%s): %v", reason, err)
+		} else {
+			logf("camera (%s): your values are set again", reason)
+		}
+	}
 }
 
 // neueste lesbare Profil-Datei
@@ -180,19 +271,63 @@ func GetCamera() CameraState {
 	if err != nil {
 		return CameraState{Err: err.Error()}
 	}
-	vals := map[string]float64{}
-	for k, o := range s.offs {
-		v := float64(math.Float32frombits(binary.LittleEndian.Uint32(s.plain[o:])))
-		vals[k] = math.Round(v*100) / 100
-	}
-	return CameraState{Found: true, Values: vals}
+	c := loadCamCfg()
+	return CameraState{Found: true, Values: camValues(s), On: c.On, Want: c.Want, Preset: camPreset(s)}
 }
 
+// SetCamera: eigene Werte speichern (schaltet die eigene Kamera an)
 func SetCamera(vals map[string]float64) error {
 	if rlRunning() {
 		return errors.New("Close Rocket League first. It saves your settings when it quits and would overwrite these.")
 	}
-	return setCameraFiles(cameraSaveFiles(), vals)
+	s, err := newestCamSave()
+	if err != nil {
+		return err
+	}
+	c := loadCamCfg()
+	if !c.On || len(c.Before) == 0 {
+		c.Before = camValues(s) // Werte von vorher, fuer "aus"
+	}
+	if err := setCameraFiles(cameraSaveFiles(), vals); err != nil {
+		return err
+	}
+	c.On = true
+	c.Want = map[string]float64{}
+	for _, f := range camFields {
+		if v, ok := vals[f.Key]; ok {
+			c.Want[f.Key] = math.Max(f.Min, math.Min(f.Max, math.Round(v/f.Step)*f.Step))
+		}
+	}
+	return saveJSON(camCfgFile, c)
+}
+
+// SetCameraOn: eigene Kamera an (gespeicherte Werte wieder setzen) oder aus (Werte von vorher zurueck)
+func SetCameraOn(on bool) error {
+	if rlRunning() {
+		return errors.New("Close Rocket League first. It saves your settings when it quits and would overwrite these.")
+	}
+	c := loadCamCfg()
+	if on == c.On {
+		return nil
+	}
+	if on {
+		if len(c.Want) == 0 {
+			return errors.New("Set your values and hit Save first.")
+		}
+		if s, err := newestCamSave(); err == nil {
+			c.Before = camValues(s)
+		}
+		if err := setCameraFiles(cameraSaveFiles(), c.Want); err != nil {
+			return err
+		}
+	} else if len(c.Before) > 0 {
+		if err := setCameraFiles(cameraSaveFiles(), c.Before); err != nil {
+			return err
+		}
+	}
+	c.On = on
+	logf("camera: custom camera %v", on)
+	return saveJSON(camCfgFile, c)
 }
 
 func setCameraFiles(files []string, vals map[string]float64) error {

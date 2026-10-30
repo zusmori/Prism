@@ -723,6 +723,7 @@ func main() {
 	w.Bind("isRLRunning", func() bool { return rlRunning() })
 	w.Bind("getCamera", func() CameraState { return GetCamera() })
 	w.Bind("setCamera", func(v map[string]float64) error { return SetCamera(v) })
+	w.Bind("setCameraOn", func(on bool) error { return SetCameraOn(on) })
 
 	// ---- Browse Maps / Downloads / Favoriten ----
 	w.Bind("recommendedAsync", func(id int) {

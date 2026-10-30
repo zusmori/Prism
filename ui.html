@@ -1007,6 +1007,10 @@
   /* API-Key in den Settings */
   .keyrow{display:flex;gap:8px;align-items:center;flex:none}
   .camact{display:flex;align-items:center;gap:8px;flex:none}
+  .camfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px 14px}
+  .camnote{font-size:12px;color:var(--faint);line-height:1.4}
+  .camnote.warn{color:#f0c36a}
+  #secCam.off .camgrid{opacity:.45}
   .camgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;padding:6px 16px 14px;border-top:1px solid var(--line)}
   .camgrid .cmsg{grid-column:1/-1;color:var(--faint);font-size:12.5px;padding-top:10px}
   .camcol h5{margin:12px 0 4px;font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--faint)}
@@ -1513,10 +1517,11 @@
           <button class="sbtn" id="swRestore" disabled>Restore all</button></div>
       </div></div>
       <div class="ssec" id="secCam"><h4>Camera</h4><div class="sgrp">
-        <div class="srow nohov"><span class="sic gi" data-ic="cam"></span>
-          <div class="tx"><b>Exact camera settings</b><small id="camHint">Exact steps, like height 87. Saved in your Rocket League profile, so it works with and without Anti-Cheat. Close the game to save.</small></div>
-          <div class="camact"><button class="kreset hide" id="camUndo">Undo</button><button class="sbtn go" id="camSave" disabled>Save</button></div></div>
+        <div class="srow" id="setCam" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="cam"></span>
+          <div class="tx"><b>Custom camera</b><small id="camHint">Exact values like height 87. Prism sets them before every start, with and without Anti-Cheat. Off brings back your old values.</small></div>
+          <span class="tg" id="tgCam"></span></div>
         <div class="camgrid" id="camGrid"></div>
+        <div class="camfoot"><span class="camnote" id="camNote"></span><div class="camact"><button class="kreset hide" id="camUndo">Undo</button><button class="sbtn go" id="camSave" disabled>Save</button></div></div>
       </div></div>
       <div class="ssec"><h4>Performance</h4><div class="sgrp">
         <div class="srow" id="setBoost" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="bolt"></span>
@@ -1809,7 +1814,7 @@ const CAM = [
   {k: 'swivel', n: 'Swivel speed', min: 1, max: 10, step: 0.01, g: 1},
   {k: 'transition', n: 'Transition speed', min: 1, max: 2, step: 0.01, g: 1},
 ];
-const cam = {orig: null, vals: {}};
+const cam = {orig: null, vals: {}, on: false, preset: ''};
 const camFmt = (c, v) => { const d = c.step < 0.1 ? 2 : c.step < 1 ? 1 : 0; return (+v).toFixed(d); };
 function paintCam(msg){
   const g = $('camGrid'); g.innerHTML = '';
@@ -1843,7 +1848,20 @@ function paintCam(msg){
 function camDirty(){
   const d = !!cam.orig && CAM.some(c => c.k in cam.orig && Math.abs(cam.vals[c.k] - cam.orig[c.k]) > 1e-6);
   $('camSave').disabled = !d; $('camUndo').classList.toggle('hide', !d);
+  $('tgCam').classList.toggle('on', cam.on); $('setCam').setAttribute('aria-checked', cam.on);
+  $('secCam').classList.toggle('off', !cam.on && !d);
+  const n = $('camNote');
+  if (cam.preset && cam.preset !== 'Custom'){ n.textContent = 'In Rocket League your camera preset is "' + cam.preset + '". Pick Custom there so the game uses these values.'; n.classList.add('warn'); }
+  else { n.textContent = cam.on ? 'On. Save applies your changes. Close Rocket League first.' : 'Off. The game uses your old values. Saving turns it on.'; n.classList.remove('warn'); }
 }
+async function toggleCam(){
+  if (!has('setCameraOn') || !cam.orig) return;
+  const on = !cam.on;
+  try { await setCameraOn(on); Sfx.ui('tab'); cam.orig = null; cam.on = on; toast(on ? 'Custom camera is on.' : 'Custom camera is off. Your old values are back.', true); loadCam(); }
+  catch (e) { toast(e, false); Sfx.ui('error'); }
+}
+$('setCam').onclick = toggleCam;
+$('setCam').onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleCam(); } };
 $('camUndo').onclick = () => { if (!cam.orig) return; cam.vals = Object.assign({}, cam.orig); paintCam(); Sfx.ui('dismiss'); };
 async function loadCam(){
   if (!has('getCamera')) return paintCam('Not available in preview.');
@@ -1851,12 +1869,14 @@ async function loadCam(){
   try {
     const st = await getCamera();
     if (!st || !st.found){ cam.orig = null; return paintCam(st && st.err ? st.err : 'No Rocket League profile found. Start the game once first.'); }
-    cam.orig = Object.assign({}, st.values); cam.vals = Object.assign({}, st.values); paintCam();
+    cam.on = !!st.on; cam.preset = st.preset || '';
+    const base = cam.on && st.want ? st.want : st.values;   // an: deine Werte, aus: was gerade im Profil steht
+    cam.orig = Object.assign({}, st.values, base); cam.vals = Object.assign({}, cam.orig); paintCam();
   } catch (e) { cam.orig = null; paintCam(String(e)); }
 }
 $('camSave').onclick = async () => {
   const b = $('camSave'); if (b.disabled) return; b.disabled = true;
-  try { await setCamera(cam.vals); cam.orig = Object.assign({}, cam.vals); paintCam(); toast('Camera saved to your Rocket League profile.', true); Sfx.ui('swap'); }
+  try { await setCamera(cam.vals); cam.on = true; cam.orig = Object.assign({}, cam.vals); paintCam(); toast('Custom camera saved to your Rocket League profile.', true); Sfx.ui('swap'); }
   catch (e) { toast(e, false); Sfx.ui('error'); camDirty(); }
 };
 

@@ -774,6 +774,12 @@ func mergeLoop(cookedFn func() string) {
 				case !running && (wasRunning || first):
 					// Spiel zu (oder Reste nach einem Absturz): Originale zurueck
 					_ = mergeRestoreAll(cooked)
+					if wasRunning {
+						go func() { // das Spiel hat beim Beenden sein Profil gespeichert: eigene Kamera pruefen
+							time.Sleep(3 * time.Second)
+							cameraEnsure("game closed")
+						}()
+					}
 				case running && !eacRunning():
 					st, _ := os.Stat(mergeReqFile)
 					changed := st != nil && st.ModTime() != lastReq

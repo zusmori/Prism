@@ -77,6 +77,7 @@ func (a *App) LaunchRL(eac bool) error {
 	if a.cooked == "" {
 		a.cooked = findCooked()
 	}
+	cameraEnsure("launch") // eigene Kamera: Werte sicher im Profil (mit und ohne Anti-Cheat)
 	if eac {
 		// Mit Anti-Cheat nur mit Original-Dateien: gemergte Kulissen vorher zuruecksetzen
 		mergeMu.Lock()
