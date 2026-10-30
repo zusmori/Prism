@@ -17,6 +17,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ var (
 	mergeReqFile   = filepath.Join(dataDir, "merge_requests.txt")
 	mergeStatFile  = filepath.Join(dataDir, "merge_status.txt")
 	mergeCatFile   = filepath.Join(dataDir, "merge_catalog.txt")
-	mergeCacheFile = filepath.Join(dataDir, "merge_cache4.json")
+	mergeCacheFile = filepath.Join(dataDir, "merge_cache5.json")
 )
 
 type mergeWant struct {
@@ -123,17 +124,6 @@ func saveMergeStats(m map[string]mergeStat) {
 	writeLines(mergeStatFile, lines)
 }
 
-// ---------- Katalog: welche Maps haben eine eigene Kulisse? ----------
-
-type mergeCacheEntry struct {
-	Size   int64    `json:"size"`
-	Mod    int64    `json:"mod"`
-	Levels []string `json:"levels"` // immer geladene Unter-Level (in der Liste)
-	Base   bool     `json:"base"`
-	Embed  int      `json:"embed"` // Kulissen-Teile direkt in der Map (z. B. Beckwith Park)
-	Err    string   `json:"err,omitempty"`
-}
-
 // Arenen aus dem normalen Fussball-Modus (Soccar) mit ihren Varianten. Andere Modi (Hoops, Dropshot,
 // Snow Day, Knockout, Rocket Labs) und Menue-Hintergruende werden nicht angeboten.
 var soccarArenas = map[string]string{
@@ -220,104 +210,316 @@ func gameMapNames() map[string]string {
 	return out
 }
 
+// ---------- Kombinationen ----------
+
+// Feste Kombinationen: Arena (eigene Kulisse aus) + Kulisse einer anderen Map. Nur diese werden angeboten;
+// alle noetigen Dateien baut Prism vor dem Spielstart, so geht das Umschalten im Spiel ohne Neustart.
+type mergeCombo struct{ Base, Backdrop string }
+
+var mergeCombos = []mergeCombo{
+	{"Farm_GRS_P.upk", "Park_Snowy_P.upk"},
+	{"Park_Night_P.upk", "Underwater_P.upk"},
+	{"Outlaw_Oasis_P.upk", "Park_Snowy_P.upk"},
+	{"Outlaw_Oasis_P.upk", "Underwater_P.upk"},
+	{"Outlaw_Oasis_P.upk", "Street_P.upk"},
+}
+
+// Wie eine Map-Datei aufgeteilt ist (zwischengespeichert, Lesen dauert)
+type mergeCacheEntry struct {
+	Size     int64    `json:"size"`
+	Mod      int64    `json:"mod"`
+	Levels   []string `json:"levels"` // immer geladene Unter-Level (in der Liste)
+	Backdrop int      `json:"backdrop"`
+	Rest     int      `json:"rest"`
+	Err      string   `json:"err,omitempty"`
+}
+
+var mergeCacheMu sync.Mutex
+
+// Datei im Spielordner zu einem Paketnamen (Gross/Klein egal)
+func cookedFile(cooked, pkg string) string {
+	p := filepath.Join(cooked, pkg+".upk")
+	if fileExists(p) {
+		return p
+	}
+	ents, _ := os.ReadDir(cooked)
+	for _, e := range ents {
+		if strings.EqualFold(e.Name(), pkg+".upk") {
+			return filepath.Join(cooked, e.Name())
+		}
+	}
+	return ""
+}
+
+// Aufteilung einer Datei (path = Original), mit Zwischenspeicher
+func mapInfo(path string) (mergeCacheEntry, error) {
+	st, err := os.Stat(path)
+	if err != nil {
+		return mergeCacheEntry{}, err
+	}
+	key := strings.ToLower(filepath.Base(path))
+	mergeCacheMu.Lock()
+	cache := map[string]mergeCacheEntry{}
+	loadJSON(mergeCacheFile, &cache)
+	c, ok := cache[key]
+	mergeCacheMu.Unlock()
+	if ok && c.Size == st.Size() && c.Mod == st.ModTime().Unix() {
+		if c.Err != "" {
+			return c, errors.New(c.Err)
+		}
+		return c, nil
+	}
+	c = mergeCacheEntry{Size: st.Size(), Mod: st.ModTime().Unix()}
+	if lv, err := upk.ScanStreaming(path); err == nil {
+		for _, l := range lv {
+			if l.Class == "LevelStreamingAlwaysLoaded" && l.Listed {
+				c.Levels = append(c.Levels, l.PackageName)
+			}
+		}
+	}
+	if b, r, err := upk.ClassifyFile(path); err != nil {
+		c.Err = err.Error()
+	} else {
+		c.Backdrop, c.Rest = b, r
+	}
+	mergeCacheMu.Lock()
+	cache = map[string]mergeCacheEntry{}
+	loadJSON(mergeCacheFile, &cache)
+	cache[key] = c
+	_ = saveJSON(mergeCacheFile, cache)
+	mergeCacheMu.Unlock()
+	if c.Err != "" {
+		return c, errors.New(c.Err)
+	}
+	return c, nil
+}
+
+func isSoundLevel(n string) bool {
+	n = strings.ToLower(n)
+	return strings.Contains(n, "sfx") || strings.Contains(n, "audio")
+}
+
+// Ein Paket, das Prism selbst baut (aus src): Kulisse (BD) oder ohne Kulisse (NB)
+type mergePkg struct {
+	Name, Src string
+	NoBD      bool
+}
+
+// Plan fuer eine Kombination: was die Arena zusaetzlich laden soll, was nicht mehr, welche Pakete es braucht
+type mergePlan struct {
+	Add, Drop []string
+	Pkgs      []mergePkg
+}
+
+// Eigene Kulisse der Arena aus: reine Kulissen-Unter-Level weg, gemischte durch eine Kopie ohne Kulisse ersetzen
+func (pl *mergePlan) ownOff(cooked, base string) error {
+	info, err := mapInfo(arenaOriginal(cooked, base))
+	if err != nil {
+		return err
+	}
+	for _, sub := range info.Levels {
+		if isSoundLevel(sub) {
+			continue
+		}
+		f := cookedFile(cooked, sub)
+		if f == "" {
+			continue
+		}
+		si, err := mapInfo(f)
+		if err != nil || si.Backdrop == 0 {
+			continue
+		}
+		pl.Drop = append(pl.Drop, sub)
+		if si.Rest > 0 { // Boden, Spielfeld o. ae. steckt mit drin: das bleibt
+			n := "Prism_" + sub + "_NB"
+			pl.Add = append(pl.Add, n)
+			pl.Pkgs = append(pl.Pkgs, mergePkg{n, f, true})
+		}
+	}
+	return nil
+}
+
+// Kulisse einer Map dazu: reine Kulissen-Unter-Level direkt, sonst Kopien nur mit der Kulisse
+func (pl *mergePlan) backdrop(cooked, src string) error {
+	orig := arenaOriginal(cooked, src)
+	info, err := mapInfo(orig)
+	if err != nil {
+		return err
+	}
+	before := len(pl.Add)
+	if info.Backdrop > 0 {
+		n := "Prism_" + strings.TrimSuffix(src, filepath.Ext(src)) + "_BD"
+		pl.Add = append(pl.Add, n)
+		pl.Pkgs = append(pl.Pkgs, mergePkg{n, orig, false})
+	}
+	for _, sub := range info.Levels {
+		if isSoundLevel(sub) {
+			continue
+		}
+		f := cookedFile(cooked, sub)
+		if f == "" {
+			continue
+		}
+		si, err := mapInfo(f)
+		if err != nil || si.Backdrop == 0 {
+			continue
+		}
+		if si.Rest == 0 {
+			pl.Add = append(pl.Add, sub)
+		} else {
+			n := "Prism_" + sub + "_BD"
+			pl.Add = append(pl.Add, n)
+			pl.Pkgs = append(pl.Pkgs, mergePkg{n, f, false})
+		}
+	}
+	if len(pl.Add) == before {
+		return fmt.Errorf("%s has no backdrop", prettyArena(src))
+	}
+	return nil
+}
+
+func planFor(cooked, base string, w mergeWant) (*mergePlan, error) {
+	pl := &mergePlan{}
+	if w.Replace {
+		if err := pl.ownOff(cooked, base); err != nil {
+			return nil, err
+		}
+	}
+	if w.Backdrop != "-" {
+		if err := pl.backdrop(cooked, w.Backdrop); err != nil {
+			return nil, err
+		}
+	}
+	return pl, nil
+}
+
+// Gebaute Pakete liegen in Prism (merge_pkgs) und werden nur ohne Anti-Cheat in den Spielordner kopiert
+var mergePkgDir = filepath.Join(dataDir, "merge_pkgs")
+
+type pkgMeta struct {
+	Src  string `json:"src"`
+	Size int64  `json:"size"`
+	Mod  int64  `json:"mod"`
+	Ver  int    `json:"ver"`
+}
+
+const pkgVersion = 2 // erhoehen, wenn sich das Bauen aendert
+
+// Paket bauen (falls noetig) und in den Spielordner legen. fresh: wurde gerade neu in den Spielordner gelegt
+func ensurePkg(cooked string, pk mergePkg) (fresh bool, err error) {
+	return ensurePkgTo(cooked, pk, true)
+}
+
+func ensurePkgTo(cooked string, pk mergePkg, place bool) (fresh bool, err error) {
+	_ = os.MkdirAll(mergePkgDir, 0755)
+	cached := filepath.Join(mergePkgDir, pk.Name+".upk")
+	metaF := filepath.Join(mergePkgDir, pk.Name+".json")
+	st, err := os.Stat(pk.Src)
+	if err != nil {
+		return false, err
+	}
+	want := pkgMeta{filepath.Base(pk.Src), st.Size(), st.ModTime().Unix(), pkgVersion}
+	var have pkgMeta
+	loadJSON(metaF, &have)
+	if have != want || !fileExists(cached) {
+		var data []byte
+		if pk.NoBD {
+			data, err = upk.BuildNoBackdropPackage(pk.Src)
+		} else {
+			data, _, err = upk.BuildBackdropPackage(pk.Src)
+		}
+		if err != nil {
+			return false, err
+		}
+		if err := os.WriteFile(cached+".tmp", data, 0644); err != nil {
+			return false, friendlyErr(err)
+		}
+		if err := replaceFile(cached+".tmp", cached); err != nil {
+			return false, friendlyErr(err)
+		}
+		_ = saveJSON(metaF, want)
+		logf("merge: built %s from %s", pk.Name, filepath.Base(pk.Src))
+	}
+	if !place {
+		return false, nil
+	}
+	dst := filepath.Join(cooked, pk.Name+".upk")
+	if cs, err := os.Stat(cached); err == nil {
+		if ds, err := os.Stat(dst); err == nil && ds.Size() == cs.Size() && !ds.ModTime().Before(cs.ModTime()) {
+			return false, nil
+		}
+	}
+	if err := copyFile(cached, dst); err != nil {
+		return false, friendlyErr(err)
+	}
+	return true, nil
+}
+
+// Alle Pakete fuer alle Kombinationen bereitlegen (vor dem Spielstart: dann kennt das Spiel sie alle)
+func preparePackages(cooked string) { preparePackagesTo(cooked, true) }
+
+// place=false: nur bauen (im Hintergrund, damit der Spielstart danach schnell geht)
+func preparePackagesTo(cooked string, place bool) {
+	seen := map[string]bool{}
+	for _, c := range mergeCombos {
+		if !fileExists(filepath.Join(cooked, c.Base)) || !fileExists(filepath.Join(cooked, c.Backdrop)) {
+			continue
+		}
+		pl, err := planFor(cooked, c.Base, mergeWant{c.Backdrop, true})
+		if err != nil {
+			logf("merge: %s + %s: %v", c.Base, c.Backdrop, err)
+			continue
+		}
+		for _, pk := range pl.Pkgs {
+			if seen[pk.Name] {
+				continue
+			}
+			seen[pk.Name] = true
+			if _, err := ensurePkgTo(cooked, pk, place); err != nil {
+				logf("merge: package %s: %v", pk.Name, err)
+			}
+		}
+	}
+}
+
+func isCombo(base string, w mergeWant) bool {
+	for _, c := range mergeCombos {
+		if strings.EqualFold(c.Base, base) && strings.EqualFold(c.Backdrop, w.Backdrop) && w.Replace {
+			return true
+		}
+	}
+	return false
+}
+
+// Katalog fuer das F8-Menue: Arena \t Name \t Kulissen-Map \t Name
 func buildMergeCatalog(cooked string) {
 	if cooked == "" {
 		return
 	}
 	gameNames := gameMapNames()
-	nameCount := map[string]int{}
-	for stem, n := range gameNames {
-		if _, ok := soccarArenas[stem]; ok {
-			nameCount[strings.ToLower(n)]++
-		}
-	}
-	cache := map[string]mergeCacheEntry{}
-	loadJSON(mergeCacheFile, &cache)
-	files, _ := filepath.Glob(filepath.Join(cooked, "*_P.upk"))
-	type row struct{ file, name, bd, base, own string }
-	var rows []row
-	changed := false
-	for _, f := range files {
-		name := filepath.Base(f)
-		lo := strings.ToLower(strings.TrimSuffix(name, filepath.Ext(name)))
-		nice, ok := soccarArenas[lo]
-		if !ok {
-			continue // nur normale Fussball-Arenen
-		}
+	name := func(file string) string {
+		lo := strings.ToLower(strings.TrimSuffix(file, filepath.Ext(file)))
 		if n := gameNames[lo]; n != "" {
-			// so heisst sie im Spiel; heissen zwei Arenen gleich (Gotham Night hat keine Variante), die eigene Liste
-			if nameCount[strings.ToLower(n)] < 2 {
-				nice = n
-			}
+			return n
 		}
-		// gemergte/getauschte Arena: das Original aus der Sicherung lesen
-		src := f
-		if _, err := os.Stat(filepath.Join(mergeBackupDir, name)); err == nil {
-			src = filepath.Join(mergeBackupDir, name)
-		} else if _, err := os.Stat(filepath.Join(backupDir, name)); err == nil {
-			src = filepath.Join(backupDir, name)
+		if n, ok := soccarArenas[lo]; ok {
+			return n
 		}
-		st, err := os.Stat(src)
-		if err != nil {
+		return prettyArena(file)
+	}
+	var lines []string
+	for _, c := range mergeCombos {
+		if !fileExists(filepath.Join(cooked, c.Base)) || !fileExists(filepath.Join(cooked, c.Backdrop)) {
 			continue
 		}
-		c, ok := cache[name]
-		if !ok || c.Size != st.Size() || c.Mod != st.ModTime().Unix() {
-			c = mergeCacheEntry{Size: st.Size(), Mod: st.ModTime().Unix()}
-			if lv, err := upk.ScanStreaming(src); err != nil {
-				c.Err = err.Error()
-			} else {
-				for _, l := range lv {
-					if l.Class == "LevelStreamingAlwaysLoaded" {
-						c.Base = true
-						if l.Listed {
-							c.Levels = append(c.Levels, l.PackageName)
-						}
-					}
-				}
-			}
-			if c.Err == "" {
-				c.Embed, _ = upk.EmbeddedCount(src)
-			}
-			cache[name] = c
-			changed = true
-		}
-		b := func(v bool) string {
-			if v {
-				return "1"
-			}
-			return "0"
-		}
-		var lv []upk.Streaming
-		for _, n := range c.Levels {
-			lv = append(lv, upk.Streaming{Class: "LevelStreamingAlwaysLoaded", PackageName: n, Listed: true})
-		}
-		// eigene Kulisse (in eigenen Unter-Leveln oder direkt in der Map): kann Kulisse sein und abgeschaltet werden
-		hasBD := len(upk.Backdrop(lv)) > 0 || c.Embed >= minEmbedded
-		rows = append(rows, row{name, nice, b(hasBD), b(c.Base), b(hasBD)})
-	}
-	if changed {
-		_ = saveJSON(mergeCacheFile, cache)
-	}
-	sort.Slice(rows, func(i, j int) bool { return strings.ToLower(rows[i].name) < strings.ToLower(rows[j].name) })
-	var lines []string
-	for _, r := range rows {
-		lines = append(lines, strings.Join([]string{r.file, r.name, r.bd, r.base, r.own}, "\t"))
+		lines = append(lines, strings.Join([]string{c.Base, name(c.Base), c.Backdrop, name(c.Backdrop)}, "\t"))
 	}
 	writeLines(mergeCatFile, lines)
 }
 
 // ---------- Anwenden / Zuruecksetzen ----------
 
-// ab so vielen eingebauten Kulissen-Teilen gilt eine Map als "hat Kulisse"
-const minEmbedded = 5
-
-// Kulisse, die direkt in einer Map steckt, wird als eigenes Paket neben die Arenen gelegt
-func derivedName(src string) string {
-	return "Prism_" + strings.TrimSuffix(src, filepath.Ext(src)) + "_BD"
-}
-
-// waehrend dieser Spiel-Sitzung neu angelegte Kulissen-Pakete: das Spiel kennt sie erst nach einem Neustart
+// waehrend dieser Spiel-Sitzung neu in den Spielordner gelegte Pakete: das Spiel kennt sie erst nach einem Neustart
 var derivedNew = map[string]bool{}
 
 // Originaldatei einer Arena (falls gemergt oder getauscht: die Sicherung)
@@ -331,47 +533,6 @@ func arenaOriginal(cooked, file string) string {
 	return filepath.Join(cooked, file)
 }
 
-// Unter-Level, die die Kulisse einer Map ausmachen (baut bei Bedarf das Paket fuer eingebaute Kulisse)
-func backdropLevels(cooked, file string) (add []string, wait bool, err error) {
-	src := arenaOriginal(cooked, file)
-	lv, err := upk.ScanStreaming(src)
-	if err != nil {
-		return nil, false, err
-	}
-	add = upk.Backdrop(lv)
-	dn := derivedName(file)
-	dp := filepath.Join(cooked, dn+".upk")
-	if !fileExists(dp) {
-		if n, _ := upk.EmbeddedCount(src); n >= minEmbedded {
-			data, _, err := upk.BuildBackdropPackage(src)
-			if err != nil {
-				return nil, false, err
-			}
-			tmp := dp + ".tmp"
-			if err := os.WriteFile(tmp, data, 0644); err != nil {
-				return nil, false, friendlyErr(err)
-			}
-			if err := replaceFile(tmp, dp); err != nil {
-				os.Remove(tmp)
-				return nil, false, friendlyErr(err)
-			}
-			if rlRunning() {
-				derivedNew[dn] = true
-			}
-		}
-	}
-	if fileExists(dp) {
-		add = append(add, dn)
-		if derivedNew[dn] && rlRunning() {
-			wait = true
-		}
-	}
-	if len(add) == 0 {
-		return nil, false, fmt.Errorf("%s has no backdrop", prettyArena(file))
-	}
-	return add, wait, nil
-}
-
 func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 	if strings.ContainsAny(file, `\/`) || strings.ContainsAny(w.Backdrop, `\/`) {
 		return "error", "Invalid file."
@@ -383,8 +544,31 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 	if _, swapped := loadSwaps()[file]; swapped {
 		return "error", "A workshop map is swapped into this arena. Restore it first."
 	}
+	if w.Backdrop != "-" && !fileExists(filepath.Join(cooked, w.Backdrop)) {
+		return "error", "Backdrop map not found."
+	}
 	if rlRunning() && fileLocked(target) {
 		return "pending", "Rocket League has this arena open right now. Restart the game to see the backdrop."
+	}
+	pl, err := planFor(cooked, file, w)
+	if err != nil {
+		return "error", "Couldn't read the maps: " + err.Error()
+	}
+	wait := false
+	for _, pk := range pl.Pkgs {
+		fresh, err := ensurePkg(cooked, pk)
+		if err != nil {
+			return "error", "Couldn't build " + pk.Name + ": " + err.Error()
+		}
+		if fresh && rlRunning() {
+			derivedNew[pk.Name] = true
+		}
+		if derivedNew[pk.Name] && rlRunning() {
+			wait = true
+		}
+	}
+	if wait {
+		return "pending", "Restart the game to see this backdrop."
 	}
 	bk := filepath.Join(mergeBackupDir, file)
 	if _, err := os.Stat(bk); err != nil {
@@ -393,21 +577,7 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 			return "error", "Backup failed: " + friendlyErr(err).Error()
 		}
 	}
-	var add []string
-	if w.Backdrop != "-" { // "-": keine fremde Kulisse, nur die eigene entfernen
-		if !fileExists(filepath.Join(cooked, w.Backdrop)) {
-			return "error", "Backdrop map not found."
-		}
-		a, wait, err := backdropLevels(cooked, w.Backdrop)
-		if err != nil {
-			return "error", "Couldn't read the backdrop: " + err.Error()
-		}
-		if wait {
-			return "pending", "Restart the game to see this backdrop."
-		}
-		add = a
-	}
-	data, err := upk.MergeInto(bk, add, w.Replace)
+	data, err := upk.MergeInto(bk, pl.Add, pl.Drop, w.Replace)
 	if err != nil {
 		return "error", "Couldn't merge: " + err.Error()
 	}
@@ -422,7 +592,8 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 		}
 		return "error", friendlyErr(err).Error()
 	}
-	if len(add) == 0 {
+	logf("merge %s: add %v drop %v", file, pl.Add, pl.Drop)
+	if w.Backdrop == "-" {
 		return "applied", "Own backdrop removed"
 	}
 	return "applied", "Backdrop: " + prettyArena(w.Backdrop)
@@ -454,7 +625,7 @@ func mergeSync(cooked string) {
 	out := map[string]mergeStat{}
 	// nicht mehr gewuenscht: zuruecksetzen
 	for f := range stats {
-		if _, ok := wants[f]; ok {
+		if w, ok := wants[f]; ok && isCombo(f, w) {
 			continue
 		}
 		if fileExists(filepath.Join(mergeBackupDir, f)) {
@@ -464,6 +635,9 @@ func mergeSync(cooked string) {
 		}
 	}
 	for f, w := range wants {
+		if !isCombo(f, w) {
+			continue // nur die festen Kombinationen (aeltere Wuensche werden zurueckgesetzt)
+		}
 		s, had := stats[f]
 		if had && s.State == "applied" && s.Backdrop == w.Backdrop && s.Replace == w.Replace && fileExists(filepath.Join(mergeBackupDir, f)) {
 			out[f] = s
@@ -503,7 +677,7 @@ func mergeRestoreAll(cooked string) error {
 	}
 	saveMergeStats(stats)
 	// Kulissen-Pakete wieder weg (gibt es nur ohne Anti-Cheat)
-	ds, _ := filepath.Glob(filepath.Join(cooked, "Prism_*_BD.upk"))
+	ds, _ := filepath.Glob(filepath.Join(cooked, "Prism_*.upk"))
 	for _, d := range ds {
 		if err := os.Remove(d); err != nil && firstErr == nil {
 			firstErr = friendlyErr(err)
@@ -531,6 +705,7 @@ func mergeLoop(cookedFn func() string) {
 	var lastNames time.Time
 	wasRunning := false
 	first := true
+	warmed := false
 	for {
 		cooked := cookedFn()
 		namesMod := time.Time{}
@@ -544,6 +719,13 @@ func mergeLoop(cookedFn func() string) {
 				defer func() { recover() }()
 				buildMergeCatalog(cooked)
 			}()
+			if !warmed {
+				warmed = true
+				go func() { // Pakete schon mal bauen, damit der Spielstart danach schnell geht
+					defer func() { recover() }()
+					preparePackagesTo(cooked, false)
+				}()
+			}
 		}
 		running := rlRunning()
 		// "Restart game" im F8-Menue (Merge): Spiel schliessen und ohne Anti-Cheat neu starten
@@ -590,12 +772,8 @@ func mergeBeforeLaunch(cooked string) {
 	mergeMu.Lock()
 	mergeHoldUntil = time.Time{}
 	derivedNew = map[string]bool{} // das Spiel startet neu und findet alle Pakete
-	// alte Kulissen-Pakete (z. B. von einer aelteren Prism-Version) neu bauen lassen
-	if ds, _ := filepath.Glob(filepath.Join(cooked, "Prism_*_BD.upk")); len(ds) > 0 {
-		for _, d := range ds {
-			os.Remove(d)
-		}
-	}
+	// alle Pakete fuer die Kombinationen in den Spielordner (das Spiel kennt beim Start dann alle)
+	preparePackages(cooked)
 	stats := loadMergeStats()
 	for f, s := range stats { // alles neu anwenden
 		s.State = ""

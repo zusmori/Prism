@@ -43,26 +43,146 @@ func (p *Package) vecProp(d []byte, prop string) (x, y, z float64, ok bool) {
 
 func farFactor(x, y float64) float64 { return math.Max(math.Abs(x)/fieldX, math.Abs(y)/fieldY) }
 
+// Ende der Eigenschaften eines Objekts (nach "None"), -1 = nicht verstanden
+func (p *Package) propsEnd(d []byte, start int) int {
+	none := p.FindName("None")
+	o := start
+	for o+8 <= len(d) {
+		if int32(binary.LittleEndian.Uint32(d[o:])) == none {
+			return o + 8
+		}
+		if o+24 > len(d) {
+			return -1
+		}
+		typ := p.NameOf(int32(binary.LittleEndian.Uint32(d[o+8:])), 0)
+		size := int(int32(binary.LittleEndian.Uint32(d[o+16:])))
+		if size < 0 || size > len(d) {
+			return -1
+		}
+		extra := 0
+		switch typ {
+		case "StructProperty", "ByteProperty":
+			extra = 8
+		case "BoolProperty":
+			extra = 1
+		}
+		o += 24 + extra + size
+	}
+	return -1
+}
+
+// Groesse eines Meshes (aus der Map selbst; fuer Meshes aus anderen Paketen unbekannt)
+type meshBox struct {
+	ox, oy, ex, ey float64
+	ok             bool
+}
+
+func (p *Package) meshBounds(idx int32) meshBox {
+	if p.boxes == nil {
+		p.boxes = map[int32]meshBox{}
+	}
+	if b, ok := p.boxes[idx]; ok {
+		return b
+	}
+	var b meshBox
+	if idx > 0 && int(idx) <= len(p.Exports) && p.ClassOf(&p.Exports[idx-1]) == "StaticMesh" {
+		d := p.Data(&p.Exports[idx-1])
+		if end := p.propsEnd(d, 4); end > 0 && end+28 <= len(d) {
+			f := func(o int) float64 { return float64(math.Float32frombits(binary.LittleEndian.Uint32(d[end+o:]))) }
+			b = meshBox{f(0), f(4), f(12), f(16), true}
+			if math.IsNaN(b.ex) || math.IsNaN(b.ey) || b.ex < 0 || b.ey < 0 || b.ex > 1e8 {
+				b = meshBox{}
+			}
+		}
+	}
+	p.boxes[idx] = b
+	return b
+}
+
+func (p *Package) floatProp(d []byte, prop string, def float64) float64 {
+	if vo, _, ok := p.propValue(d, prop, "FloatProperty"); ok && vo+4 <= len(d) {
+		return float64(math.Float32frombits(binary.LittleEndian.Uint32(d[vo:])))
+	}
+	return def
+}
+
 // Gehoert dieses Bauteil (StaticMeshComponent) zur Kulisse?
+//   - Mitte des Meshes weiter als das Doppelte des Spielfelds weg
+//   - riesig (Gelaende, Stadt, Wasseroberflaeche ...)
+//   - ganz ausserhalb des Spielfelds und ein Stueck weg (Baeume, Laternen, Baenke am Rand)
+//   - Himmel bleibt immer bei der Arena
 func (p *Package) backdropComp(idx int32) bool {
 	if idx <= 0 || int(idx) > len(p.Exports) {
 		return false
 	}
-	e := &p.Exports[idx-1]
-	d := p.Data(e)
+	d := p.Data(&p.Exports[idx-1])
 	x, y, _, ok := p.vecProp(d, "Translation")
 	if !ok {
 		return false
 	}
 	mesh := ""
+	mi := int32(0)
 	if vo, _, ok := p.propValue(d, "StaticMesh", "ObjectProperty"); ok && vo+4 <= len(d) {
-		mesh = strings.ToLower(p.objPath(int32(binary.LittleEndian.Uint32(d[vo:]))))
+		mi = int32(binary.LittleEndian.Uint32(d[vo:]))
+		mesh = strings.ToLower(p.objPath(mi))
 	}
 	if strings.Contains(mesh, "sky") {
-		return false // Himmel bleibt immer bei der Arena
+		return false
 	}
-	r := farFactor(x, y)
-	return r > 2.0 || (strings.Contains(mesh, "oob") && r > 1.2)
+	b := p.meshBounds(mi)
+	if !b.ok {
+		r := farFactor(x, y)
+		return r > 2.0 || (strings.Contains(mesh, "oob") && r > 1.2)
+	}
+	sc := p.floatProp(d, "Scale", 1)
+	sx, sy := sc, sc
+	if vo, sz, ok := p.propValue(d, "Scale3D", "StructProperty"); ok && sz >= 12 && vo+20 <= len(d) {
+		sx *= float64(math.Float32frombits(binary.LittleEndian.Uint32(d[vo+8:])))
+		sy *= float64(math.Float32frombits(binary.LittleEndian.Uint32(d[vo+12:])))
+	}
+	yaw := 0.0
+	if vo, sz, ok := p.propValue(d, "Rotation", "StructProperty"); ok && sz >= 12 && vo+20 <= len(d) {
+		yaw = float64(int32(binary.LittleEndian.Uint32(d[vo+12:]))) / 65536 * 2 * math.Pi
+	}
+	ox, oy := b.ox*sx, b.oy*sy
+	cx := x + ox*math.Cos(yaw) - oy*math.Sin(yaw)
+	cy := y + ox*math.Sin(yaw) + oy*math.Cos(yaw)
+	ext := math.Max(math.Abs(b.ex*sx), math.Abs(b.ey*sy))
+	ctr := farFactor(cx, cy)
+	near := farFactor(math.Max(0, math.Abs(cx)-ext), math.Max(0, math.Abs(cy)-ext))
+	switch {
+	case ctr > 2.0:
+		return true
+	case ext > 40000:
+		return true
+	case ctr > 1.3 && near > 1.05:
+		return true
+	case strings.Contains(mesh, "oob") && ctr > 1.2:
+		return true
+	}
+	return false
+}
+
+// Einzelne Actors, die zur Kulisse gehoeren (Baeume, Fischschwaerme, Tiere, Lichtreflexe, Nebel ...)
+func (p *Package) backdropActor(a int32) bool {
+	if a <= 0 || int(a) > len(p.Exports) {
+		return false
+	}
+	e := &p.Exports[a-1]
+	c := p.ClassOf(e)
+	lim := 0.0
+	switch c {
+	case "ExponentialHeightFog", "HeightFog":
+		return true // Stimmung (z. B. Wasser bei AquaDome)
+	case "InteractiveFoliageActor":
+		lim = 1.15
+	case "FlockActor_TA", "SkeletalMeshActor", "SkeletalMeshActorMAT", "StaticLensFlareSource", "LensFlareSource", "Emitter", "SplineActor", "InterpActor":
+		lim = 1.5
+	default:
+		return false
+	}
+	x, y, _, ok := p.vecProp(p.Data(e), "Location")
+	return ok && farFactor(x, y) > lim
 }
 
 // Aufbau des Level-Objekts: Actors-Liste und GameSequences (Skripte)
@@ -173,21 +293,49 @@ func (p *Package) collections(l *levelLayout) []collection {
 	return out
 }
 
+// Einzelne Kulissen-Actors (Platz in der Actors-Liste)
+func (p *Package) looseBackdrop(l *levelLayout) []int {
+	var out []int
+	for i, a := range p.actors(l) {
+		if i > 0 && p.backdropActor(a) {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
 // Wie viele Kulissen-Teile stecken direkt in der Map?
 func (p *Package) EmbeddedBackdrop() int {
+	n, _ := p.Classify()
+	return n
+}
+
+// Classify: Kulissen-Teile und uebrige Mesh-Teile (z. B. Spielfeld, Boden)
+func (p *Package) Classify() (backdrop, rest int) {
 	l, err := p.level()
 	if err != nil {
-		return 0
+		return 0, 0
 	}
-	n := 0
 	for _, c := range p.collections(l) {
 		for _, b := range c.backdrop {
 			if b {
-				n++
+				backdrop++
+			} else {
+				rest++
 			}
 		}
 	}
-	return n
+	backdrop += len(p.looseBackdrop(l))
+	// Spielfeld-Teile ausserhalb der Sammel-Objekte (Boden, Waende)
+	for _, a := range p.actors(l) {
+		if a > 0 && int(a) <= len(p.Exports) {
+			switch p.ClassOf(&p.Exports[a-1]) {
+			case "DecalBlockingActor_TA", "GroundStaticMeshActor_TA", "DynamicMeshActor_TA", "GoalVolume_TA", "VehiclePickup_Boost_TA":
+				rest++
+			}
+		}
+	}
+	return
 }
 
 // Liste in einem Sammel-Objekt neu schreiben (nur Teile, fuer die keep true ist)
@@ -233,6 +381,16 @@ func (p *Package) RemoveEmbeddedBackdrop() (int, error) {
 			p.rewriteCollection(c, func(i int) bool { return !c.backdrop[i] })
 		}
 	}
+	// einzelne Kulissen-Actors aus der Actors-Liste nehmen
+	if loose := p.looseBackdrop(l); len(loose) > 0 {
+		le := &p.Exports[l.idx]
+		d := append([]byte(nil), p.Data(le)...)
+		for _, i := range loose {
+			binary.LittleEndian.PutUint32(d[l.actorsOff+4*i:], 0)
+		}
+		le.data = d
+		n += len(loose)
+	}
 	return n, nil
 }
 
@@ -245,6 +403,11 @@ func (p *Package) MakeBackdropPackage() (int, error) {
 	cols := p.collections(l)
 	keepActor := map[int32]bool{}
 	n := 0
+	acts := p.actors(l)
+	for _, i := range p.looseBackdrop(l) {
+		keepActor[acts[i]] = true
+		n++
+	}
 	for _, c := range cols {
 		k := 0
 		for _, b := range c.backdrop {

@@ -12,7 +12,7 @@
 namespace merge {
 
 std::mutex mu;
-std::vector<Arena> list;
+std::vector<Combo> list;
 bool loaded = false;
 unsigned long long launcherSeen = 0;
 
@@ -87,36 +87,28 @@ void Refresh() {
 	std::map<std::string, std::vector<std::string>> reqM, stM;
 	for (auto& r : req) if (r.size() >= 2) reqM[Lower(r[0])] = r;
 	for (auto& r : st) if (r.size() >= 4) stM[Lower(r[0])] = r;
-	std::vector<Arena> out;
-	std::map<std::string, std::string> names;
-	for (auto& c : cat) if (c.size() >= 2) names[Lower(c[0])] = c[1];
+	std::vector<Combo> out;
 	for (auto& c : cat) {
 		if (c.size() < 4) continue;
-		Arena a;
-		a.file = c[0];
-		a.name = c[1];
-		a.backdrop = c[2] == "1";
-		a.base = c[3] == "1";
-		a.own = c.size() > 4 && c[4] == "1";
-		a.lower = Lower(a.name + " " + a.file);
-		auto r = reqM.find(Lower(a.file));
-		if (r != reqM.end()) {
-			a.want = r->second[1];
-			a.replace = r->second.size() > 2 && r->second[2] == "1";
-			auto n = names.find(Lower(a.want));
-			a.wantName = a.want == "-" ? "no backdrop" : n != names.end() ? n->second : a.want;
+		Combo k;
+		k.base = c[0];
+		k.baseName = c[1];
+		k.backdrop = c[2];
+		k.backdropName = c[3];
+		auto r = reqM.find(Lower(k.base));
+		k.active = r != reqM.end() && Lower(r->second[1]) == Lower(k.backdrop);
+		auto s = stM.find(Lower(k.base));
+		if (k.active && s != stM.end() && Lower(s->second[1]) == Lower(k.backdrop)) {
+			k.state = s->second[3];
+			k.stateMsg = s->second.size() > 4 ? s->second[4] : "";
 		}
-		auto s = stM.find(Lower(a.file));
-		if (s != stM.end()) {
-			bool same = Lower(s->second[1]) == Lower(a.want) && (s->second[2] == "1") == a.replace;
-			if (same || a.want.empty()) {
-				a.state = s->second[3];
-				a.stateMsg = s->second.size() > 4 ? s->second[4] : "";
-			}
-		}
-		out.push_back(std::move(a));
+		out.push_back(std::move(k));
 	}
 	std::lock_guard<std::mutex> lk(mu);
+	// gerade angeklickt: bis Prism antwortet "working" behalten
+	for (auto& k : out)
+		for (auto& o : list)
+			if (o.base == k.base && o.backdrop == k.backdrop && o.state == "working" && k.active && k.state.empty()) k.state = "working";
 	list = std::move(out);
 	loaded = !cat.empty();
 	launcherSeen = std::max(catT, statT);
@@ -132,21 +124,23 @@ void Request(const std::string& file, const std::string& backdrop, bool replace)
 	zl::Log("merge: %s <- %s%s", file.c_str(), backdrop.empty() ? "(original)" : backdrop.c_str(), replace ? " (replace)" : "");
 	// sofort anzeigen
 	std::lock_guard<std::mutex> lk(mu);
-	for (auto& a : list)
-		if (Lower(a.file) == Lower(file)) {
-			a.want = backdrop;
-			a.replace = replace;
-			a.state = backdrop.empty() ? "" : "working";
-			a.stateMsg.clear();
-			if (backdrop == "-") a.wantName = "no backdrop";
-			for (auto& b : list) if (Lower(b.file) == Lower(backdrop)) a.wantName = b.name;
+	for (auto& k : list)
+		if (Lower(k.base) == Lower(file)) {
+			k.active = !backdrop.empty() && Lower(k.backdrop) == Lower(backdrop);
+			k.state = k.active ? "working" : "";
+			k.stateMsg.clear();
 		}
+}
+
+void Toggle(const Combo& c) {
+	if (c.active) Request(c.base, "", false);
+	else Request(c.base, c.backdrop, true);
 }
 
 void RestoreAll() {
 	WriteLines(File(L"merge_requests.txt"), {});
 	std::lock_guard<std::mutex> lk(mu);
-	for (auto& a : list) { a.want.clear(); a.state.clear(); }
+	for (auto& k : list) { k.active = false; k.state.clear(); }
 }
 
 unsigned long long restartAsked = 0;
@@ -155,7 +149,7 @@ void RequestRestart() {
 	WriteLines(File(L"merge_restart.txt"), {std::to_string(GetTickCount64())});
 	zl::Log("merge: restart requested");
 }
-bool NeedsRestart(const Arena& a) { return a.state == "pending" && a.stateMsg.find("Restart") != std::string::npos; }
+bool NeedsRestart(const Combo& c) { return c.active && c.state == "pending" && c.stateMsg.find("Restart") != std::string::npos; }
 
 // ---------- Map-Namen aus dem Spiel ----------
 // Die Arenen-Daten (MapData_TA) kennen den Namen, den das Spiel anzeigt. Prism liest die Datei und benennt

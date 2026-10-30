@@ -107,6 +107,7 @@ type Package struct {
 	Exports []Export
 	plain   bool // unverschluesselt/unkomprimiert (z. B. Workshop-Map)
 	newGUID bool // beim Speichern eine neue Paket-GUID vergeben
+	boxes   map[int32]meshBox
 }
 
 type rd struct {
@@ -1010,23 +1011,50 @@ func IsBackdropLevel(name string) bool {
 	return false
 }
 
-// MergeInto: diese Unter-Level in der Arena zusaetzlich laden. replace: die eigene Kulisse der Arena abschalten
-// (eigene OOB-Unter-Level und die Kulissen-Teile, die direkt in der Map stecken).
-func MergeInto(basePath string, add []string, replace bool) ([]byte, error) {
+// MergeInto: diese Unter-Level in der Arena zusaetzlich laden, die Unter-Level in drop nicht mehr.
+// replace: die Kulissen-Teile, die direkt in der Arena-Map stecken, abschalten.
+func MergeInto(basePath string, add, drop []string, replace bool) ([]byte, error) {
 	p, err := Open(basePath)
 	if err != nil {
 		return nil, fmt.Errorf("arena: %v", err)
 	}
-	var drop func(string) bool
+	dropSet := map[string]bool{}
+	for _, d := range drop {
+		dropSet[strings.ToLower(d)] = true
+	}
 	removed := 0
 	if replace {
-		drop = IsBackdropLevel
-		removed, _ = p.RemoveEmbeddedBackdrop() // Maps ohne erkennbares Level: nur die OOB-Unter-Level abschalten
+		removed, _ = p.RemoveEmbeddedBackdrop()
 	}
-	if err := p.AddStreaming(add, drop); err != nil && (len(add) > 0 || removed == 0) {
+	dropFn := func(n string) bool { return dropSet[strings.ToLower(n)] }
+	if err := p.AddStreaming(add, dropFn); err != nil && (len(add) > 0 || len(drop) > 0 || removed == 0) {
 		return nil, err
 	}
 	return p.Bytes()
+}
+
+// BuildNoBackdropPackage: Kopie eines Unter-Levels ohne seine Kulissen-Teile (Boden, Spielfeld usw. bleiben)
+func BuildNoBackdropPackage(srcPath string) ([]byte, error) {
+	p, err := Open(srcPath)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := p.RemoveEmbeddedBackdrop(); err != nil {
+		return nil, err
+	}
+	p.newGUID = true
+	p.key = allKeys()[0] // neuer Paketname: das Spiel nimmt den Standard-Schluessel
+	return p.Bytes()
+}
+
+// ClassifyFile: Kulissen-Teile und uebrige Teile einer Map-Datei
+func ClassifyFile(path string) (backdrop, rest int, err error) {
+	p, err := Open(path)
+	if err != nil {
+		return 0, 0, err
+	}
+	b, r := p.Classify()
+	return b, r, nil
 }
 
 // BuildBackdropPackage: Kopie der Map nur mit ihrer eingebauten Kulisse (als Unter-Level fuer andere Arenen)
