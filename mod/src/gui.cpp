@@ -1320,7 +1320,6 @@ static void ThumbHolder(ImDrawList* d, ImVec2 a, ImVec2 b, unsigned seed) {
 
 
 // ---------- Kulissen (im Maps-Reiter): feste Kombinationen aus Arena + Kulisse einer anderen Map ----------
-static float mgScroll = 0, mgLast = -1;
 struct MergeAction { int kind = 0; std::string base, backdrop, arenaU8; };
 
 // kleines Symbol: zwei Berge
@@ -1351,13 +1350,12 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 		if (k.active) anyActive = true;
 		if (merge::NeedsRestart(k)) needRestart = true;
 	}
-	const float x0 = o.x + pad, w = W.x - 2 * pad - 12;
+	const float x0 = o.x + pad, w = W.x - 2 * pad;
 	Text(dl, fSmall, ImVec2(x0 + 2, o.y + top + 4), cMuted, "Keep the field of an arena and swap everything around it for the scenery of another map.");
-	float ly = top + 30;
-	float bottom = 62;
+	float ly = top + 28;
+	float bottom = 58;
 	ImGui::SetCursorScreenPos(ImVec2(x0 - 4, o.y + ly));
-	ImGui::BeginChild("bdlist", ImVec2(w + 8, W.y - ly - bottom), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
-	SmoothScroll(mgScroll, mgLast);
+	ImGui::BeginChild("bdlist", ImVec2(w + 8, W.y - ly - bottom), false, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
 	ImDrawList* cd = ImGui::GetWindowDrawList();
 	const float cw = w, chH = 38;
 	for (size_t bi = 0; bi < bases.size(); bi++) {
@@ -1368,7 +1366,7 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 			if (k.base == base) { baseName = k.baseName; if (k.active) on = &k; }
 		ImVec2 p = ImGui::GetCursorScreenPos();
 		p.x += 4;
-		const float cardH = 128;
+		const float cardH = 116;
 		ImVec2 q(p.x + cw, p.y + cardH);
 		float act01 = Anim(ImGui::GetID(("bdc" + base).c_str()), on ? 1.0f : 0.0f, 14.0f);
 		cd->AddRectFilled(p, q, U(Mix(cPanel, cPanel2, 0.6f)), 16);
@@ -1411,7 +1409,7 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 			ImGui::PopID();
 		}
 		// Kulissen zur Auswahl
-		float cx = ic.x + TextW(fTiny, "SCENERY FROM") + 16, cy = p.y + 74;
+		float cx = ic.x + TextW(fTiny, "SCENERY FROM") + 16, cy = p.y + 66;
 		Text(cd, fTiny, ImVec2(ic.x, cy + chH / 2 - fTiny->FontSize / 2 - 1), cFaint, "SCENERY FROM");
 		for (size_t i = 0; i < L.size(); i++) {
 			auto& k = L[i];
@@ -1438,7 +1436,7 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 			Text(cd, fBold, ImVec2(a.x + 32, a.y + (chH - fBold->FontSize) / 2 - 1), s > 0.5f ? Rgb(255, 255, 255) : Mix(Hex(0xc9c9d3), cText, h), k.backdropName.c_str());
 			cx += chW + 8;
 		}
-		ImGui::SetCursorScreenPos(ImVec2(p.x - 4, q.y + 12));
+		ImGui::SetCursorScreenPos(ImVec2(p.x - 4, q.y + 10));
 		ImGui::Dummy(ImVec2(cw, 0));
 	}
 	ImGui::Dummy(ImVec2(0, 6));
@@ -1902,10 +1900,8 @@ static void ToggleCard(ImDrawList* dl, int i, ImVec2 a, float cw) {
 struct TweakMix { const char* name; float v[5]; };
 static const TweakMix kMixes[] = {
 	{"Normal", {1, 1, 1, 1, 1}},
-	{"Slow-mo", {0.5f, 1, 1, 1, 1}},
-	{"Moon ball", {1, 1, 1, 0.3f, 1.3f}},
-	{"Mega ball", {1, 1, 2.5f, 1, 1}},
-	{"Bouncy", {1, 1.3f, 1, 1, 2.2f}},
+	{"Boomer Ball", {1, 2.0f, 1, 1, 1.5f}},
+	{"Slo-mo", {0.5f, 1, 1, 1, 1}},
 };
 
 static void TweaksBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, bool& resetAll) {
@@ -1936,7 +1932,7 @@ static void TweaksBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad,
 	}
 	section(lx, y, "QUICK SETUPS"); y += 20;
 	{
-		ImVec2 qa(lx, y), qb(lx + colW, o.y + listTop + 62 + 20 + 4 * 86 + 3 * 12);
+		ImVec2 qa(lx, y), qb(lx + colW, y + 86);
 		dl->AddRectFilled(qa, qb, U(Alpha(cPanel, 0.92f)), 14);
 		dl->AddRect(qa, qb, U(cLine), 14, 0, 1.0f);
 		Text(dl, fSmall, ImVec2(lx + 16, y + 12), cMuted, "Set several sliders at once.");
@@ -1971,6 +1967,34 @@ static void TweaksBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad,
 		SliderCard(dl, i, ImVec2(rx, y), colW); y += 86 + 12;
 	}
 	Text(dl, fTiny, ImVec2(lx + 2, o.y + W.y - 24), cFaint, "Double-click a slider to set it back to normal.");
+}
+
+// Im Spiel gesperrt: Hinweis ueber dem ausgegrauten Inhalt (ueber allen Unterfenstern)
+static void LockOverlay(ImVec2 o, ImVec2 W, float top, float e) {
+	ImDrawList* d = ImGui::GetForegroundDrawList();
+	ImVec2 a(o.x + 1, o.y + top + 1), b(o.x + W.x - 1, o.y + W.y - 1);
+	d->PushClipRect(a, b, true);
+	d->AddRectFilled(a, b, ImGui::GetColorU32(Alpha(cBg, 0.45f * e)), 19, ImDrawFlags_RoundCornersBottom);
+	const char* t1 = "Only in the main menu";
+	const char* t2 = "Leave the game to change items, colors and presets.";
+	float w = std::max(TextW(fBold, t1), TextW(fSmall, t2)) + 76;
+	ImVec2 c(o.x + W.x / 2, o.y + top + (W.y - top) / 2);
+	ImVec2 p(c.x - w / 2, c.y - 36), q(c.x + w / 2, c.y + 36);
+	for (int i = 1; i <= 3; i++) d->AddRectFilled(ImVec2(p.x - i * 2, p.y - i), ImVec2(q.x + i * 2, q.y + i * 3), ImGui::GetColorU32(Rgb(0, 0, 0, 0.10f * e)), 18 + i * 2);
+	d->AddRectFilled(p, q, ImGui::GetColorU32(Alpha(cPanel2, 0.97f * e)), 18);
+	GradRect(d, p, q, 18, spec[0], spec[2], 0.10f * e);
+	d->AddRect(p, q, ImGui::GetColorU32(Alpha(spec[1], 0.40f * e)), 18, 0, 1.0f);
+	// Schloss
+	ImVec2 l(p.x + 30, c.y);
+	ImU32 lc = ImGui::GetColorU32(Alpha(Mix(accent, Rgb(255, 255, 255), 0.5f), e));
+	d->AddRectFilled(ImVec2(l.x - 8, l.y - 2), ImVec2(l.x + 8, l.y + 10), lc, 3);
+	d->PathArcTo(ImVec2(l.x, l.y - 3), 5.0f, 3.14159f, 6.28318f, 12);
+	d->PathStroke(lc, 0, 2.0f);
+	d->AddLine(ImVec2(l.x - 5, l.y - 3), ImVec2(l.x - 5, l.y - 1), lc, 2.0f);
+	d->AddLine(ImVec2(l.x + 5, l.y - 3), ImVec2(l.x + 5, l.y - 1), lc, 2.0f);
+	d->AddText(fBold, fBold->FontSize, ImVec2(p.x + 54, c.y - 21), ImGui::GetColorU32(Alpha(cText, e)), t1);
+	d->AddText(fSmall, fSmall->FontSize, ImVec2(p.x + 54, c.y + 2), ImGui::GetColorU32(Alpha(cMuted, e)), t2);
+	d->PopClipRect();
 }
 
 // kleine Symbole fuer die Reiter (selbst gezeichnet)
@@ -2200,7 +2224,7 @@ void Render(bool* open) {
 	}
 
 	// Zuruecksetzen (zweimal klicken): alles wieder auf deine echten Items (nicht im Reiter Maps)
-	if (tab != 3 && tab != 4 && tab != 5) {
+	if (tab != 3 && tab != 4 && tab != 5 && !items::InMatch()) {
 		bool any = !items::overrides.empty() || !items::paints.empty() || items::colorsOn;
 		{
 			std::lock_guard<std::mutex> ck(customs::mu);
@@ -2364,9 +2388,18 @@ void Render(bool* open) {
 
 	tabFade = Approach(tabFade, 1.0f, 12.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e * EaseOut(tabFade));
+	// Im Spiel (Freeplay, Match ...): Items, Farben und Presets nur ansehen, aendern geht im Hauptmenue
+	const bool menuLocked = items::InMatch();
+	if (menuLocked) ImGui::BeginDisabled();
+	auto unlockBody = [&]() {
+		if (!menuLocked) return;
+		ImGui::EndDisabled();
+		LockOverlay(o, W, top, e);
+	};
 	if (tab == 2) {
 		ColorAction ca;
 		ColorsBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, ca);
+		unlockBody();
 		ImGui::PopStyleVar();
 		lk.unlock();
 		ImGui::End();
@@ -2379,6 +2412,7 @@ void Render(bool* open) {
 	if (tab == 1) {
 		int action = 0, idx = -1;
 		PresetsBody(dl, ImVec2(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f), W, top, pad, action, idx);
+		unlockBody();
 		ImGui::PopStyleVar();
 		std::string name = presetName;
 		lk.unlock();
@@ -2636,6 +2670,7 @@ void Render(bool* open) {
 	}
 	ImGui::EndChild();
 	ImGui::PopStyleVar();
+	unlockBody();
 	ImGui::PopStyleVar(); // Reiter-Einblendung
 
 	lk.unlock();

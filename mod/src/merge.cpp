@@ -132,9 +132,17 @@ void Request(const std::string& file, const std::string& backdrop, bool replace)
 		}
 }
 
+// immer nur eine Kulisse gleichzeitig: eine neue ersetzt alle anderen
 void Toggle(const Combo& c) {
-	if (c.active) Request(c.base, "", false);
-	else Request(c.base, c.backdrop, true);
+	if (c.active) { Request(c.base, "", false); return; }
+	WriteLines(File(L"merge_requests.txt"), {c.base + "\t" + c.backdrop + "\t1"});
+	zl::Log("merge: %s <- %s (only this one)", c.base.c_str(), c.backdrop.c_str());
+	std::lock_guard<std::mutex> lk(mu);
+	for (auto& k : list) {
+		k.active = k.base == c.base && k.backdrop == c.backdrop;
+		k.state = k.active ? "working" : "";
+		k.stateMsg.clear();
+	}
 }
 
 void RestoreAll() {

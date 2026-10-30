@@ -217,10 +217,13 @@ func gameMapNames() map[string]string {
 type mergeCombo struct{ Base, Backdrop string }
 
 var mergeCombos = []mergeCombo{
+	{"Farm_GRS_P.upk", "Underwater_P.upk"},
 	{"Farm_GRS_P.upk", "Park_Snowy_P.upk"},
+	{"Farm_GRS_P.upk", "Street_P.upk"},
 	{"Park_Night_P.upk", "Underwater_P.upk"},
-	{"Outlaw_Oasis_P.upk", "Park_Snowy_P.upk"},
+	{"Park_Night_P.upk", "Street_P.upk"},
 	{"Outlaw_Oasis_P.upk", "Underwater_P.upk"},
+	{"Outlaw_Oasis_P.upk", "Park_Snowy_P.upk"},
 	{"Outlaw_Oasis_P.upk", "Street_P.upk"},
 }
 
@@ -621,6 +624,20 @@ func mergeSync(cooked string) {
 		return
 	}
 	wants := loadMergeWants()
+	// immer nur eine Kulisse gleichzeitig: die zuletzt gewuenschte (letzte Zeile der Datei) gilt
+	if len(wants) > 1 {
+		last := ""
+		for _, l := range readLines(mergeReqFile) {
+			if len(l) >= 2 && l[0] != "" {
+				last = l[0]
+			}
+		}
+		for f := range wants {
+			if f != last {
+				delete(wants, f)
+			}
+		}
+	}
 	stats := loadMergeStats()
 	out := map[string]mergeStat{}
 	// nicht mehr gewuenscht: zuruecksetzen
