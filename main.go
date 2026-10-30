@@ -721,6 +721,8 @@ func main() {
 	})
 	w.Bind("setFolder", func(p string) error { return app.SetFolder(p) })
 	w.Bind("isRLRunning", func() bool { return rlRunning() })
+	w.Bind("getCamera", func() CameraState { return GetCamera() })
+	w.Bind("setCamera", func(v map[string]float64) error { return SetCamera(v) })
 
 	// ---- Browse Maps / Downloads / Favoriten ----
 	w.Bind("recommendedAsync", func(id int) {

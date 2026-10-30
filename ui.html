@@ -1006,6 +1006,16 @@
   .fhint a{color:rgb(var(--ac2-rgb));cursor:pointer;font-weight:600}
   /* API-Key in den Settings */
   .keyrow{display:flex;gap:8px;align-items:center;flex:none}
+  .camgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;padding:4px 14px 14px;border-top:1px solid var(--line)}
+  .camgrid .cmsg{grid-column:1/-1;color:var(--faint);font-size:12.5px;padding-top:10px}
+  .camf{background:var(--bg);border:1px solid var(--line2);border-radius:11px;padding:8px 8px 6px 11px;margin-top:10px;transition:border-color .15s,box-shadow .15s}
+  .camf.chg{border-color:rgb(var(--ac-rgb) / .55);box-shadow:0 0 0 3px var(--accent-soft)}
+  .camf label{display:block;font-size:10.5px;color:var(--faint);font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+  .camf .cin{display:flex;align-items:center;gap:4px;margin-top:2px}
+  .camf input{flex:1;min-width:0;width:100%;background:none;border:0;color:var(--text);font:inherit;font-size:17px;font-weight:700;outline:none;padding:2px 0}
+  .camf button{flex:none;width:24px;height:24px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);color:var(--muted);cursor:pointer;font:inherit;font-size:14px;line-height:1}
+  .camf button:hover{color:var(--text);border-color:rgb(var(--ac-rgb) / .45)}
+  .camf small{display:block;font-size:10.5px;color:var(--faint);margin-top:2px}
   .keyrow input{width:190px;height:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);
     font:inherit;font-size:12.5px;font-family:Consolas,monospace;outline:none;user-select:text;transition:border-color .2s,box-shadow .2s}
   .keyrow input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -1491,6 +1501,12 @@
           <div class="tx"><b>Swapped arenas</b><small id="swList">No arena swapped. Press <b class="kbd mkey">F8</b> in Rocket League → Maps.</small></div>
           <button class="sbtn" id="swRestore" disabled>Restore all</button></div>
       </div></div>
+      <div class="ssec" id="secCam"><h4>Camera</h4><div class="sgrp">
+        <div class="srow nohov"><span class="sic gi" data-ic="cam"></span>
+          <div class="tx"><b>Exact camera settings</b><small id="camHint">Set your camera in exact steps, like height 87. Saved in your Rocket League profile, so it works with and without Anti-Cheat.</small></div>
+          <button class="sbtn" id="camSave" disabled>Save</button></div>
+        <div class="camgrid" id="camGrid"></div>
+      </div></div>
       <div class="ssec"><h4>Performance</h4><div class="sgrp">
         <div class="srow" id="setBoost" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="bolt"></span>
           <div class="tx"><b>Game Boost <span class="spill" id="boostPill"></span></b><small>More performance while you play. Everything goes back to normal when the game closes.</small></div><span class="tg" id="tgBoost"></span></div>
@@ -1770,6 +1786,53 @@ $('swRestore').onclick = async () => {
 };
 window.addEventListener('focus', () => refresh());
 document.addEventListener('contextmenu', e => { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
+
+/* ---------- Kamera (exakte Werte im Rocket-League-Profil) ---------- */
+const CAM = [
+  {k: 'fov', n: 'Field of view', min: 60, max: 110, step: 1},
+  {k: 'height', n: 'Height', min: 40, max: 200, step: 1},
+  {k: 'angle', n: 'Angle', min: -15, max: 0, step: 0.1},
+  {k: 'distance', n: 'Distance', min: 100, max: 400, step: 1},
+  {k: 'stiffness', n: 'Stiffness', min: 0, max: 1, step: 0.01},
+  {k: 'swivel', n: 'Swivel speed', min: 1, max: 10, step: 0.01},
+  {k: 'transition', n: 'Transition speed', min: 1, max: 2, step: 0.01},
+];
+const cam = {orig: null, vals: {}};
+const camFmt = (c, v) => { const d = c.step < 0.1 ? 2 : c.step < 1 ? 1 : 0; return (+v).toFixed(d); };
+function paintCam(msg){
+  const g = $('camGrid'); g.innerHTML = '';
+  if (!cam.orig){ g.innerHTML = '<div class="cmsg"></div>'; g.firstChild.textContent = msg || 'Loading …'; $('camSave').disabled = true; return; }
+  CAM.forEach(c => {
+    if (!(c.k in cam.orig)) return;
+    const f = document.createElement('div'); f.className = 'camf';
+    f.innerHTML = '<label></label><div class="cin"><input inputmode="decimal" spellcheck="false"><button aria-label="Less">−</button><button aria-label="More">+</button></div><small></small>';
+    f.querySelector('label').textContent = c.n;
+    f.querySelector('small').textContent = camFmt(c, c.min) + ' to ' + camFmt(c, c.max);
+    const inp = f.querySelector('input'), [minus, plus] = f.querySelectorAll('button');
+    const show = () => { inp.value = camFmt(c, cam.vals[c.k]); f.classList.toggle('chg', Math.abs(cam.vals[c.k] - cam.orig[c.k]) > 1e-6); camDirty(); };
+    const set = v => { if (isNaN(v)) return show(); v = Math.min(c.max, Math.max(c.min, Math.round(v / c.step) * c.step)); cam.vals[c.k] = +v.toFixed(2); show(); };
+    inp.onchange = () => set(parseFloat(inp.value.replace(',', '.')));
+    inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'ArrowUp'){ e.preventDefault(); set(cam.vals[c.k] + c.step); } if (e.key === 'ArrowDown'){ e.preventDefault(); set(cam.vals[c.k] - c.step); } };
+    minus.onclick = () => { Sfx.ui('tick'); set(cam.vals[c.k] - c.step); };
+    plus.onclick = () => { Sfx.ui('tick'); set(cam.vals[c.k] + c.step); };
+    show(); g.appendChild(f);
+  });
+}
+function camDirty(){ $('camSave').disabled = !cam.orig || !CAM.some(c => c.k in cam.orig && Math.abs(cam.vals[c.k] - cam.orig[c.k]) > 1e-6); }
+async function loadCam(){
+  if (!has('getCamera')) return paintCam('Not available in preview.');
+  if (cam.orig && !$('camSave').disabled) return;   // ungespeicherte Aenderungen nicht ueberschreiben
+  try {
+    const st = await getCamera();
+    if (!st || !st.found){ cam.orig = null; return paintCam(st && st.err ? st.err : 'No Rocket League profile found. Start the game once first.'); }
+    cam.orig = Object.assign({}, st.values); cam.vals = Object.assign({}, st.values); paintCam();
+  } catch (e) { cam.orig = null; paintCam(String(e)); }
+}
+$('camSave').onclick = async () => {
+  const b = $('camSave'); if (b.disabled) return; b.disabled = true;
+  try { await setCamera(cam.vals); cam.orig = Object.assign({}, cam.vals); paintCam(); toast('Camera saved to your Rocket League profile.', true); Sfx.ui('swap'); }
+  catch (e) { toast(e, false); Sfx.ui('error'); camDirty(); }
+};
 
 /* ---------- Einstellungen ---------- */
 const settings = {keepSwaps: false, mute: false, theme: 'prism', steamKey: '', trayOnPlay: true, itemMod: true,
@@ -2062,7 +2125,7 @@ function setTab(t){
   heroPlay(t === 'vHome');
 
   if (t === 'vBrowse'){ loadRec(); if (!browse.loaded) loadBrowse(true); }
-  if (t === 'vSet'){ resetVerBtn(); pollPresence(); pollBoost(); refresh(); }
+  if (t === 'vSet'){ resetVerBtn(); pollPresence(); pollBoost(); refresh(); loadCam(); }
 }
 document.querySelectorAll('#tabs .tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 window.addEventListener('resize', () => {
@@ -2083,6 +2146,7 @@ document.fonts && document.fonts.ready.then(() => inkRO.takeRecords && moveInk($
 /* ---------- Browse Maps ---------- */
 // Outline-Icons (leuchten per CSS-Glow)
 const ICONS = {
+  cam:    '<rect x="1.8" y="4.6" width="9" height="7.4" rx="1.8"/><path d="M10.8 7.2l3.4-1.9v6l-3.4-1.9"/>',
   kbd:    '<rect x="1.8" y="4" width="12.4" height="8.4" rx="1.8"/><path d="M4.5 6.6h.1M7 6.6h.1M9.5 6.6h.1M12 6.6h.1M4.5 9.8h7"/>',
   search: '<circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5l3.4 3.4"/>',
   flame:  '<path d="M8 14.4c-2.7 0-4.6-1.9-4.6-4.4 0-2.7 2.1-3.9 2.7-6.9 1.5 1 2.4 2.5 2.4 3.8.7-.5 1.2-1.3 1.4-2.3 1.7 1.4 2.8 3.2 2.8 5.4 0 2.5-1.9 4.4-4.7 4.4z"/><path d="M8 14.4c-1.1 0-1.9-.8-1.9-1.9 0-1.2.9-1.8 1.4-2.9.9.7 2.4 1.6 2.4 2.9 0 1.1-.8 1.9-1.9 1.9z"/>',
