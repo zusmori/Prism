@@ -484,7 +484,7 @@ func (a *App) parkSwaps() error {
 	}
 	_ = saveJSON(swapParkedFile, parked)
 	logf("swaps: parked %d", len(parked))
-	return a.Restore()
+	return a.restoreSwaps()
 }
 
 func (a *App) unparkSwaps() {
@@ -520,7 +520,13 @@ func (a *App) restoreOne(swaps map[string]string, f string) (missing bool, err e
 	return false, nil
 }
 
+// Restore: "Restore all" im Launcher - auch die gemerkten Swaps vergessen (kommen nicht wieder)
 func (a *App) Restore() error {
+	os.Remove(swapParkedFile)
+	return a.restoreSwaps()
+}
+
+func (a *App) restoreSwaps() error {
 	if err := canTouchFiles(); err != nil {
 		return err
 	}
