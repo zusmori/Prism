@@ -1006,16 +1006,27 @@
   .fhint a{color:rgb(var(--ac2-rgb));cursor:pointer;font-weight:600}
   /* API-Key in den Settings */
   .keyrow{display:flex;gap:8px;align-items:center;flex:none}
-  .camgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;padding:4px 14px 14px;border-top:1px solid var(--line)}
+  .camact{display:flex;align-items:center;gap:8px;flex:none}
+  .camgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;padding:6px 16px 14px;border-top:1px solid var(--line)}
   .camgrid .cmsg{grid-column:1/-1;color:var(--faint);font-size:12.5px;padding-top:10px}
-  .camf{background:var(--bg);border:1px solid var(--line2);border-radius:11px;padding:8px 8px 6px 11px;margin-top:10px;transition:border-color .15s,box-shadow .15s}
-  .camf.chg{border-color:rgb(var(--ac-rgb) / .55);box-shadow:0 0 0 3px var(--accent-soft)}
-  .camf label{display:block;font-size:10.5px;color:var(--faint);font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-  .camf .cin{display:flex;align-items:center;gap:4px;margin-top:2px}
-  .camf input{flex:1;min-width:0;width:100%;background:none;border:0;color:var(--text);font:inherit;font-size:17px;font-weight:700;outline:none;padding:2px 0}
-  .camf button{flex:none;width:24px;height:24px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);color:var(--muted);cursor:pointer;font:inherit;font-size:14px;line-height:1}
-  .camf button:hover{color:var(--text);border-color:rgb(var(--ac-rgb) / .45)}
-  .camf small{display:block;font-size:10.5px;color:var(--faint);margin-top:2px}
+  .camcol h5{margin:12px 0 4px;font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--faint)}
+  .camr{display:grid;grid-template-columns:116px 1fr 60px;align-items:center;gap:12px;height:42px}
+  .camr .cl{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:7px;transition:color .2s}
+  .camr .cl i{width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:0;transform:scale(.4);transition:opacity .2s,transform .3s var(--spring);box-shadow:0 0 8px rgb(var(--ac-rgb) / .8)}
+  .camr.chg .cl{color:var(--text)} .camr.chg .cl i{opacity:1;transform:none}
+  .camr input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;cursor:pointer;margin:0;
+    --p:50%}
+  .camr input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;
+    background:linear-gradient(90deg,rgb(var(--ac-rgb)) 0,rgb(var(--ac3-rgb)) var(--p),rgb(255 255 255 / .09) var(--p))}
+  .camr input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;margin-top:-5px;border-radius:50%;background:#fff;
+    border:2px solid rgb(var(--ac-rgb));box-shadow:0 0 0 0 rgb(var(--ac-rgb) / .25);transition:box-shadow .2s,transform .2s var(--spring)}
+  .camr input[type=range]:hover::-webkit-slider-thumb{box-shadow:0 0 0 6px rgb(var(--ac-rgb) / .18)}
+  .camr input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
+  .camr input.cv{width:60px;height:30px;text-align:center;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--text);
+    font:inherit;font-size:13.5px;font-weight:700;outline:none;font-variant-numeric:tabular-nums;transition:border-color .2s,box-shadow .2s}
+  .camr input.cv:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
+  .camr.chg input.cv{border-color:rgb(var(--ac-rgb) / .45)}
+  @media (max-width:900px){ .camgrid{grid-template-columns:1fr} }
   .keyrow input{width:190px;height:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);
     font:inherit;font-size:12.5px;font-family:Consolas,monospace;outline:none;user-select:text;transition:border-color .2s,box-shadow .2s}
   .keyrow input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -1381,9 +1392,9 @@
   .kin input{flex:1;min-width:0;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none;transition:border-color .2s,box-shadow .2s}
   .kin input:focus{border-color:rgb(var(--ac-rgb) / .5);box-shadow:0 0 0 3px var(--accent-soft)}
   .kin input.bad{border-color:var(--err)}
-  .kft{display:flex;align-items:center;margin-top:16px;padding-left:2px}
+  .kft{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-left:2px}
   .knote{font-size:12.5px;color:var(--faint)}
-  .kchk{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:var(--muted);user-select:none;transition:color .2s}
+  .kchk{display:inline-flex;align-items:center;gap:9px;white-space:nowrap;flex:none;cursor:pointer;font-size:12.5px;color:var(--muted);user-select:none;transition:color .2s}
   .kchk:hover{color:var(--text)}
   .kchk input{position:absolute;opacity:0;pointer-events:none}
   .kbx{width:18px;height:18px;border-radius:6px;border:1.5px solid #44434f;display:grid;place-items:center;transition:background .2s,border-color .2s,box-shadow .25s,transform .3s var(--spring)}
@@ -1496,15 +1507,15 @@
       <div class="ssec" id="secGame"><h4>In game</h4><div class="sgrp">
         <div class="srow nohov" id="rowKey"><span class="sic gi" data-ic="kbd"></span>
           <div class="tx"><b>Menu key</b><small id="keyHint">The key that opens the Prism menu in game. It's always there when you play without Anti-Cheat.</small></div>
-          <div class="kset"><button class="kreset hide" id="keyReset" title="Back to F8">Reset</button><button class="keycap" id="keyCap" aria-label="Change menu key"><span class="kl" id="keyLbl">F8</span></button></div></div>
+          <div class="kset"><button class="kreset hide" id="keyReset" title="Back to F2">Reset</button><button class="keycap" id="keyCap" aria-label="Change menu key"><span class="kl" id="keyLbl">F2</span></button></div></div>
         <div class="srow nohov"><span class="sic gi" data-ic="swap"></span>
-          <div class="tx"><b>Swapped arenas</b><small id="swList">No arena swapped. Press <b class="kbd mkey">F8</b> in Rocket League → Maps.</small></div>
+          <div class="tx"><b>Swapped arenas</b><small id="swList">No arena swapped. Press <b class="kbd mkey">F2</b> in Rocket League → Maps.</small></div>
           <button class="sbtn" id="swRestore" disabled>Restore all</button></div>
       </div></div>
       <div class="ssec" id="secCam"><h4>Camera</h4><div class="sgrp">
         <div class="srow nohov"><span class="sic gi" data-ic="cam"></span>
-          <div class="tx"><b>Exact camera settings</b><small id="camHint">Set your camera in exact steps, like height 87. Saved in your Rocket League profile, so it works with and without Anti-Cheat.</small></div>
-          <button class="sbtn" id="camSave" disabled>Save</button></div>
+          <div class="tx"><b>Exact camera settings</b><small id="camHint">Exact steps, like height 87. Saved in your Rocket League profile, so it works with and without Anti-Cheat. Close the game to save.</small></div>
+          <div class="camact"><button class="kreset hide" id="camUndo">Undo</button><button class="sbtn go" id="camSave" disabled>Save</button></div></div>
         <div class="camgrid" id="camGrid"></div>
       </div></div>
       <div class="ssec"><h4>Performance</h4><div class="sgrp">
@@ -1702,7 +1713,8 @@
         <div class="kstep"><span class="kn">2</span><div class="kin"><input id="kaKey" type="password" placeholder="Paste your key here" maxlength="64" spellcheck="false" autocomplete="off"><button class="sbtn go" id="kaSave">Save</button></div></div>
       </div>
       <div class="kft">
-        <span class="knote">Not now? Prism asks again tomorrow.</span>
+        <span class="knote" id="kNote">Not now? Prism asks again tomorrow.</span>
+        <label class="kchk" id="kNeverL"><input type="checkbox" id="kNever"><span class="kbx"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2.6 6.3l2.3 2.3 4.6-4.9"/></svg></span>Don't remind me again</label>
       </div>
     </div>
   </div>
@@ -1789,36 +1801,50 @@ document.addEventListener('contextmenu', e => { if (e.target.tagName !== 'INPUT'
 
 /* ---------- Kamera (exakte Werte im Rocket-League-Profil) ---------- */
 const CAM = [
-  {k: 'fov', n: 'Field of view', min: 60, max: 110, step: 1},
-  {k: 'height', n: 'Height', min: 40, max: 200, step: 1},
-  {k: 'angle', n: 'Angle', min: -15, max: 0, step: 0.1},
-  {k: 'distance', n: 'Distance', min: 100, max: 400, step: 1},
-  {k: 'stiffness', n: 'Stiffness', min: 0, max: 1, step: 0.01},
-  {k: 'swivel', n: 'Swivel speed', min: 1, max: 10, step: 0.01},
-  {k: 'transition', n: 'Transition speed', min: 1, max: 2, step: 0.01},
+  {k: 'fov', n: 'Field of view', min: 60, max: 110, step: 1, g: 0},
+  {k: 'distance', n: 'Distance', min: 100, max: 400, step: 1, g: 0},
+  {k: 'height', n: 'Height', min: 40, max: 200, step: 1, g: 0},
+  {k: 'angle', n: 'Angle', min: -15, max: 0, step: 0.1, g: 0},
+  {k: 'stiffness', n: 'Stiffness', min: 0, max: 1, step: 0.01, g: 1},
+  {k: 'swivel', n: 'Swivel speed', min: 1, max: 10, step: 0.01, g: 1},
+  {k: 'transition', n: 'Transition speed', min: 1, max: 2, step: 0.01, g: 1},
 ];
 const cam = {orig: null, vals: {}};
 const camFmt = (c, v) => { const d = c.step < 0.1 ? 2 : c.step < 1 ? 1 : 0; return (+v).toFixed(d); };
 function paintCam(msg){
   const g = $('camGrid'); g.innerHTML = '';
-  if (!cam.orig){ g.innerHTML = '<div class="cmsg"></div>'; g.firstChild.textContent = msg || 'Loading …'; $('camSave').disabled = true; return; }
-  CAM.forEach(c => {
-    if (!(c.k in cam.orig)) return;
-    const f = document.createElement('div'); f.className = 'camf';
-    f.innerHTML = '<label></label><div class="cin"><input inputmode="decimal" spellcheck="false"><button aria-label="Less">−</button><button aria-label="More">+</button></div><small></small>';
-    f.querySelector('label').textContent = c.n;
-    f.querySelector('small').textContent = camFmt(c, c.min) + ' to ' + camFmt(c, c.max);
-    const inp = f.querySelector('input'), [minus, plus] = f.querySelectorAll('button');
-    const show = () => { inp.value = camFmt(c, cam.vals[c.k]); f.classList.toggle('chg', Math.abs(cam.vals[c.k] - cam.orig[c.k]) > 1e-6); camDirty(); };
-    const set = v => { if (isNaN(v)) return show(); v = Math.min(c.max, Math.max(c.min, Math.round(v / c.step) * c.step)); cam.vals[c.k] = +v.toFixed(2); show(); };
-    inp.onchange = () => set(parseFloat(inp.value.replace(',', '.')));
-    inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'ArrowUp'){ e.preventDefault(); set(cam.vals[c.k] + c.step); } if (e.key === 'ArrowDown'){ e.preventDefault(); set(cam.vals[c.k] - c.step); } };
-    minus.onclick = () => { Sfx.ui('tick'); set(cam.vals[c.k] - c.step); };
-    plus.onclick = () => { Sfx.ui('tick'); set(cam.vals[c.k] + c.step); };
-    show(); g.appendChild(f);
+  if (!cam.orig){ g.innerHTML = '<div class="cmsg"></div>'; g.firstChild.textContent = msg || 'Loading …'; camDirty(); return; }
+  ['View', 'Feel'].forEach((title, gi) => {
+    const col = document.createElement('div'); col.className = 'camcol';
+    col.innerHTML = '<h5></h5>'; col.firstChild.textContent = title;
+    CAM.filter(c => c.g === gi && c.k in cam.orig).forEach(c => {
+      const r = document.createElement('div'); r.className = 'camr';
+      r.innerHTML = '<span class="cl"><i></i></span><input type="range"><input class="cv" inputmode="decimal" spellcheck="false">';
+      r.querySelector('.cl').append(c.n);
+      const sl = r.querySelector('input[type=range]'), inp = r.querySelector('.cv');
+      sl.min = c.min; sl.max = c.max; sl.step = c.step;
+      inp.title = camFmt(c, c.min) + ' to ' + camFmt(c, c.max);
+      const show = (keepText) => {
+        const v = cam.vals[c.k];
+        sl.value = v; sl.style.setProperty('--p', ((v - c.min) / (c.max - c.min) * 100) + '%');
+        if (!keepText) inp.value = camFmt(c, v);
+        r.classList.toggle('chg', Math.abs(v - cam.orig[c.k]) > 1e-6); camDirty();
+      };
+      const set = (v, keepText) => { if (isNaN(v)) return show(); v = Math.min(c.max, Math.max(c.min, Math.round(v / c.step) * c.step)); cam.vals[c.k] = +v.toFixed(2); show(keepText); };
+      sl.oninput = () => set(parseFloat(sl.value));
+      inp.onchange = () => set(parseFloat(inp.value.replace(',', '.')));
+      inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'ArrowUp'){ e.preventDefault(); set(cam.vals[c.k] + c.step); } if (e.key === 'ArrowDown'){ e.preventDefault(); set(cam.vals[c.k] - c.step); } };
+      r.querySelector('.cl').ondblclick = () => set(cam.orig[c.k]);
+      show(); col.appendChild(r);
+    });
+    g.appendChild(col);
   });
 }
-function camDirty(){ $('camSave').disabled = !cam.orig || !CAM.some(c => c.k in cam.orig && Math.abs(cam.vals[c.k] - cam.orig[c.k]) > 1e-6); }
+function camDirty(){
+  const d = !!cam.orig && CAM.some(c => c.k in cam.orig && Math.abs(cam.vals[c.k] - cam.orig[c.k]) > 1e-6);
+  $('camSave').disabled = !d; $('camUndo').classList.toggle('hide', !d);
+}
+$('camUndo').onclick = () => { if (!cam.orig) return; cam.vals = Object.assign({}, cam.orig); paintCam(); Sfx.ui('dismiss'); };
 async function loadCam(){
   if (!has('getCamera')) return paintCam('Not available in preview.');
   if (cam.orig && !$('camSave').disabled) return;   // ungespeicherte Aenderungen nicht ueberschreiben
@@ -1960,7 +1986,7 @@ document.querySelectorAll('.sexp').forEach(b => b.onclick = () => {
     const r = f.getBoundingClientRect(), br = sb.getBoundingClientRect();
     if (r.bottom > br.bottom) sb.scrollBy({top: r.bottom - br.bottom + 12, behavior: 'smooth'}); }, 380);
 });
-/* ---------- Menue-Taste im Spiel (Standard F8) ---------- */
+/* ---------- Menue-Taste im Spiel (Standard F2) ---------- */
 // KeyboardEvent.code -> Windows-Tastencode (VK); Tasten zum Spielen/Tippen sind nicht erlaubt
 const KEY_VK = (() => {
   const m = {Insert:0x2D, Delete:0x2E, Home:0x24, End:0x23, PageUp:0x21, PageDown:0x22, Pause:0x13, ScrollLock:0x91,
@@ -1982,11 +2008,11 @@ function keyName(e){
   if (/^Key[A-Z]$/.test(e.code) || /^Digit\d$/.test(e.code)) return (e.key && e.key.length === 1 ? e.key : e.code.slice(-1)).toUpperCase();
   return e.key && e.key.length === 1 ? e.key.toUpperCase() : e.code;
 }
-function keyLabel(){ return settings.menuKey && settings.menuKeyName ? settings.menuKeyName : 'F8'; }
+function keyLabel(){ return settings.menuKey && settings.menuKeyName ? settings.menuKeyName : 'F2'; }
 function paintKey(pop){
   const l = keyLabel(), cap = $('keyCap');
   if (!cap.classList.contains('listen')) $('keyLbl').textContent = l;
-  $('keyReset').classList.toggle('hide', l === 'F8');
+  $('keyReset').classList.toggle('hide', l === 'F2');
   document.querySelectorAll('.mkey').forEach(k => k.textContent = l);
   if (pop){ cap.classList.remove('pop'); void cap.offsetWidth; cap.classList.add('pop'); }
 }
@@ -2001,7 +2027,7 @@ function keyListen(on){
 $('keyCap').onclick = () => { Sfx.ui('tick'); keyListen(!keyCap.on); };
 $('keyReset').onclick = () => {
   Sfx.ui('tick'); settings.menuKey = 0; settings.menuKeyName = '';
-  saveSetting('menuKey', 0); saveSetting('menuKeyName', ''); keyListen(false); paintKey(true); toast('Menu key is F8 again.', true);
+  saveSetting('menuKey', 0); saveSetting('menuKeyName', ''); keyListen(false); paintKey(true); toast('Menu key is F2 again.', true);
 };
 document.addEventListener('keydown', e => {
   if (!keyCap.on) return;
@@ -2071,15 +2097,17 @@ const today = () => { const d = new Date(); return d.getFullYear() + '-' + Strin
 function openKeyDlg(){
   keyNag.done = true; keyOrbit();
   settings.keyNagDay = today(); saveSetting('keyNagDay', settings.keyNagDay);
-  $('kaKey').value = ''; $('kaKey').classList.remove('bad');
+  $('kaKey').value = ''; $('kaKey').classList.remove('bad'); $('kNever').checked = false;
   $('keyDlg').classList.add('show'); Sfx.ui('present');
 }
 function closeKeyDlg(){
   if (!$('keyDlg').classList.contains('show')) return;
   $('keyDlg').classList.remove('show');
+  if ($('kNever').checked){ settings.keyNever = true; saveSetting('keyNever', true); }   // nie wieder fragen (Key geht weiter in den Einstellungen)
 }
+$('kNever').addEventListener('change', () => { $('kNote').textContent = $('kNever').checked ? 'Add it later in Settings → Steam.' : 'Not now? Prism asks again tomorrow.'; Sfx.ui('tick'); });
 function keyNagCheck(){
-  if (keyNag.done || settings.steamKey || settings.keyNagDay === today()) return;
+  if (keyNag.done || settings.steamKey || settings.keyNever || settings.keyNagDay === today()) return;
   const here = tab === 'vHome' && !appHidden && !document.hidden && !document.querySelector('.mdl.show');
   const ready = home.friends && !home.fErr;                      // erst wenn die Freundesliste geladen hat
   if (!here || !ready){ clearTimeout(keyNag.timer); keyNag.timer = null; return; }

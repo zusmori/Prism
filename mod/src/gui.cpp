@@ -158,8 +158,8 @@ static void ReadTheme() {
 
 // ---------- Menue-Taste (im Launcher einstellbar, Standard F8) ----------
 static std::mutex keyMu;
-static std::atomic<int> menuVk{VK_F8};
-static std::string keyName = "F8";
+static std::atomic<int> menuVk{VK_F2};
+static std::string keyName = "F2";
 static unsigned long long keyReadAt = 0;
 
 static std::string NameOfKey(int vk) {
@@ -184,7 +184,7 @@ static std::string NameOfKey(int vk) {
 }
 
 static void ReadKey() {
-	int vk = VK_F8;
+	int vk = VK_F2;
 	FILE* f = _wfopen((zl::DataDir() + L"\\settings.json").c_str(), L"r");
 	if (f) {
 		char buf[16384] = {0};

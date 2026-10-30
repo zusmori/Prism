@@ -32,7 +32,7 @@
 
 1. [Download](../../releases/latest) `Prism.exe` and run it.
 2. Hit **Play** and start without Anti-Cheat.
-3. Press **F8** in game.
+3. Press **F2** in game.
 
 Playing with Anti-Cheat? Prism puts every file back first and swaps it all in again next time you play without.
 
