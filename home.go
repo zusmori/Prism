@@ -85,6 +85,9 @@ func (a *App) LaunchRL(eac bool) error {
 		if err := mergeRestoreAll(a.cooked); err != nil {
 			return fmt.Errorf("Couldn't restore merged arenas: %v", err)
 		}
+		if err := a.parkSwaps(); err != nil {
+			return fmt.Errorf("Couldn't restore swapped maps: %v", err)
+		}
 	}
 	bin := rlBinDir(a.cooked)
 	exe := filepath.Join(bin, "RocketLeague.exe")
@@ -100,6 +103,7 @@ func (a *App) LaunchRL(eac bool) error {
 		return nil
 	}
 	if !eac {
+		a.unparkSwaps()            // gemerkte Workshop-Maps wieder eintauschen
 		mergeBeforeLaunch(a.cooked) // gewuenschte Kulissen einbauen, bevor das Spiel die Arenen oeffnet
 	}
 	cmd := exec.Command(exe, args...)

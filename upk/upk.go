@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -108,6 +109,7 @@ type Package struct {
 	plain   bool // unverschluesselt/unkomprimiert (z. B. Workshop-Map)
 	newGUID bool // beim Speichern eine neue Paket-GUID vergeben
 	boxes   map[int32]meshBox
+	keepFog bool // Nebel gehoert zur Kulisse (nur AquaDome)
 }
 
 type rd struct {
@@ -1063,6 +1065,7 @@ func BuildBackdropPackage(srcPath string) ([]byte, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	p.keepFog = strings.Contains(strings.ToLower(filepath.Base(srcPath)), "underwater")
 	n, err := p.MakeBackdropPackage()
 	if err != nil {
 		return nil, 0, err

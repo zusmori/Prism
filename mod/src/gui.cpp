@@ -1900,7 +1900,7 @@ static void ToggleCard(ImDrawList* dl, int i, ImVec2 a, float cw) {
 struct TweakMix { const char* name; float v[5]; };
 static const TweakMix kMixes[] = {
 	{"Normal", {1, 1, 1, 1, 1}},
-	{"Boomer Ball", {1, 2.0f, 1, 1, 1.5f}},
+	{"Boomer Ball", {1, 2.75f, 1, 1, 1.5f}},
 	{"Slo-mo", {0.5f, 1, 1, 1, 1}},
 };
 

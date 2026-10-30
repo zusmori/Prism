@@ -173,7 +173,9 @@ func (p *Package) backdropActor(a int32) bool {
 	lim := 0.0
 	switch c {
 	case "ExponentialHeightFog", "HeightFog":
-		return true // Stimmung (z. B. Wasser bei AquaDome)
+		// Nebel nur, wo er die Kulisse ausmacht (Wasser bei AquaDome). Bei anderen Maps faerbt er die
+		// fremde Arena ein (Sovereign Heights: alles gruen).
+		return p.keepFog
 	case "InteractiveFoliageActor":
 		lim = 1.15
 	case "FlockActor_TA", "SkeletalMeshActor", "SkeletalMeshActorMAT", "StaticLensFlareSource", "LensFlareSource", "Emitter", "SplineActor", "InterpActor":

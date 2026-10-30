@@ -1487,8 +1487,6 @@
         <div class="srow nohov" id="rowKey"><span class="sic gi" data-ic="kbd"></span>
           <div class="tx"><b>Menu key</b><small id="keyHint">The key that opens the Prism menu in game. It's always there when you play without Anti-Cheat.</small></div>
           <div class="kset"><button class="kreset hide" id="keyReset" title="Back to F8">Reset</button><button class="keycap" id="keyCap" aria-label="Change menu key"><span class="kl" id="keyLbl">F8</span></button></div></div>
-        <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
-          <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit Prism. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
         <div class="srow nohov"><span class="sic gi" data-ic="swap"></span>
           <div class="tx"><b>Swapped arenas</b><small id="swList">No arena swapped. Press <b class="kbd mkey">F8</b> in Rocket League → Maps.</small></div>
           <button class="sbtn" id="swRestore" disabled>Restore all</button></div>
@@ -1814,8 +1812,6 @@ buildSwatches();
 async function saveSetting(k, v){ try { if (has('setSetting')) await setSetting(k, v); } catch (e) { toast(e, false); } }
 function paintSettings(){
   paintKey(false);
-  $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
-  $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
   $('tgPlayTray').classList.toggle('on', settings.trayOnPlay !== false); $('setPlayTray').setAttribute('aria-checked', settings.trayOnPlay !== false);
   const rpcOn = settings.rpc !== false;
   $('tgRpc').classList.toggle('on', rpcOn); $('setRpc').setAttribute('aria-checked', rpcOn);
@@ -1889,7 +1885,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
+[['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });
@@ -2634,7 +2630,6 @@ function homeEnter(){
 }
 async function launch(eac, force){
   if (home.launching) return;
-  if (eac && !force && Object.keys(curState.swaps || {}).length) return askEac();
   home.launching = eac ? 'eac' : 'noeac'; paintRL(home.st || {found: true}); Sfx.ui('swap');
   const mine = home.launching;
   try {
@@ -2667,7 +2662,7 @@ async function closeGame(){
   [1200, 3000, 6000, 9500].forEach(t => setTimeout(pollRL, t));
 }
 $('pNoEac').onclick = () => { closePlay(); launch(false); };
-$('pEac').onclick = () => { closePlay(); setTimeout(() => launch(true), Object.keys(curState.swaps || {}).length ? 220 : 0); };
+$('pEac').onclick = () => { closePlay(); launch(true); };
 $('playCancel').onclick = () => { closePlay(); Sfx.ui('dismiss'); };
 $('playDlg').addEventListener('mousedown', e => { if (e.target === $('playDlg')){ closePlay(); Sfx.ui('dismiss'); } });
 $('hSwap').onclick = () => {
@@ -2868,7 +2863,7 @@ $('fSearch').addEventListener('input', () => home.friends && renderFriends());
 function setFriendsHidden(h){
   settings.friendsHidden = h;
   $('vHome').classList.toggle('fcollapsed', h);
-  saveSetting('friendsHidden', h); Sfx.ui('tab');
+  Sfx.ui('tab');
 }
 $('fCollapse').onclick = () => setFriendsHidden(true);
 $('fExpand').onclick = () => setFriendsHidden(false);
@@ -3183,7 +3178,7 @@ async function requestClose(){
   if (has('closeAck')) closeAck();
   let s = null;
   try { s = await getState(); } catch (e) {}
-  if (s && Object.keys(s.swaps || {}).length && !settings.keepSwaps){
+  if (false){   // Prism setzt beim Beenden selbst zurueck und merkt sich die Swaps
     asking = true;
     const r = await askKeep(s);
     $('ask').classList.remove('show');
@@ -3228,7 +3223,6 @@ window.__quit = async () => {
   quitting = true;
   let s = null; try { s = await getState(); } catch (e) {}
   // Nachfrage braucht ein sichtbares Fenster
-  if (s && Object.keys(s.swaps || {}).length && !settings.keepSwaps && has('showWindow')) showWindow();
   requestClose();
 };
 // Fenster versteckt/wieder da: Video und Abfragen pausieren
@@ -3247,6 +3241,7 @@ window.__trayPlay = () => { setTab('vHome'); setTimeout(openPlay, 350); };
   try { await refresh(); } catch (e) {}
   try { if (has('isMaximized')) window.__max(await isMaximized()); } catch (e) {}
   try { if (has('getSettings')) Object.assign(settings, await getSettings()); } catch (e) {}
+  settings.friendsHidden = true;   // Freundesliste startet immer eingeklappt
   try { if (has('getAutostart')) settings.autostart = !!(await getAutostart()); } catch (e) {}
   if (!settings.prismLook){ settings.prismLook = true; settings.theme = 'prism'; saveSetting('prismLook', true); saveSetting('theme', 'prism'); } // Rebrand: neuer Standard-Look
   paintSettings();

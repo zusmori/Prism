@@ -15,13 +15,14 @@
 
 ## What it does
 
-- **Swap items**: use any item in game, painted versions included. Only you can see them.
-- **Custom decals & balls**: drop your own decal or ball pack into the Customs folder and use it in game.
-- **Presets**: save your whole loadout, custom decal and ball included, and switch with one click.
-- **Swap maps**: put workshop maps into Freeplay arenas and play them.
-- **Tweaks**: change game speed, ball speed, size, gravity and bounce in Freeplay and Training.
-- **Finer camera**: set your camera settings in exact steps, like height 201 instead of 210.
-- **Looks good**: a fast, clean launcher with your Steam friends, map browser and themes.
+- **Items**: use any item in game, painted versions included. Only you can see them.
+- **Custom decals & balls**: drop your own decal or ball pack into the Customs folder.
+- **Presets**: save your whole loadout and switch with one click.
+- **Freeplay Swap**: play workshop maps in Freeplay arenas.
+- **Scenery Swap**: keep an arena's field and put the scenery of another map around it.
+- **Tweaks**: game speed, ball speed, size, gravity, bounce and unlimited flips in Freeplay and Training.
+- **Finer camera**: set your camera settings in exact steps.
+- **Launcher**: a fast, clean launcher with your Steam friends, map browser and themes.
 
 <p align="center">
   <img src="assets/items.jpg" width="880" alt="Prism menu in Rocket League">
@@ -32,6 +33,8 @@
 1. [Download](../../releases/latest) `Prism.exe` and run it.
 2. Hit **Play** and start without Anti-Cheat.
 3. Press **F8** in game.
+
+Playing with Anti-Cheat? Prism puts every file back first and swaps it all in again next time you play without.
 
 Windows 10/11 and Rocket League on Steam. Unofficial fan project, use at your own risk.
 

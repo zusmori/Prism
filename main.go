@@ -426,6 +426,10 @@ func (a *App) Swap(arenaFile, mapPath string) error {
 	}
 	mapName := strings.TrimSuffix(filepath.Base(mapPath), filepath.Ext(mapPath))
 	swaps[arenaFile] = mapName
+	paths := map[string]string{}
+	loadJSON(swapPathsFile, &paths)
+	paths[arenaFile] = mapPath
+	_ = saveJSON(swapPathsFile, paths)
 	// Eine Workshop-Map darf nur in einer Arena stecken: alte Arena zuruecksetzen
 	var moveErr error
 	for f, m := range swaps {
@@ -440,6 +444,66 @@ func (a *App) Swap(arenaFile, mapPath string) error {
 		return err
 	}
 	return moveErr
+}
+
+// Getauschte Maps gibt es nur ohne Anti-Cheat: vor einem Start mit Anti-Cheat und beim Beenden von Prism
+// werden sie zurueckgesetzt, Prism merkt sich aber, welche es waren, und tauscht sie beim naechsten Start
+// ohne Anti-Cheat wieder ein.
+var (
+	swapPathsFile  = filepath.Join(dataDir, "swap_paths.json")  // Arena -> Map-Datei (beim Tauschen)
+	swapParkedFile = filepath.Join(dataDir, "swap_parked.json") // gemerkte Swaps, solange zurueckgesetzt
+)
+
+func (a *App) parkSwaps() error {
+	swaps := loadSwaps()
+	if len(swaps) == 0 {
+		return nil
+	}
+	paths := map[string]string{}
+	loadJSON(swapPathsFile, &paths)
+	parked := map[string]string{}
+	loadJSON(swapParkedFile, &parked)
+	var wm []MapInfo // erst bei Bedarf suchen (Swaps aus dem F8-Menue stehen nicht in swap_paths)
+	for f, name := range swaps {
+		p := paths[f]
+		if p == "" || !fileExists(p) || !strings.EqualFold(strings.TrimSuffix(filepath.Base(p), filepath.Ext(p)), name) {
+			p = ""
+			if wm == nil {
+				wm = workshopMaps()
+			}
+			for _, m := range wm {
+				if strings.EqualFold(m.Name, name) {
+					p = m.Path
+					break
+				}
+			}
+		}
+		if p != "" {
+			parked[f] = p
+		}
+	}
+	_ = saveJSON(swapParkedFile, parked)
+	logf("swaps: parked %d", len(parked))
+	return a.Restore()
+}
+
+func (a *App) unparkSwaps() {
+	parked := map[string]string{}
+	loadJSON(swapParkedFile, &parked)
+	if len(parked) == 0 {
+		return
+	}
+	swaps := loadSwaps()
+	for f, p := range parked {
+		if _, already := swaps[f]; already || !fileExists(p) {
+			continue
+		}
+		if err := a.Swap(f, p); err != nil {
+			logf("swaps: couldn't swap %s back in: %v", f, err)
+		}
+	}
+	os.Remove(swapParkedFile)
+	logf("swaps: swapped %d back in", len(parked))
 }
 
 func (a *App) restoreOne(swaps map[string]string, f string) (missing bool, err error) {
@@ -829,6 +893,7 @@ func main() {
 	mergeHold = true
 	mergeMu.Unlock()
 	_ = mergeRestoreAll(app.cooked)
+	_ = app.parkSwaps()
 	trayRemove()
 	boostShutdown()
 	presenceShutdown()

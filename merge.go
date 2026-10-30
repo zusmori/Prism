@@ -406,7 +406,7 @@ type pkgMeta struct {
 	Ver  int    `json:"ver"`
 }
 
-const pkgVersion = 2 // erhoehen, wenn sich das Bauen aendert
+const pkgVersion = 3 // erhoehen, wenn sich das Bauen aendert
 
 // Paket bauen (falls noetig) und in den Spielordner legen. fresh: wurde gerade neu in den Spielordner gelegt
 func ensurePkg(cooked string, pk mergePkg) (fresh bool, err error) {
@@ -723,6 +723,20 @@ func mergeLoop(cookedFn func() string) {
 	wasRunning := false
 	first := true
 	warmed := false
+	// einmalig: alte Kulissen-Wuensche aus frueheren Versionen weg (standardmaessig ist keine gewaehlt)
+	if mark := filepath.Join(dataDir, "merge_v3"); !fileExists(mark) {
+		w := loadMergeWants()
+		clean := len(w) <= 1
+		for f, x := range w {
+			if !isCombo(f, x) {
+				clean = false
+			}
+		}
+		if !clean {
+			writeLines(mergeReqFile, nil)
+		}
+		_ = os.WriteFile(mark, []byte("1"), 0644)
+	}
 	for {
 		cooked := cookedFn()
 		namesMod := time.Time{}

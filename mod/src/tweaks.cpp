@@ -344,6 +344,30 @@ void Tick(void* car, void* ge, bool freeplay) {
 		}
 	}
 	if (!freeplay) return;
+	// Alle Ball-Regler wieder auf Standard: im Freeplay einen frischen Ball holen (ResetBalls). Ein neuer Ball
+	// ist garantiert genau so, wie das Spiel ihn baut - Zuruecksetzen per Setter erwischt nicht jeden Wert.
+	{
+		static bool ballWasMod = false;
+		bool ballMod = false;
+		for (int k = 1; k <= 4; k++) if (fabsf(v[k] - list[k].def) > 0.001f) ballMod = true;
+		bool fpGame = ge && ue::IsAlive(ge) && ue::Name(ue::ClassOf(ge)).find("FreePlay") != std::string::npos;
+		if ((ballWasMod || doReset) && !ballMod && fpGame) {
+			void* fn = ue::FindFunction(ue::ClassOf(ge), "ResetBalls");
+			bool touched = false;
+			for (auto& [b, st] : ballState) {
+				for (int k = 0; k < 8; k++) if (st.mod[k]) touched = true;
+				if (st.carMod) touched = true;
+			}
+			if (fn && touched) {
+				ue::Call(ge, fn);
+				ballState.clear();
+				zl::Log("tweaks: ball settings back to normal -> fresh ball");
+				ballWasMod = false;
+				return;
+			}
+		}
+		ballWasMod = ballMod;
+	}
 	// Ball: neue Baelle (nach Reset/Tor) und geaenderte Werte. Ein Ball wird nur angefasst, wenn du etwas
 	// verstellt hast - auf Standard bleibt der Ball genau so, wie das Spiel ihn baut (gleiche Physik wie immer).
 	for (void* b : Balls(ge)) {
