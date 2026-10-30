@@ -1,0 +1,55 @@
+-- The C compiler identification is MSVC 19.44.35229.0
+-- The CXX compiler identification is MSVC 19.44.35229.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done (8.9s)
+-- Generating done (0.0s)
+-- Build files have been written to: D:/a/Prism/Prism/build
+[1/21] Building CXX object CMakeFiles\zlmod.dir\src\dllmain.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[2/21] Building CXX object CMakeFiles\zlmod.dir\src\hooks.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[3/21] Building CXX object CMakeFiles\zlmod.dir\src\ue.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[4/21] Building CXX object CMakeFiles\zlmod.dir\src\maps.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[5/21] Building CXX object CMakeFiles\zlmod.dir\src\camera.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[6/21] Building CXX object CMakeFiles\zlmod.dir\src\merge.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[7/21] Building CXX object CMakeFiles\zlmod.dir\src\tweaks.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[8/21] Building CXX object CMakeFiles\zlmod.dir\src\gui.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+D:\a\Prism\Prism\mod\src\gui.cpp(1983): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+D:\a\Prism\Prism\mod\src\gui.cpp(2139): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+D:\a\Prism\Prism\mod\src\gui.cpp(2706): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+[9/21] Building CXX object CMakeFiles\zlmod.dir\src\items.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[10/21] Building CXX object CMakeFiles\zlmod.dir\external\imgui\imgui_tables.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[11/21] Building CXX object CMakeFiles\zlmod.dir\external\imgui\imgui_draw.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[12/21] Building CXX object CMakeFiles\zlmod.dir\external\imgui\backends\imgui_impl_dx11.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[13/21] Building C object CMakeFiles\zlmod.dir\external\minhook\src\buffer.c.obj
+[14/21] Building CXX object CMakeFiles\zlmod.dir\src\customs.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[15/21] Building CXX object CMakeFiles\zlmod.dir\external\imgui\imgui_widgets.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[16/21] Building CXX object CMakeFiles\zlmod.dir\external\imgui\backends\imgui_impl_win32.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[17/21] Building C object CMakeFiles\zlmod.dir\external\minhook\src\hook.c.obj
+[18/21] Building C object CMakeFiles\zlmod.dir\external\minhook\src\trampoline.c.obj
+[19/21] Building C object CMakeFiles\zlmod.dir\external\minhook\src\hde\hde64.c.obj
+[20/21] Building CXX object CMakeFiles\zlmod.dir\external\imgui\imgui.cpp.obj
+cl : Command line warning D9025 : overriding '/EHs' with '/EHa'
+[21/21] Linking CXX shared library zlmod.dll
