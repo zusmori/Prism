@@ -10,6 +10,8 @@ struct Setting {
 	const char* hint;
 	float def, min, max, step;
 	float value;
+	bool toggle = false; // an/aus statt Regler (0/1)
+	const char* group = "";
 };
 extern Setting list[];
 extern const int count;

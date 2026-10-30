@@ -545,10 +545,10 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 		return "error", "A workshop map is swapped into this arena. Restore it first."
 	}
 	if w.Backdrop != "-" && !fileExists(filepath.Join(cooked, w.Backdrop)) {
-		return "error", "Backdrop map not found."
+		return "error", "Scenery map not found."
 	}
 	if rlRunning() && fileLocked(target) {
-		return "pending", "Rocket League has this arena open right now. Restart the game to see the backdrop."
+		return "pending", "Rocket League has this arena open right now. Restart the game to see the scenery."
 	}
 	pl, err := planFor(cooked, file, w)
 	if err != nil {
@@ -568,7 +568,7 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 		}
 	}
 	if wait {
-		return "pending", "Restart the game to see this backdrop."
+		return "pending", "Restart the game to see this scenery."
 	}
 	bk := filepath.Join(mergeBackupDir, file)
 	if _, err := os.Stat(bk); err != nil {
@@ -588,7 +588,7 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 	if err := replaceFile(tmp, target); err != nil {
 		os.Remove(tmp)
 		if rlRunning() {
-			return "pending", "Rocket League has this arena open right now. Restart the game to see the backdrop."
+			return "pending", "Rocket League has this arena open right now. Restart the game to see the scenery."
 		}
 		return "error", friendlyErr(err).Error()
 	}
@@ -596,7 +596,7 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 	if w.Backdrop == "-" {
 		return "applied", "Own backdrop removed"
 	}
-	return "applied", "Backdrop: " + prettyArena(w.Backdrop)
+	return "applied", "Scenery: " + prettyArena(w.Backdrop)
 }
 
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }

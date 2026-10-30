@@ -30,14 +30,8 @@ var (
 
 func init() { modLastErr.Store("") }
 
-func modEnabled() bool {
-	st := map[string]interface{}{}
-	loadJSON(filepath.Join(dataDir, "settings.json"), &st)
-	if v, ok := st["itemMod"].(bool); ok {
-		return v
-	}
-	return true
-}
+// Das Prism-Menue (F8) kommt immer mit, wenn ohne Anti-Cheat gestartet wird (mit Anti-Cheat nie)
+func modEnabled() bool { return true }
 
 // DLL in den App-Ordner schreiben (nur wenn sie sich geaendert hat)
 func modFile() (string, error) {

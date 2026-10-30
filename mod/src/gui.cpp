@@ -1336,7 +1336,7 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 	if (!merge::loaded) {
 		ImVec2 c(o.x + W.x / 2, o.y + top + (W.y - top) / 2 - 30);
 		Spinner(dl, c, 15);
-		const char* a = "Prism is getting the backdrops ready …";
+		const char* a = "Prism is getting the scenery ready …";
 		const char* b = "Keep the Prism launcher open (it can sit in the tray).";
 		Text(dl, fRegular, ImVec2(c.x - TextW(fRegular, a) / 2, c.y + 28), cMuted, a);
 		Text(dl, fSmall, ImVec2(c.x - TextW(fSmall, b) / 2, c.y + 52), cFaint, b);
@@ -1351,8 +1351,8 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 		if (k.active) anyActive = true;
 		if (merge::NeedsRestart(k)) needRestart = true;
 	}
-	const float x0 = o.x + pad, w = W.x - 2 * pad;
-	Text(dl, fSmall, ImVec2(x0 + 2, o.y + top + 4), cMuted, "The arena keeps its field and drops its own surroundings. Pick a backdrop, then hit Play.");
+	const float x0 = o.x + pad, w = W.x - 2 * pad - 12;
+	Text(dl, fSmall, ImVec2(x0 + 2, o.y + top + 4), cMuted, "Keep the field of an arena and swap everything around it for the scenery of another map.");
 	float ly = top + 30;
 	float bottom = 62;
 	ImGui::SetCursorScreenPos(ImVec2(x0 - 4, o.y + ly));
@@ -1387,7 +1387,7 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 		std::string line = "Original";
 		ImVec4 col = cFaint;
 		if (on) {
-			if (on->state == "applied") { line = "With the backdrop of " + on->backdropName; col = Rgb(120, 220, 160); }
+			if (on->state == "applied") { line = "With the scenery of " + on->backdropName; col = Rgb(120, 220, 160); }
 			else if (merge::NeedsRestart(*on)) { line = "Restart the game once to see it"; col = Rgb(255, 200, 120); }
 			else if (on->state == "pending") { line = on->stateMsg.empty() ? "Waiting …" : on->stateMsg; col = Rgb(255, 200, 120); }
 			else if (on->state == "error") { line = on->stateMsg.empty() ? "Couldn't merge" : on->stateMsg; col = Rgb(255, 140, 140); }
@@ -1411,8 +1411,8 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 			ImGui::PopID();
 		}
 		// Kulissen zur Auswahl
-		float cx = ic.x + TextW(fTiny, "BACKDROP") + 16, cy = p.y + 74;
-		Text(cd, fTiny, ImVec2(ic.x, cy + chH / 2 - fTiny->FontSize / 2 - 1), cFaint, "BACKDROP");
+		float cx = ic.x + TextW(fTiny, "SCENERY FROM") + 16, cy = p.y + 74;
+		Text(cd, fTiny, ImVec2(ic.x, cy + chH / 2 - fTiny->FontSize / 2 - 1), cFaint, "SCENERY FROM");
 		for (size_t i = 0; i < L.size(); i++) {
 			auto& k = L[i];
 			if (k.base != base) continue;
@@ -1461,7 +1461,7 @@ static void BackdropsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float p
 
 static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, MapAction& act) {
 	std::lock_guard<std::mutex> mk(maps::mu);
-	const float leftW = 250, listTop = top + 14, rowH = 58;
+	const float leftW = 250, listTop = top + 14, rowH = 52;
 	const bool busy = maps::Busy().load();
 	const double now = GetTickCount64() / 1000.0;
 	auto& ar = maps::arenas;
@@ -1504,7 +1504,7 @@ static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, M
 		if (sel) selY = p.y;
 		if (h > 0.01f) dl->AddRectFilled(p, ImVec2(p.x + leftW, p.y + rowH), U(Alpha(cHover, h)), 12);
 		// Symbol: Kachel mit Zustand
-		ImVec2 ic(p.x + 16, p.y + 13), iq(ic.x + 32, ic.y + 32);
+		ImVec2 ic(p.x + 16, p.y + 10), iq(ic.x + 32, ic.y + 32);
 		bool sw = !a.swap.empty();
 		if (sw) {
 			GradRect(dl, ic, iq, 9, spec[0], spec[2], 0.30f + 0.08f * std::max(h, sa));
@@ -1563,7 +1563,7 @@ static void MapsBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, M
 	{
 		const char* steps[3] = {"Pick an arena", "Pick a map", "Start Freeplay in that arena"};
 		float sy = o.y + W.y - 22 - 3 * 24;
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3 && (swappedCount == 0 || by + 44 < sy); i++) {
 			ImVec2 c(o.x + pad + 26, sy + i * 24 + 9);
 			dl->AddCircleFilled(c, 9, U(Rgb(255, 255, 255, 0.05f)), 20);
 			char n[4];
@@ -1774,10 +1774,144 @@ static float SliderPos(int i) {
 	return std::clamp((t.value - t.min) / (t.max - t.min), 0.0f, 1.0f);
 }
 
+// Symbole fuer die Tweaks
+static void TweakIcon(ImDrawList* d, ImVec2 c, const char* key, ImU32 col) {
+	std::string k = key;
+	const float t = 1.5f;
+	if (k == "speed") { // Tacho
+		d->PathArcTo(ImVec2(c.x, c.y + 2), 7.0f, 3.4f, 6.02f, 16);
+		d->PathStroke(col, 0, t);
+		d->AddLine(ImVec2(c.x, c.y + 2), ImVec2(c.x + 4, c.y - 3), col, t);
+		d->AddCircleFilled(ImVec2(c.x, c.y + 2), 1.8f, col, 8);
+	} else if (k == "ballspeed") { // Ball mit Fahrtstreifen
+		d->AddCircle(ImVec2(c.x + 3, c.y), 4.5f, col, 14, t);
+		d->AddLine(ImVec2(c.x - 8, c.y - 2.5f), ImVec2(c.x - 3, c.y - 2.5f), col, t);
+		d->AddLine(ImVec2(c.x - 9, c.y + 2.5f), ImVec2(c.x - 4, c.y + 2.5f), col, t);
+	} else if (k == "ballsize") { // kleiner + grosser Ball
+		d->AddCircle(ImVec2(c.x - 4.5f, c.y + 3), 2.6f, col, 10, t);
+		d->AddCircle(ImVec2(c.x + 2.5f, c.y - 1), 5.5f, col, 16, t);
+	} else if (k == "ballgravity") { // Ball mit Pfeil nach unten
+		d->AddCircle(ImVec2(c.x, c.y - 4), 3.8f, col, 12, t);
+		d->AddLine(ImVec2(c.x, c.y + 1), ImVec2(c.x, c.y + 8), col, t);
+		d->AddLine(ImVec2(c.x - 3, c.y + 5), ImVec2(c.x, c.y + 8), col, t);
+		d->AddLine(ImVec2(c.x + 3, c.y + 5), ImVec2(c.x, c.y + 8), col, t);
+	} else if (k == "bounce") { // Bogen ueber Boden
+		d->AddLine(ImVec2(c.x - 8, c.y + 6), ImVec2(c.x + 8, c.y + 6), col, t);
+		d->PathArcTo(ImVec2(c.x - 3, c.y + 6), 4.5f, 3.14159f, 6.28318f, 10);
+		d->PathStroke(col, 0, t);
+		d->PathArcTo(ImVec2(c.x + 4.5f, c.y + 6), 3.0f, 3.14159f, 6.28318f, 8);
+		d->PathStroke(col, 0, t);
+		d->AddCircleFilled(ImVec2(c.x + 7.5f, c.y + 1), 1.8f, col, 8);
+	} else if (k == "flips") { // Pfeil im Kreis
+		d->PathArcTo(c, 6.5f, 0.5f, 5.6f, 18);
+		d->PathStroke(col, 0, t);
+		ImVec2 tip(c.x + 6.5f * cosf(0.5f), c.y + 6.5f * sinf(0.5f));
+		d->AddLine(tip, ImVec2(tip.x + 3.6f, tip.y - 1.4f), col, t);
+		d->AddLine(tip, ImVec2(tip.x - 0.6f, tip.y - 4.0f), col, t);
+	} else { // Stern
+		d->AddCircleFilled(c, 2.5f, col, 10);
+	}
+}
+
+// Symbol-Kachel links oben in einer Karte
+static void IconTile(ImDrawList* dl, ImVec2 p, const char* key, float on) {
+	ImVec2 q(p.x + 32, p.y + 32);
+	if (on > 0.01f) GradRect(dl, p, q, 10, spec[0], spec[2], 0.42f * on);
+	dl->AddRectFilled(p, q, U(Rgb(255, 255, 255, 0.05f * (1 - on))), 10);
+	dl->AddRect(p, q, U(on > 0.5f ? Alpha(spec[1], 0.5f) : cLine2), 10, 0, 1.0f);
+	TweakIcon(dl, ImVec2(p.x + 16, p.y + 16), key, U(Mix(cMuted, Rgb(255, 255, 255), on)));
+}
+
+// Karte mit Regler: Symbol, Name, Wert, Hinweis, Regler ueber die ganze Breite
+static void SliderCard(ImDrawList* dl, int i, ImVec2 a, float cw) {
+	const auto& t = tweaks::list[i];
+	const float ch = 86;
+	ImVec2 b(a.x + cw, a.y + ch);
+	ImGui::PushID(i + 9000);
+	bool changed = fabsf(t.value - t.def) > 0.001f;
+	float hov = Anim(ImGui::GetID("cardh"), ImGui::IsMouseHoveringRect(a, b, false) ? 1.0f : 0.0f);
+	float chg = Anim(ImGui::GetID("cardc"), changed ? 1.0f : 0.0f, 14.0f);
+	dl->AddRectFilled(a, b, U(Alpha(Mix(cPanel, cPanel2, hov), 0.92f)), 14);
+	if (chg > 0.01f) GradRect(dl, a, b, 14, spec[0], spec[2], 0.07f * chg);
+	dl->AddRect(a, b, U(Mix(Mix(cLine, cLine2, hov), Alpha(spec[1], 0.45f), chg)), 14, 0, 1.0f);
+	IconTile(dl, ImVec2(a.x + 14, a.y + 14), t.key, chg);
+	Text(dl, fBold, ImVec2(a.x + 58, a.y + 13), cText, t.label);
+	Text(dl, fSmall, ImVec2(a.x + 58, a.y + 32), cMuted, Fit(fSmall, fSmall->FontSize, t.hint, cw - 140).c_str());
+	char vb[16];
+	snprintf(vb, sizeof vb, "%.2fx", t.value);
+	float vw = TextW(fBold, vb) + 20;
+	ImVec2 vp(b.x - 14 - vw, a.y + 14);
+	dl->AddRectFilled(vp, ImVec2(vp.x + vw, vp.y + 26), U(Mix(Rgb(255, 255, 255, 0.05f), Acc(0.22f), chg)), 13);
+	Text(dl, fBold, ImVec2(vp.x + 10, vp.y + 4), Mix(cMuted, Mix(accent, Rgb(255, 255, 255), 0.65f), chg), vb);
+	// Regler
+	float sx0 = a.x + 22, sx1 = b.x - 22, sy = a.y + 66;
+	ImGui::SetCursorScreenPos(ImVec2(sx0 - 10, sy - 13));
+	ImGui::InvisibleButton("##sl", ImVec2(sx1 - sx0 + 20, 26));
+	bool active = ImGui::IsItemActive(), sh = ImGui::IsItemHovered();
+	if (sh && ImGui::IsMouseDoubleClicked(0)) tweaks::Set(i, t.def); // Doppelklick: Standard
+	else if (active) {
+		float f = std::clamp((ImGui::GetIO().MousePos.x - sx0) / (sx1 - sx0), 0.0f, 1.0f);
+		tweaks::Set(i, t.min + f * (t.max - t.min));
+	}
+	if (ImGui::IsItemDeactivated()) tweaks::Save();
+	float* shown = ImGui::GetStateStorage()->GetFloatRef(ImGui::GetID("pos"), SliderPos(i));
+	*shown = active ? SliderPos(i) : Approach(*shown, SliderPos(i), 18.0f);
+	float kx = sx0 + (sx1 - sx0) * *shown;
+	float kh = Anim(ImGui::GetID("kh"), (sh || active) ? 1.0f : 0.0f, 20.0f);
+	dl->AddRectFilled(ImVec2(sx0, sy - 2.5f), ImVec2(sx1, sy + 2.5f), U(Rgb(255, 255, 255, 0.08f)), 3);
+	if (kx > sx0 + 1) {
+		int v0 = dl->VtxBuffer.Size;
+		dl->AddRectFilled(ImVec2(sx0, sy - 2.5f), ImVec2(kx, sy + 2.5f), U(Rgb(255, 255, 255)), 3);
+		ImGui::ShadeVertsLinearColorGradientKeepAlpha(dl, v0, dl->VtxBuffer.Size, ImVec2(sx0, sy), ImVec2(sx1, sy), U(spec[0]), U(spec[2]));
+	}
+	float dx = sx0 + (sx1 - sx0) * std::clamp((t.def - t.min) / (t.max - t.min), 0.0f, 1.0f);
+	dl->AddRectFilled(ImVec2(dx - 1, sy - 6), ImVec2(dx + 1, sy + 6), U(Rgb(255, 255, 255, 0.22f)), 1);
+	float kr = 7.0f + 2.0f * kh;
+	if (kh > 0.01f) dl->AddCircleFilled(ImVec2(kx, sy), kr + 6, U(Acc(0.18f * kh)), 24);
+	dl->AddCircleFilled(ImVec2(kx, sy), kr, U(Rgb(255, 255, 255)), 24);
+	dl->AddCircle(ImVec2(kx, sy), kr, U(Acc(0.8f)), 24, 2.0f);
+	ImGui::PopID();
+}
+
+// Karte mit Schalter (an/aus)
+static void ToggleCard(ImDrawList* dl, int i, ImVec2 a, float cw) {
+	const auto& t = tweaks::list[i];
+	const float ch = 64;
+	ImVec2 b(a.x + cw, a.y + ch);
+	ImGui::PushID(i + 9100);
+	ImGui::SetCursorScreenPos(a);
+	bool click = ImGui::InvisibleButton("##tg", ImVec2(cw, ch));
+	bool on = t.value > 0.5f;
+	if (click) { tweaks::Set(i, on ? 0.0f : 1.0f); tweaks::Save(); on = !on; }
+	float hov = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+	float k = Anim(ImGui::GetID("k"), on ? 1.0f : 0.0f, 16.0f);
+	dl->AddRectFilled(a, b, U(Alpha(Mix(cPanel, cPanel2, hov), 0.92f)), 14);
+	if (k > 0.01f) GradRect(dl, a, b, 14, spec[0], spec[2], 0.07f * k);
+	dl->AddRect(a, b, U(Mix(Mix(cLine, cLine2, hov), Alpha(spec[1], 0.45f), k)), 14, 0, 1.0f);
+	IconTile(dl, ImVec2(a.x + 14, a.y + 16), t.key, k);
+	Text(dl, fBold, ImVec2(a.x + 58, a.y + 14), cText, t.label);
+	Text(dl, fSmall, ImVec2(a.x + 58, a.y + 33), cMuted, Fit(fSmall, fSmall->FontSize, t.hint, cw - 130).c_str());
+	ImVec2 t0(b.x - 18 - 40, a.y + ch / 2 - 11), t1(b.x - 18, a.y + ch / 2 + 11);
+	if (k > 0.01f) GradRect(dl, t0, t1, 11, spec[0], spec[2], k);
+	dl->AddRectFilled(t0, t1, U(Rgb(255, 255, 255, (0.10f + 0.05f * hov) * (1 - k))), 11);
+	dl->AddCircleFilled(ImVec2(t0.x + 11 + 18 * k, t0.y + 11), 8.0f, U(Rgb(255, 255, 255)), 18);
+	ImGui::PopID();
+}
+
+// schnelle Einstellungen: mehrere Regler auf einmal
+struct TweakMix { const char* name; float v[5]; };
+static const TweakMix kMixes[] = {
+	{"Normal", {1, 1, 1, 1, 1}},
+	{"Slow-mo", {0.5f, 1, 1, 1, 1}},
+	{"Moon ball", {1, 1, 1, 0.3f, 1.3f}},
+	{"Mega ball", {1, 1, 2.5f, 1, 1}},
+	{"Bouncy", {1, 1.3f, 1, 1, 2.2f}},
+};
+
 static void TweaksBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, bool& resetAll) {
 	const float listTop = top + 14;
 	Text(dl, fTitle, ImVec2(o.x + pad + 2, o.y + listTop - 2), cText, "Tweaks");
-	Text(dl, fSmall, ImVec2(o.x + pad + 2, o.y + listTop + 30), cMuted, "In Freeplay and Training. Everything is back to normal when you leave.");
+	Text(dl, fSmall, ImVec2(o.x + pad + 2, o.y + listTop + 28), cMuted, "Only in Freeplay and Training. Everything is back to normal when you leave.");
 	{
 		bool any = tweaks::Changed();
 		float w = PillW("Reset all", 2);
@@ -1786,58 +1920,160 @@ static void TweaksBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad,
 		if (PillButton(dl, "##twreset", "Reset all", ImVec2(o.x + W.x - pad - w, o.y + listTop - 4), 34, false, any, 2)) resetAll = true;
 		ImGui::PopStyleVar();
 	}
-	const float cx = o.x + pad, cw = W.x - pad * 2, ch = 70, gap = 10;
-	float y = o.y + listTop + 62;
-	for (int i = 0; i < tweaks::count; i++, y += ch + gap) {
-		const auto& t = tweaks::list[i];
-		ImGui::PushID(i + 9000);
-		ImVec2 a(cx, y), b(cx + cw, y + ch);
-		bool changed = fabsf(t.value - t.def) > 0.001f;
-		float hov = Anim(ImGui::GetID("cardh"), ImGui::IsMouseHoveringRect(a, b, false) ? 1.0f : 0.0f);
-		dl->AddRectFilled(a, b, U(Mix(cPanel, cPanel2, hov)), 14);
-		dl->AddRect(a, b, U(Mix(cLine, changed ? Acc(0.45f) : cLine2, std::max(hov * 0.6f, changed ? 1.0f : 0.0f))), 14);
-		// Text links
-		Text(dl, fBold, ImVec2(a.x + 18, a.y + 15), cText, t.label);
-		Text(dl, fSmall, ImVec2(a.x + 18, a.y + 37), cMuted, Fit(fSmall, fSmall->FontSize, t.hint, 270).c_str());
-		// Wert rechts
-		char vb[16];
-		snprintf(vb, sizeof vb, "%.2fx", t.value);
-		float vw = TextW(fBold, vb) + 20;
-		ImVec2 vp(b.x - 18 - vw, a.y + (ch - 28) / 2);
-		dl->AddRectFilled(vp, ImVec2(vp.x + vw, vp.y + 28), U(changed ? Acc(0.20f) : Rgb(255, 255, 255, 0.05f)), 9);
-		Text(dl, fBold, ImVec2(vp.x + 10, vp.y + 5), changed ? Mix(accent, Rgb(255, 255, 255), 0.6f) : cMuted, vb);
-		// Regler dazwischen
-		float sx0 = a.x + 320, sx1 = vp.x - 22, sy = a.y + ch / 2;
-		ImGui::SetCursorScreenPos(ImVec2(sx0 - 10, sy - 16));
-		ImGui::InvisibleButton("##sl", ImVec2(sx1 - sx0 + 20, 32));
-		bool active = ImGui::IsItemActive(), sh = ImGui::IsItemHovered();
-		if (sh && ImGui::IsMouseDoubleClicked(0)) tweaks::Set(i, t.def); // Doppelklick: Standard
-		else if (active) {
-			float f = std::clamp((ImGui::GetIO().MousePos.x - sx0) / (sx1 - sx0), 0.0f, 1.0f);
-			tweaks::Set(i, t.min + f * (t.max - t.min));
-		}
-		if (ImGui::IsItemDeactivated()) tweaks::Save();
-		float* shown = ImGui::GetStateStorage()->GetFloatRef(ImGui::GetID("pos"), SliderPos(i));
-		*shown = active ? SliderPos(i) : Approach(*shown, SliderPos(i), 18.0f);
-		float kx = sx0 + (sx1 - sx0) * *shown;
-		float kh = Anim(ImGui::GetID("kh"), (sh || active) ? 1.0f : 0.0f, 20.0f);
-		dl->AddRectFilled(ImVec2(sx0, sy - 2.5f), ImVec2(sx1, sy + 2.5f), U(Rgb(255, 255, 255, 0.08f)), 3);
-		// Spektrum bis zum Knopf
-		if (kx > sx0 + 1) {
-			int v0 = dl->VtxBuffer.Size;
-			dl->AddRectFilled(ImVec2(sx0, sy - 2.5f), ImVec2(kx, sy + 2.5f), U(Rgb(255, 255, 255)), 3);
-			ImGui::ShadeVertsLinearColorGradientKeepAlpha(dl, v0, dl->VtxBuffer.Size, ImVec2(sx0, sy), ImVec2(sx1, sy), U(spec[0]), U(spec[2]));
-		}
-		// Markierung beim Standardwert
-		float dx = sx0 + (sx1 - sx0) * std::clamp((t.def - t.min) / (t.max - t.min), 0.0f, 1.0f);
-		dl->AddRectFilled(ImVec2(dx - 1, sy - 7), ImVec2(dx + 1, sy + 7), U(Rgb(255, 255, 255, 0.22f)), 1);
-		float kr = 7.5f + 2.0f * kh;
-		if (kh > 0.01f) dl->AddCircleFilled(ImVec2(kx, sy), kr + 6, U(Acc(0.18f * kh)), 24);
-		dl->AddCircleFilled(ImVec2(kx, sy), kr, U(Rgb(255, 255, 255)), 24);
-		dl->AddCircle(ImVec2(kx, sy), kr, U(Acc(0.8f)), 24, 2.0f);
-		ImGui::PopID();
+	const float gap = 16, colW = (W.x - pad * 2 - gap) / 2;
+	const float lx = o.x + pad, rx = lx + colW + gap;
+	float y0 = o.y + listTop + 62;
+	auto section = [&](float x, float y, const char* s) { Text(dl, fTiny, ImVec2(x + 4, y), cFaint, s); };
+	// links: Spiel + Auto + schnelle Einstellungen
+	float y = y0;
+	for (int i = 0; i < tweaks::count; i++) if (!strcmp(tweaks::list[i].group, "World")) {
+		section(lx, y, "GAME"); y += 20;
+		SliderCard(dl, i, ImVec2(lx, y), colW); y += 86 + 14;
 	}
-	Text(dl, fTiny, ImVec2(cx + 2, o.y + W.y - 26), cFaint, "Double-click a slider to set it back to normal.");
+	for (int i = 0; i < tweaks::count; i++) if (!strcmp(tweaks::list[i].group, "Car")) {
+		section(lx, y, "CAR"); y += 20;
+		ToggleCard(dl, i, ImVec2(lx, y), colW); y += 64 + 14;
+	}
+	section(lx, y, "QUICK SETUPS"); y += 20;
+	{
+		ImVec2 qa(lx, y), qb(lx + colW, o.y + listTop + 62 + 20 + 4 * 86 + 3 * 12);
+		dl->AddRectFilled(qa, qb, U(Alpha(cPanel, 0.92f)), 14);
+		dl->AddRect(qa, qb, U(cLine), 14, 0, 1.0f);
+		Text(dl, fSmall, ImVec2(lx + 16, y + 12), cMuted, "Set several sliders at once.");
+		float cx = lx + 14, cy = y + 36;
+		for (int m = 0; m < (int)(sizeof kMixes / sizeof kMixes[0]); m++) {
+			const auto& mx = kMixes[m];
+			bool match = true;
+			for (int k = 0; k < 5; k++) if (fabsf(tweaks::list[k].value - mx.v[k]) > 0.001f) match = false;
+			float w = TextW(fBold, mx.name) + 30;
+			if (cx + w > lx + colW - 14) { cx = lx + 14; cy += 42; }
+			ImVec2 a(cx, cy), b(cx + w, cy + 34);
+			ImGui::SetCursorScreenPos(a);
+			ImGui::PushID(m + 9200);
+			if (ImGui::InvisibleButton("##mix", ImVec2(w, 34)) && !match) {
+				for (int k = 0; k < 5; k++) tweaks::Set(k, mx.v[k]);
+				tweaks::Save();
+			}
+			float h = Anim(ImGui::GetID("h"), ImGui::IsItemHovered() ? 1.0f : 0.0f, 22.0f);
+			float s = Anim(ImGui::GetID("s"), match ? 1.0f : 0.0f, 16.0f);
+			ImGui::PopID();
+			if (s > 0.01f) GradRect(dl, a, b, 17, spec[0], spec[2], 0.5f * s);
+			dl->AddRectFilled(a, b, U(Rgb(255, 255, 255, (0.04f + 0.05f * h) * (1 - s))), 17);
+			dl->AddRect(a, b, U(s > 0.5f ? Alpha(spec[1], 0.6f) : Rgb(255, 255, 255, 0.08f + 0.08f * h)), 17, 0, 1.0f);
+			Text(dl, fBold, ImVec2(a.x + 15, a.y + 17 - fBold->FontSize / 2 - 1), s > 0.5f ? Rgb(255, 255, 255) : Mix(Hex(0xc9c9d3), cText, h), mx.name);
+			cx += w + 8;
+		}
+	}
+	// rechts: Ball
+	y = y0;
+	section(rx, y, "BALL"); y += 20;
+	for (int i = 0; i < tweaks::count; i++) if (!strcmp(tweaks::list[i].group, "Ball")) {
+		SliderCard(dl, i, ImVec2(rx, y), colW); y += 86 + 12;
+	}
+	Text(dl, fTiny, ImVec2(lx + 2, o.y + W.y - 24), cFaint, "Double-click a slider to set it back to normal.");
+}
+
+// kleine Symbole fuer die Reiter (selbst gezeichnet)
+static void TabIcon(ImDrawList* d, ImVec2 c, int id, ImU32 col) {
+	const float t = 1.5f;
+	switch (id) {
+	case 0: { // Items: Auto von der Seite
+		d->PathLineTo(ImVec2(c.x - 8, c.y + 3));
+		d->PathLineTo(ImVec2(c.x - 7, c.y - 1));
+		d->PathLineTo(ImVec2(c.x - 3, c.y - 2));
+		d->PathLineTo(ImVec2(c.x, c.y - 5));
+		d->PathLineTo(ImVec2(c.x + 5, c.y - 5));
+		d->PathLineTo(ImVec2(c.x + 8, c.y - 1));
+		d->PathLineTo(ImVec2(c.x + 8, c.y + 3));
+		d->PathStroke(col, ImDrawFlags_Closed, t);
+		d->AddCircleFilled(ImVec2(c.x - 4, c.y + 4), 2.3f, col, 10);
+		d->AddCircleFilled(ImVec2(c.x + 4.5f, c.y + 4), 2.3f, col, 10);
+		break;
+	}
+	case 2: { // Colors: Farbtropfen
+		d->PathArcTo(ImVec2(c.x, c.y + 2), 5.0f, -0.35f, 3.49f, 16);
+		d->PathLineTo(ImVec2(c.x, c.y - 7));
+		d->PathStroke(col, ImDrawFlags_Closed, t);
+		d->AddCircleFilled(ImVec2(c.x - 1.5f, c.y + 2.5f), 1.6f, col, 8);
+		break;
+	}
+	case 1: // Presets: Lesezeichen
+		d->PathLineTo(ImVec2(c.x - 5, c.y - 6));
+		d->PathLineTo(ImVec2(c.x + 5, c.y - 6));
+		d->PathLineTo(ImVec2(c.x + 5, c.y + 7));
+		d->PathLineTo(ImVec2(c.x, c.y + 3));
+		d->PathLineTo(ImVec2(c.x - 5, c.y + 7));
+		d->PathStroke(col, ImDrawFlags_Closed, t);
+		break;
+	case 3: // Maps: Stadion (Oval mit Mittellinie)
+		d->AddEllipse(c, ImVec2(8.0f, 5.8f), col, 0, 20, t);
+		d->AddLine(ImVec2(c.x, c.y - 5.8f), ImVec2(c.x, c.y + 5.8f), col, 1.2f);
+		d->AddCircle(c, 2.0f, col, 10, 1.2f);
+		break;
+	case 4: // Tweaks: zwei Regler
+		d->AddLine(ImVec2(c.x - 7, c.y - 3), ImVec2(c.x + 7, c.y - 3), col, t);
+		d->AddLine(ImVec2(c.x - 7, c.y + 3.5f), ImVec2(c.x + 7, c.y + 3.5f), col, t);
+		d->AddCircleFilled(ImVec2(c.x - 2.5f, c.y - 3), 2.6f, col, 10);
+		d->AddCircleFilled(ImVec2(c.x + 3.5f, c.y + 3.5f), 2.6f, col, 10);
+		break;
+	}
+}
+
+// Hintergrund: langsam treibende Lichtwolken in den Farben des Themas, dazu ein paar aufsteigende Funken.
+// Zum Rand hin ausgeblendet (passt so auch in die runden Ecken).
+static void Aurora(ImDrawList* d, ImVec2 a, ImVec2 b, float alpha) {
+	const int NX = 34, NY = 24;
+	const float t = (float)ImGui::GetTime();
+	const float w = b.x - a.x, h = b.y - a.y;
+	struct Blob { float x, y, r; ImVec4 c; float s; } bl[4] = {
+		{0.22f + 0.16f * sinf(t * 0.13f), 0.30f + 0.22f * sinf(t * 0.11f + 1.3f), 0.42f, spec[0], 1.0f},
+		{0.78f + 0.14f * sinf(t * 0.10f + 2.1f), 0.28f + 0.20f * cosf(t * 0.12f), 0.38f, spec[1], 0.9f},
+		{0.55f + 0.24f * cosf(t * 0.08f + 0.7f), 0.82f + 0.12f * sinf(t * 0.15f + 2.0f), 0.46f, spec[2], 0.85f},
+		{0.40f + 0.30f * sinf(t * 0.06f + 4.0f), 0.60f + 0.25f * cosf(t * 0.09f + 3.0f), 0.30f, Mix(spec[0], spec[1], 0.5f), 0.6f},
+	};
+	const float aspect = w / h;
+	ImVec2 uv = ImGui::GetFontTexUvWhitePixel();
+	d->PrimReserve(NX * NY * 6, (NX + 1) * (NY + 1));
+	ImDrawIdx base = (ImDrawIdx)d->_VtxCurrentIdx;
+	for (int j = 0; j <= NY; j++)
+		for (int i = 0; i <= NX; i++) {
+			float u = (float)i / NX, v = (float)j / NY;
+			float sw = 0, r = 0, g = 0, bb = 0;
+			for (auto& k : bl) {
+				float dx = (u - k.x) * aspect, dy = v - k.y;
+				float wt = expf(-(dx * dx + dy * dy) / (k.r * k.r)) * k.s;
+				sw += wt;
+				r += k.c.x * wt; g += k.c.y * wt; bb += k.c.z * wt;
+			}
+			float inv = sw > 1e-4f ? 1.0f / sw : 0.0f;
+			float edge = std::min({u * w, (1 - u) * w, v * h, (1 - v) * h}) / 46.0f;
+			edge = std::clamp(edge, 0.0f, 1.0f);
+			edge = edge * edge * (3 - 2 * edge);
+			float al = std::min(sw, 1.0f) * 0.17f * edge * alpha;
+			ImVec4 c(r * inv, g * inv, bb * inv, al);
+			d->PrimWriteVtx(ImVec2(a.x + u * w, a.y + v * h), uv, ImGui::GetColorU32(c));
+		}
+	for (int j = 0; j < NY; j++)
+		for (int i = 0; i < NX; i++) {
+			ImDrawIdx i0 = (ImDrawIdx)(base + j * (NX + 1) + i), i1 = (ImDrawIdx)(i0 + 1), i2 = (ImDrawIdx)(i0 + NX + 1), i3 = (ImDrawIdx)(i2 + 1);
+			d->PrimWriteIdx(i0); d->PrimWriteIdx(i1); d->PrimWriteIdx(i3);
+			d->PrimWriteIdx(i0); d->PrimWriteIdx(i3); d->PrimWriteIdx(i2);
+		}
+	// Funken: steigen langsam auf, blinken sanft
+	for (int k = 0; k < 22; k++) {
+		float seed = k * 12.9898f;
+		float fx = fmodf(sinf(seed) * 43758.5453f, 1.0f); if (fx < 0) fx += 1;
+		float sp = 0.010f + 0.012f * fmodf(fabsf(cosf(seed * 1.7f)) * 97.0f, 1.0f);
+		float fy = 1.0f - fmodf(t * sp + fmodf(fabsf(sinf(seed * 3.1f)) * 13.0f, 1.0f), 1.0f);
+		float x = a.x + (0.04f + 0.92f * fx) * w + 8 * sinf(t * 0.4f + k);
+		float y = a.y + (0.08f + 0.88f * fy) * h;
+		float tw = 0.5f + 0.5f * sinf(t * (0.8f + 0.05f * k) + k);
+		float fade = std::min(fy * 6, std::min((1 - fy) * 6, 1.0f));
+		ImVec4 c = SpecAt(fx);
+		float al = (0.10f + 0.22f * tw) * fade * alpha;
+		d->AddCircleFilled(ImVec2(x, y), 3.2f, ImGui::GetColorU32(Alpha(c, al * 0.25f)), 10);
+		d->AddCircleFilled(ImVec2(x, y), 1.3f, ImGui::GetColorU32(Alpha(c, al)), 8);
+	}
 }
 
 void Render(bool* open) {
@@ -1878,6 +2114,7 @@ void Render(bool* open) {
 	for (int i = 1; i <= 4; i++)
 		dl->AddRectFilled(ImVec2(o.x - i * 3, o.y - i * 2), ImVec2(o.x + W.x + i * 3, o.y + W.y + i * 4), A(Rgb(0, 0, 0, 0.09f)), 20 + i * 3);
 	dl->AddRectFilled(o, ImVec2(o.x + W.x, o.y + W.y), A(cBg), 20);
+	Aurora(dl, o, ImVec2(o.x + W.x, o.y + W.y), 1.0f);
 	FadeRect(dl, ImVec2(o.x + 1, o.y + 1), ImVec2(o.x + W.x - 1, o.y + W.y - 1), 19, 0, Acc(0.10f),
 		[&](float x, float y) { return (1.0f - x * W.x / 380.0f) * (1.0f - y * W.y / 150.0f); });
 	dl->AddRect(o, ImVec2(o.x + W.x, o.y + W.y), A(cLine2), 20, 0, 1.0f);
@@ -1909,18 +2146,23 @@ void Render(bool* open) {
 		static const int idsMenu[4] = {0, 2, 1, 3}, idsFp[4] = {0, 4, 2, 1}; // Reihenfolge auf dem Bildschirm -> Reiter-Nummer
 		const char* const* names = fp ? namesFp : namesMenu;
 		const int* ids = fp ? idsFp : idsMenu;
-		float x0 = o.x + pad + 34 + TextW(fTitle, "Prism") + 22, y0 = o.y + 15;
-		float tws[5], tx[5], xx = x0 + 4;
-		for (int i = 0; i < N; i++) { tws[i] = TextW(fBold, names[i]) + 34; tx[i] = xx; xx += tws[i]; }
-		ImVec2 bp(x0, y0), bq(xx + 4, y0 + 38);
-		dl->AddRectFilled(bp, bq, A(cPanel), 19);
-		dl->AddRect(bp, bq, A(cLine), 19);
+		// Reiter mittig im Kopf: Symbol + Name, gleitende Spektrum-Markierung
+		const float th = 40, y0 = o.y + 13;
+		float tws[5], tx[5], total = 8;
+		for (int i = 0; i < N; i++) { tws[i] = TextW(fBold, names[i]) + 58; total += tws[i]; }
+		float x0 = o.x + (W.x - total) / 2;
+		float xx = x0 + 4;
+		for (int i = 0; i < N; i++) { tx[i] = xx; xx += tws[i]; }
+		ImVec2 bp(x0, y0), bq(x0 + total, y0 + th);
+		dl->AddRectFilled(bp, bq, A(Alpha(cPanel, 0.85f)), th / 2);
+		dl->AddRect(bp, bq, A(cLine2), th / 2, 0, 1.0f);
 		int curPos = 0;
+		float hov[5] = {};
 		for (int i = 0; i < N; i++) {
 			if (ids[i] == tab) curPos = i;
 			ImGui::SetCursorScreenPos(ImVec2(tx[i], y0 + 4));
 			ImGui::PushID(i);
-			if (ImGui::InvisibleButton("##tab", ImVec2(tws[i], 30)) && tab != ids[i]) {
+			if (ImGui::InvisibleButton("##tab", ImVec2(tws[i], th - 8)) && tab != ids[i]) {
 				tab = ids[i];
 				tabFade = 0.0f;
 				// Items/Colors/Presets gibt es ueberall: dort weitermachen, egal wo man das Menue als Naechstes oeffnet
@@ -1931,18 +2173,29 @@ void Render(bool* open) {
 				renameIdx = -1;
 				if (tab == 3) maps::Refresh();
 			}
+			hov[i] = Anim(ImGui::GetID("th"), ImGui::IsItemHovered() && tab != ids[i] ? 1.0f : 0.0f);
 			ImGui::PopID();
 		}
 		for (int i = 0; i < N; i++) if (ids[i] == tab) curPos = i;
 		float target = tx[curPos] - o.x;
-		tabX = tabX < 0 ? target : Approach(tabX, target, 18.0f);
-		tabW = tabW <= 0 ? tws[curPos] : Approach(tabW, tws[curPos], 18.0f);
-		dl->AddRectFilled(ImVec2(o.x + tabX, y0 + 4), ImVec2(o.x + tabX + tabW, y0 + 34), A(Acc(0.20f)), 15);
-		SpecLine(dl, o.x + tabX + tabW * 0.26f, o.x + tabX + tabW * 0.74f, y0 + 32, 1.5f, 0.9f); // Spektrum-Strich unter dem Reiter
+		tabX = tabX < 0 ? target : Approach(tabX, target, 16.0f);
+		tabW = tabW <= 0 ? tws[curPos] : Approach(tabW, tws[curPos], 16.0f);
+		for (int i = 0; i < N; i++)
+			if (hov[i] > 0.01f) dl->AddRectFilled(ImVec2(tx[i], y0 + 4), ImVec2(tx[i] + tws[i], y0 + th - 4), A(Rgb(255, 255, 255, 0.04f * hov[i])), (th - 8) / 2);
+		ImVec2 ia(o.x + tabX, y0 + 4), ib(o.x + tabX + tabW, y0 + th - 4);
+		GradRect(dl, ia, ib, (th - 8) / 2, spec[0], spec[2], 0.30f);
+		dl->AddRectFilled(ia, ib, A(Acc(0.10f)), (th - 8) / 2);
+		dl->AddRect(ia, ib, A(Alpha(spec[1], 0.55f)), (th - 8) / 2, 0, 1.0f);
+		// weicher Schein unter der Markierung
+		for (int k = 1; k <= 3; k++)
+			dl->AddRectFilled(ImVec2(ia.x + 10 - k * 2, ib.y - 2 + k), ImVec2(ib.x - 10 + k * 2, ib.y + k * 2), A(Alpha(spec[1], 0.05f)), 6);
 		for (int i = 0; i < N; i++) {
 			float on = Anim(ImGui::GetID(names[i]), tab == ids[i] ? 1.0f : 0.0f);
 			float nw = TextW(fBold, names[i]);
-			Text(dl, fBold, ImVec2(tx[i] + (tws[i] - nw) / 2, y0 + 10), Mix(cMuted, Mix(accent, Rgb(255, 255, 255), 0.65f), on), names[i]);
+			float cx = tx[i] + (tws[i] - nw - 24) / 2;
+			ImVec4 tc = Mix(Mix(cMuted, cText, hov[i]), Rgb(255, 255, 255), on);
+			TabIcon(dl, ImVec2(cx + 8, y0 + th / 2), ids[i], A(Mix(Mix(cFaint, cMuted, hov[i]), Rgb(255, 255, 255), on)));
+			Text(dl, fBold, ImVec2(cx + 24, y0 + th / 2 - fBold->FontSize / 2 - 1), tc, names[i]);
 		}
 	}
 
@@ -2037,7 +2290,7 @@ void Render(bool* open) {
 		ImVec2 bo(o.x, o.y + (1.0f - EaseOut(tabFade)) * 6.0f);
 		// Umschalter: Workshop-Maps / Kulissen
 		{
-			const char* lbl[2] = {"Workshop maps", "Backdrops"};
+			const char* lbl[2] = {"Freeplay Swap", "Scenery Swap"};
 			float sw[2], sx = bo.x + pad, sy = bo.y + top + 6;
 			for (int i = 0; i < 2; i++) sw[i] = TextW(fBold, lbl[i]) + 36;
 			ImVec2 a(sx, sy), b(sx + sw[0] + sw[1] + 8, sy + 36);

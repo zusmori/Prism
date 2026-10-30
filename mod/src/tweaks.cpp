@@ -20,11 +20,12 @@
 namespace tweaks {
 
 Setting list[] = {
-	{"speed", "Game speed", "Slow motion or faster than normal.", 1.0f, 0.1f, 2.0f, 0.05f, 1.0f},
-	{"ballspeed", "Ball speed", "How fast the ball flies when you hit it.", 1.0f, 0.25f, 4.0f, 0.05f, 1.0f},
-	{"ballsize", "Ball size", "Tiny or huge ball.", 1.0f, 0.3f, 4.0f, 0.05f, 1.0f},
-	{"ballgravity", "Ball gravity", "0 = the ball floats.", 1.0f, 0.0f, 3.0f, 0.05f, 1.0f},
-	{"bounce", "Ball bounce", "How much the ball bounces off walls and floor.", 1.0f, 0.0f, 3.0f, 0.05f, 1.0f},
+	{"speed", "Game speed", "Slow motion or faster than normal.", 1.0f, 0.1f, 2.0f, 0.05f, 1.0f, false, "World"},
+	{"ballspeed", "Ball speed", "How fast the ball flies when you hit it.", 1.0f, 0.25f, 4.0f, 0.05f, 1.0f, false, "Ball"},
+	{"ballsize", "Ball size", "Tiny or huge ball.", 1.0f, 0.3f, 4.0f, 0.05f, 1.0f, false, "Ball"},
+	{"ballgravity", "Ball gravity", "0 = the ball floats.", 1.0f, 0.0f, 3.0f, 0.05f, 1.0f, false, "Ball"},
+	{"bounce", "Ball bounce", "How much the ball bounces off walls and floor.", 1.0f, 0.0f, 3.0f, 0.05f, 1.0f, false, "Ball"},
+	{"flips", "Unlimited flips", "Jump and flip in the air as often as you like.", 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, true, "Car"},
 };
 const int count = sizeof(list) / sizeof(list[0]);
 
@@ -110,6 +111,65 @@ static std::atomic<bool> fpActive{false};
 static std::mutex touchMu;
 static std::vector<std::pair<void*, unsigned long long>> touched; // Ball, Zeitpunkt der Beruehrung
 static bool setupDone = false;
+// Unbegrenzte Flips: das Spiel hat das selbst (Car_TA.SetUnlimitedJumpsEnabled / SetUnlimitedTimeForDodgeEnabled)
+static void *fnUnlJumps = nullptr, *fnUnlDodge = nullptr;
+static int argUnlJumps = -1, argUnlDodge = -1, offUnl = -1;
+static uint32_t maskUnlJumps = 0, maskUnlDodge = 0;
+static void* flipsCar = nullptr; // Auto, bei dem wir es angeschaltet haben
+
+static void SetupFlips(void* car) {
+	static bool done = false;
+	if (done || !car) return;
+	done = true;
+	void* cls = ue::FindClass("Class TAGame.Car_TA");
+	if (!cls) return;
+	fnUnlJumps = ue::FindFunction(cls, "SetUnlimitedJumpsEnabled");
+	fnUnlDodge = ue::FindFunction(cls, "SetUnlimitedTimeForDodgeEnabled");
+	std::string t1, t2;
+	if (fnUnlJumps) argUnlJumps = ue::FirstParamOffset(fnUnlJumps, &t1);
+	if (fnUnlDodge) argUnlDodge = ue::FirstParamOffset(fnUnlDodge, &t2);
+	if (t1 != "BoolProperty") fnUnlJumps = nullptr;
+	if (t2 != "BoolProperty") fnUnlDodge = nullptr;
+	offUnl = ue::PropOffset(cls, "bUnlimitedJumps");
+	maskUnlJumps = ue::BoolMask(cls, "bUnlimitedJumps");
+	maskUnlDodge = ue::BoolMask(cls, "bUnlimitedTimeForDodge");
+	zl::Log("tweaks: flips jumps=%p(%d) dodge=%p(%d) bits@%x %x/%x", fnUnlJumps, argUnlJumps, fnUnlDodge, argUnlDodge, offUnl, maskUnlJumps, maskUnlDodge);
+}
+
+static void SetFlips(void* car, bool on) {
+	auto call = [&](void* fn, int arg) {
+		if (!fn || arg < 0) return;
+		std::vector<uint8_t> p(size_t(ue::StructSize(fn)) + 16, 0);
+		*reinterpret_cast<uint32_t*>(p.data() + arg) = on ? 1u : 0u;
+		ue::Call(car, fn, p.data());
+	};
+	call(fnUnlJumps, argUnlJumps);
+	call(fnUnlDodge, argUnlDodge);
+}
+
+static void TickFlips(void* car, bool allowed, bool want) {
+	SetupFlips(car);
+	if (!fnUnlJumps && !fnUnlDodge) return;
+	bool on = allowed && want && car && ue::IsAlive(car);
+	if (flipsCar && flipsCar != car) flipsCar = nullptr; // neues Auto: das alte ist weg
+	if (on) {
+		bool is = false;
+		if (offUnl >= 0 && maskUnlJumps) {
+			uint32_t bits = ue::Read<uint32_t>(car, offUnl);
+			is = (bits & maskUnlJumps) && (!maskUnlDodge || (bits & maskUnlDodge));
+		} else is = flipsCar == car;
+		if (!is) {
+			SetFlips(car, true);
+			static int n = 0;
+			if (n++ < 4) zl::Log("tweaks: unlimited flips on");
+		}
+		flipsCar = car;
+	} else if (flipsCar && flipsCar == car && ue::IsAlive(car)) {
+		SetFlips(car, false);
+		flipsCar = nullptr;
+		zl::Log("tweaks: unlimited flips off");
+	}
+}
 
 static void SetupOnce(void* ge) {
 	if (setupDone) return;
@@ -247,6 +307,14 @@ void Tick(void* car, void* ge, bool freeplay) {
 	unsigned long long now = GetTickCount64();
 	if (now < next) return;
 	next = now + 250;
+	{
+		bool flips;
+		{
+			std::lock_guard<std::mutex> lk(mu);
+			flips = list[5].value > 0.5f;
+		}
+		TickFlips(car, freeplay, flips);
+	}
 	float v[8];
 	{
 		std::lock_guard<std::mutex> lk(mu);

@@ -1484,10 +1484,8 @@
           <div class="seg" id="closeSeg"><button data-v="ask">Ask</button><button data-v="tray">Tray</button><button data-v="quit">Quit</button></div></div>
       </div></div>
       <div class="ssec" id="secGame"><h4>In game</h4><div class="sgrp">
-        <div class="srow" id="setItemMod" role="switch" aria-checked="true" tabindex="0"><span class="sic gi" data-ic="spark"></span>
-          <div class="tx"><b>Prism menu <span class="spill" style="color:rgb(var(--ac3-rgb));background:rgb(var(--ac-rgb) / .14);border-color:rgb(var(--ac-rgb) / .35)">Beta</span></b><small>Press <b class="kbd mkey">F8</b> in Rocket League to use any item and swap maps. Items are only visible to you. Works when you play without Anti-Cheat.</small></div><span class="tg" id="tgItemMod"></span></div>
         <div class="srow nohov" id="rowKey"><span class="sic gi" data-ic="kbd"></span>
-          <div class="tx"><b>Menu key</b><small id="keyHint">The key that opens the Prism menu in game.</small></div>
+          <div class="tx"><b>Menu key</b><small id="keyHint">The key that opens the Prism menu in game. It's always there when you play without Anti-Cheat.</small></div>
           <div class="kset"><button class="kreset hide" id="keyReset" title="Back to F8">Reset</button><button class="keycap" id="keyCap" aria-label="Change menu key"><span class="kl" id="keyLbl">F8</span></button></div></div>
         <div class="srow" id="setKeep" role="switch" aria-checked="false" tabindex="0"><span class="sic gi" data-ic="lock"></span>
           <div class="tx"><b>Swaps stay after quitting</b><small>Maps stay swapped when you quit Prism. You won't be asked to restore.</small></div><span class="tg" id="tgKeep"></span></div>
@@ -1818,7 +1816,6 @@ function paintSettings(){
   paintKey(false);
   $('tgKeep').classList.toggle('on', !!settings.keepSwaps);
   $('setKeep').setAttribute('aria-checked', !!settings.keepSwaps);
-  $('tgItemMod').classList.toggle('on', settings.itemMod !== false); $('setItemMod').setAttribute('aria-checked', settings.itemMod !== false);
   $('tgPlayTray').classList.toggle('on', settings.trayOnPlay !== false); $('setPlayTray').setAttribute('aria-checked', settings.trayOnPlay !== false);
   const rpcOn = settings.rpc !== false;
   $('tgRpc').classList.toggle('on', rpcOn); $('setRpc').setAttribute('aria-checked', rpcOn);
@@ -1892,7 +1889,7 @@ function toggleSetting(k){
   else { Sfx.ui('tab'); settings[k] = !settings[k]; paintSettings(); }
   saveSetting(k, settings[k]);
 }
-[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setItemMod', 'itemMod'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
+[['setKeep', 'keepSwaps'], ['setMute', 'mute'], ['setPlayTray', 'trayOnPlay'], ['setRpc', 'rpc'], ...RPC_CHIPS].forEach(([id, k]) => {
   $(id).onclick = () => toggleSetting(k);
   $(id).onkeydown = e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); toggleSetting(k); } };
 });
@@ -1939,7 +1936,7 @@ function keyListen(on){
   const cap = $('keyCap'); keyCap.on = on;
   cap.classList.toggle('listen', on);
   $('keyLbl').textContent = on ? 'Press a key …' : keyLabel();
-  $('keyHint').textContent = on ? 'Press the new key. Esc cancels.' : 'The key that opens the Prism menu in game.';
+  $('keyHint').textContent = on ? 'Press the new key. Esc cancels.' : 'The key that opens the Prism menu in game. It's always there when you play without Anti-Cheat.';
   if (!on) cap.blur();
 }
 $('keyCap').onclick = () => { Sfx.ui('tick'); keyListen(!keyCap.on); };
@@ -2638,7 +2635,6 @@ function homeEnter(){
 async function launch(eac, force){
   if (home.launching) return;
   if (eac && !force && Object.keys(curState.swaps || {}).length) return askEac();
-  if (eac && force !== true && settings.itemMod !== false) return askItemEac();   // Hinweis: Item-Menue ist noch an
   home.launching = eac ? 'eac' : 'noeac'; paintRL(home.st || {found: true}); Sfx.ui('swap');
   const mine = home.launching;
   try {
@@ -2671,7 +2667,7 @@ async function closeGame(){
   [1200, 3000, 6000, 9500].forEach(t => setTimeout(pollRL, t));
 }
 $('pNoEac').onclick = () => { closePlay(); launch(false); };
-$('pEac').onclick = () => { closePlay(); setTimeout(() => launch(true), (Object.keys(curState.swaps || {}).length || settings.itemMod !== false) ? 220 : 0); };
+$('pEac').onclick = () => { closePlay(); setTimeout(() => launch(true), Object.keys(curState.swaps || {}).length ? 220 : 0); };
 $('playCancel').onclick = () => { closePlay(); Sfx.ui('dismiss'); };
 $('playDlg').addEventListener('mousedown', e => { if (e.target === $('playDlg')){ closePlay(); Sfx.ui('dismiss'); } });
 $('hSwap').onclick = () => {
