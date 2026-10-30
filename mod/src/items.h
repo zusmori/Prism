@@ -42,6 +42,7 @@ void TickPreview();
 bool InMatch();
 bool InFreeplay(); // gerade im Freeplay
 bool InTweaksMode(); // Freeplay oder Training (Reiter "Tweaks")
+void* MyPRI();        // PRI deines Autos (Spiel-Thread), nullptr = unbekannt
 
 // im Spiel-Thread
 bool Setup();          // Klassen/Eigenschaften suchen

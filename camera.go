@@ -275,10 +275,58 @@ func GetCamera() CameraState {
 	return CameraState{Found: true, Values: camValues(s), On: c.On, Want: c.Want, Preset: camPreset(s)}
 }
 
+var camLiveSeq int
+
+func camClamp(vals map[string]float64) map[string]float64 {
+	out := map[string]float64{}
+	for _, f := range camFields {
+		if v, ok := vals[f.Key]; ok && !math.IsNaN(v) {
+			out[f.Key] = math.Max(f.Min, math.Min(f.Max, math.Round(v/f.Step)*f.Step))
+		}
+	}
+	return out
+}
+
+// CameraLive: Werte sofort ins laufende Spiel (nur ohne Anti-Cheat, ueber den Prism-Mod).
+// Rueckgabe: "live" (im Spiel), "eac" (Spiel mit Anti-Cheat: nur Vorschau), "closed" (Spiel zu)
+func CameraLive(vals map[string]float64) string {
+	if !rlRunning() {
+		return "closed"
+	}
+	if eacRunning() {
+		return "eac"
+	}
+	v := camClamp(vals)
+	camLiveSeq++
+	line := strconv.Itoa(camLiveSeq)
+	for _, k := range []string{"fov", "height", "angle", "distance", "stiffness", "swivel", "transition"} {
+		line += " " + strconv.FormatFloat(v[k], 'f', 3, 64)
+	}
+	p := filepath.Join(dataDir, "camera_live.txt")
+	if os.WriteFile(p+".tmp", []byte(line+"\n"), 0644) == nil {
+		_ = replaceFile(p+".tmp", p)
+	}
+	return "live"
+}
+
 // SetCamera: eigene Werte speichern (schaltet die eigene Kamera an)
 func SetCamera(vals map[string]float64) error {
 	if rlRunning() {
-		return errors.New("Close Rocket League first. It saves your settings when it quits and would overwrite these.")
+		if eacRunning() {
+			return errors.New("Close Rocket League first. It saves your settings when it quits and would overwrite these.")
+		}
+		// Spiel ohne Anti-Cheat laeuft: live ins Spiel, das Spiel speichert sie beim Beenden selbst
+		// (danach prueft Prism noch einmal, ob alles stimmt)
+		c := loadCamCfg()
+		if !c.On || len(c.Before) == 0 {
+			if s, err := newestCamSave(); err == nil {
+				c.Before = camValues(s)
+			}
+		}
+		c.On = true
+		c.Want = camClamp(vals)
+		CameraLive(vals)
+		return saveJSON(camCfgFile, c)
 	}
 	s, err := newestCamSave()
 	if err != nil {
@@ -303,12 +351,25 @@ func SetCamera(vals map[string]float64) error {
 
 // SetCameraOn: eigene Kamera an (gespeicherte Werte wieder setzen) oder aus (Werte von vorher zurueck)
 func SetCameraOn(on bool) error {
-	if rlRunning() {
-		return errors.New("Close Rocket League first. It saves your settings when it quits and would overwrite these.")
-	}
 	c := loadCamCfg()
 	if on == c.On {
 		return nil
+	}
+	if rlRunning() {
+		if eacRunning() {
+			return errors.New("Close Rocket League first. It saves your settings when it quits and would overwrite these.")
+		}
+		// ohne Anti-Cheat: gleich im Spiel umschalten, das Spiel speichert beim Beenden
+		if on && len(c.Want) == 0 {
+			return errors.New("Set your values and hit Save first.")
+		}
+		if on {
+			CameraLive(c.Want)
+		} else if len(c.Before) > 0 {
+			CameraLive(c.Before)
+		}
+		c.On = on
+		return saveJSON(camCfgFile, c)
 	}
 	if on {
 		if len(c.Want) == 0 {

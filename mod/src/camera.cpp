@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "log.h"
+#include "items.h"
 #include "ue.h"
 
 namespace cam {
@@ -103,8 +104,88 @@ static int Patch(void* cam) {
 	return n;
 }
 
+// ---------- Live: Werte aus dem Launcher sofort ins Spiel (nur ohne Anti-Cheat, wie das ganze Menue) ----------
+// Prism schreibt camera_live.txt ("Nummer FOV Hoehe Winkel Abstand Stiffness Swivel Transition"), solange du die
+// Regler im Launcher bewegst. Hier landen sie in deinen Kamera-Einstellungen (CameraSettingsActor_TA.SetProfileSettings)
+// und im Profil (ProfileCameraSave_TA.Camera), damit das Spiel sie beim Beenden auch so speichert.
+static void TickLive(unsigned long long now) {
+	static unsigned long long next = 0, lastMod = 0;
+	if (now < next) return;
+	next = now + 120;
+	std::wstring path = zl::DataDir() + L"\\camera_live.txt";
+	WIN32_FILE_ATTRIBUTE_DATA fa;
+	if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &fa)) return;
+	unsigned long long mod = ((unsigned long long)fa.ftLastWriteTime.dwHighDateTime << 32) | fa.ftLastWriteTime.dwLowDateTime;
+	if (mod == lastMod) return;
+	bool first = lastMod == 0;
+	lastMod = mod;
+	if (first) return; // alter Stand von vorher: nicht anwenden
+	FILE* f = _wfopen(path.c_str(), L"r");
+	if (!f) return;
+	unsigned seq = 0;
+	float v[7];
+	int n = fscanf(f, "%u %f %f %f %f %f %f %f", &seq, &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6]);
+	fclose(f);
+	if (n != 8) return;
+	// Grenzen wie im Spiel
+	static const float lo[7] = {60, 40, -15, 100, 0, 1, 1}, hi[7] = {110, 200, 0, 400, 1, 10, 2};
+	for (int i = 0; i < 7; i++) v[i] = std::clamp(v[i], lo[i], hi[i]);
+
+	static void *clsSet = nullptr, *clsSave = nullptr, *fnSet = nullptr;
+	static int offSetProfile = -1, offSetPRI = -1, offSaveCam = -1, argSet = -1;
+	static bool setup = false;
+	if (!setup) {
+		setup = true;
+		clsSet = ue::FindClass("Class TAGame.CameraSettingsActor_TA");
+		clsSave = ue::FindClass("Class TAGame.ProfileCameraSave_TA");
+		if (clsSet) {
+			offSetProfile = ue::PropOffset(clsSet, "ProfileSettings");
+			offSetPRI = ue::PropOffset(clsSet, "PRI");
+			fnSet = ue::FindFunction(clsSet, "SetProfileSettings");
+			if (fnSet) argSet = ue::FirstParamOffset(fnSet);
+		}
+		if (clsSave) offSaveCam = ue::PropOffset(clsSave, "Camera");
+		zl::Log("cam live: settingsActor=%p profile=%x pri=%x set=%p(%d) save=%p camera=%x", clsSet, offSetProfile, offSetPRI, fnSet, argSet, clsSave, offSaveCam);
+	}
+	int applied = 0, saved = 0;
+	void* myPri = items::MyPRI();
+	// Objekte merken (ganze Suche nur alle paar Sekunden, sonst ruckelt es beim Ziehen der Regler)
+	static std::vector<void*> setActors, saves;
+	static unsigned long long nextScan = 0;
+	if (now >= nextScan) {
+		nextScan = now + 3000;
+		setActors = clsSet ? ue::Instances(clsSet) : std::vector<void*>{};
+		saves = clsSave ? ue::Instances(clsSave) : std::vector<void*>{};
+	}
+	if (clsSet && offSetProfile >= 0)
+		for (void* a : setActors) {
+			if (!ue::IsAlive(a)) continue;
+			void* pri = offSetPRI >= 0 ? ue::Read<void*>(a, offSetPRI) : nullptr;
+			if (myPri && pri && pri != myPri) continue; // nur deine Kamera
+			uint8_t st[0x2C];
+			memcpy(st, reinterpret_cast<uint8_t*>(a) + offSetProfile, sizeof st);
+			memcpy(st, v, sizeof v); // FOV, Height, Pitch, Distance, Stiffness, SwivelSpeed, TransitionSpeed
+			if (fnSet && argSet >= 0) {
+				std::vector<uint8_t> prm(size_t(ue::StructSize(fnSet)) + 16, 0);
+				memcpy(prm.data() + argSet, st, sizeof st);
+				ue::Call(a, fnSet, prm.data());
+			}
+			memcpy(reinterpret_cast<uint8_t*>(a) + offSetProfile, st, sizeof v);
+			applied++;
+		}
+	if (clsSave && offSaveCam >= 0)
+		for (void* o : saves) {
+			if (!ue::IsAlive(o)) continue;
+			memcpy(reinterpret_cast<uint8_t*>(o) + offSaveCam, v, sizeof v);
+			saved++;
+		}
+	static int logs = 0;
+	if (logs++ < 20) zl::Log("cam live #%u: fov %.0f height %.1f angle %.1f distance %.1f -> %d camera(s), %d profile(s)", seq, v[0], v[1], v[2], v[3], applied, saved);
+}
+
 void Tick() {
 	unsigned long long now = GetTickCount64();
+	try { TickLive(now); } catch (...) {}
 	// alle Kameras und ihre Vorlagen (auch Unterklassen): ab und zu neu suchen, verteilt auf mehrere Bilder (kein Ruckler)
 	static ue::SlicedScan scan;
 	static std::vector<void*> known;

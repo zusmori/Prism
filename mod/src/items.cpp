@@ -1954,6 +1954,7 @@ static void SyncPreview(void* actor, bool main) {
 bool InMatch() { return GetTickCount64() - lastPlayerTick.load() < 1500; }
 bool InFreeplay() { return inFreeplay.load() && InMatch(); }
 bool InTweaksMode() { return inTweaks.load() && InMatch(); }
+void* MyPRI() { return localPRIForColors.load(); }
 
 void TickPreview() {
 	if (!ready || !clsPreview || offPrevLoadout < 0 || !fnChangePart) return;

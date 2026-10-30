@@ -4,8 +4,8 @@
 1 ICON "prism.ico"
 1 24 "app.manifest"
 1 VERSIONINFO
-FILEVERSION 1,5,2,0
-PRODUCTVERSION 1,5,2,0
+FILEVERSION 1,5,3,0
+PRODUCTVERSION 1,5,3,0
 FILEOS VOS_NT_WINDOWS32
 FILETYPE VFT_APP
 BEGIN
@@ -15,11 +15,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "zusmori"
       VALUE "FileDescription", "Prism"
-      VALUE "FileVersion", "1.5.2"
+      VALUE "FileVersion", "1.5.3"
       VALUE "InternalName", "Prism"
       VALUE "OriginalFilename", "Prism.exe"
       VALUE "ProductName", "Prism"
-      VALUE "ProductVersion", "1.5.2"
+      VALUE "ProductVersion", "1.5.3"
     END
   END
   BLOCK "VarFileInfo"

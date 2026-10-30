@@ -730,6 +730,7 @@ func main() {
 	w.Bind("getCamera", func() CameraState { return GetCamera() })
 	w.Bind("setCamera", func(v map[string]float64) error { return SetCamera(v) })
 	w.Bind("setCameraOn", func(on bool) error { return SetCameraOn(on) })
+	w.Bind("cameraLive", func(v map[string]float64) string { return CameraLive(v) })
 
 	// ---- Browse Maps / Downloads / Favoriten ----
 	w.Bind("recommendedAsync", func(id int) {
