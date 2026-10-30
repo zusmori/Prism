@@ -1039,6 +1039,9 @@ func BuildBackdropPackage(srcPath string) ([]byte, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	// Rocket League waehlt den Schluessel nach dem Paketnamen; fuer unbekannte Namen (unser neues Paket) nimmt es
+	// den Standard-Schluessel. Mit dem Schluessel der Quell-Map waere das Paket fuer das Spiel kaputt (Absturz).
+	p.key = allKeys()[0]
 	b, err := p.Bytes()
 	return b, n, err
 }

@@ -590,6 +590,12 @@ func mergeBeforeLaunch(cooked string) {
 	mergeMu.Lock()
 	mergeHoldUntil = time.Time{}
 	derivedNew = map[string]bool{} // das Spiel startet neu und findet alle Pakete
+	// alte Kulissen-Pakete (z. B. von einer aelteren Prism-Version) neu bauen lassen
+	if ds, _ := filepath.Glob(filepath.Join(cooked, "Prism_*_BD.upk")); len(ds) > 0 {
+		for _, d := range ds {
+			os.Remove(d)
+		}
+	}
 	stats := loadMergeStats()
 	for f, s := range stats { // alles neu anwenden
 		s.State = ""
