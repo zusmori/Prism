@@ -200,37 +200,15 @@ func gameMapNames() map[string]string {
 				keys = append(keys, strings.ToLower(strings.TrimSpace(v)))
 			}
 		}
-		// Name, den das Spiel anzeigt: Eigenschaft oder Funktion mit "Display"/"Localized" im Namen zuerst,
-		// sonst irgendein Text, der kein Dateiname ist
-		name := ""
-		score := 0
-		for k, v := range props {
-			if v == "" || strings.Contains(v, "_") || strings.EqualFold(v, l[0]) {
-				continue
-			}
-			sc := 1
-			switch {
-			case strings.Contains(k, "display") || strings.Contains(k, "localized"):
-				sc = 4
-			case strings.Contains(k, "label") || strings.Contains(k, "title"):
-				sc = 3
-			case strings.Contains(k, "name") && !strings.Contains(k, "variant"):
-				sc = 2
-			case strings.Contains(k, "variant"):
-				continue
-			}
-			if sc > score {
-				name, score = v, sc
-			}
-		}
-		if name == "" {
+		// Name, den das Spiel anzeigt: Grundname + Variante, z. B. "Farmstead" + "Night" -> "Farmstead (Night)"
+		base := props["fn:getlocalizedbasename"]
+		variant := props["fn:getlocalizedvariantname"]
+		if base == "" || strings.Contains(base, "_") {
 			continue
 		}
-		for k, v := range props {
-			if strings.Contains(k, "variant") && v != "" && !strings.Contains(v, "_") && !strings.Contains(strings.ToLower(name), strings.ToLower(v)) {
-				name += " (" + v + ")"
-				break
-			}
+		name := base
+		if variant != "" && !strings.Contains(variant, "_") && !strings.Contains(strings.ToLower(base), strings.ToLower(variant)) {
+			name += " (" + variant + ")"
 		}
 		for _, k := range keys {
 			k = strings.TrimSuffix(k, "_p")
@@ -247,6 +225,12 @@ func buildMergeCatalog(cooked string) {
 		return
 	}
 	gameNames := gameMapNames()
+	nameCount := map[string]int{}
+	for stem, n := range gameNames {
+		if _, ok := soccarArenas[stem]; ok {
+			nameCount[strings.ToLower(n)]++
+		}
+	}
 	cache := map[string]mergeCacheEntry{}
 	loadJSON(mergeCacheFile, &cache)
 	files, _ := filepath.Glob(filepath.Join(cooked, "*_P.upk"))
@@ -261,7 +245,10 @@ func buildMergeCatalog(cooked string) {
 			continue // nur normale Fussball-Arenen
 		}
 		if n := gameNames[lo]; n != "" {
-			nice = n // so heisst sie im Spiel
+			// so heisst sie im Spiel; heissen zwei Arenen gleich (Gotham Night hat keine Variante), die eigene Liste
+			if nameCount[strings.ToLower(n)] < 2 {
+				nice = n
+			}
 		}
 		// gemergte/getauschte Arena: das Original aus der Sicherung lesen
 		src := f

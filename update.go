@@ -30,7 +30,7 @@ import (
 )
 
 // Bei jedem Release mit hochzaehlen (passend zum Tag, z. B. v1.2.0)
-const appVersion = "1.4.9"
+const appVersion = "1.4.10"
 
 const (
 	releaseAPI = "https://api.github.com/repos/zusmori/Prism/releases/latest"
