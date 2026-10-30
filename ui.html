@@ -1936,7 +1936,7 @@ function keyListen(on){
   const cap = $('keyCap'); keyCap.on = on;
   cap.classList.toggle('listen', on);
   $('keyLbl').textContent = on ? 'Press a key …' : keyLabel();
-  $('keyHint').textContent = on ? 'Press the new key. Esc cancels.' : 'The key that opens the Prism menu in game. It's always there when you play without Anti-Cheat.';
+  $('keyHint').textContent = on ? 'Press the new key. Esc cancels.' : 'The key that opens the Prism menu in game. It\'s always there when you play without Anti-Cheat.';
   if (!on) cap.blur();
 }
 $('keyCap').onclick = () => { Sfx.ui('tick'); keyListen(!keyCap.on); };
