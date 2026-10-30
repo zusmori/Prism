@@ -23,8 +23,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"golang.org/x/sys/windows"
 )
 
 const saveKey = "14wySpRClDxtZc6YgYVMQWiZIgzHoUZAk5uWPJMqb68="
@@ -67,13 +65,6 @@ func ue3CRC(b []byte) uint32 {
 		c = c<<8 ^ camCRC[byte(c>>24)^x]
 	}
 	return ^c
-}
-
-func documentsDir() string {
-	if p, err := windows.KnownFolderPath(windows.FOLDERID_Documents, 0); err == nil && p != "" {
-		return p
-	}
-	return filepath.Join(os.Getenv("USERPROFILE"), "Documents")
 }
 
 var reProfileSave = regexp.MustCompile(`^\d{10,20}(_2)?\.save$`)
