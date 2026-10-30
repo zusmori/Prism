@@ -1353,7 +1353,14 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 	SmoothScroll(mgScrollA, mgLastA);
 	ImDrawList* cd = ImGui::GetWindowDrawList();
 	const float rh = 52;
-	for (int i = 0; i < (int)L.size(); i++) {
+	// gemergte Arenen ganz oben, dann der Rest (jeweils nach Namen)
+	std::vector<int> order;
+	for (int pass = 0; pass < 2; pass++)
+		for (int i = 0; i < (int)L.size(); i++)
+			if (L[i].want.empty() == (pass == 1)) order.push_back(i);
+	bool needRestart = false;
+	for (auto& a : L) if (merge::NeedsRestart(a)) needRestart = true;
+	for (int i : order) {
 		auto& a = L[i];
 		if (!a.base || (!q.empty() && a.lower.find(q) == std::string::npos)) continue;
 		ImGui::PushID(i + 31000);
@@ -1385,7 +1392,8 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 		if (on) {
 			sub = a.want == "-" ? "Own backdrop off" : "+ " + a.wantName + (a.replace ? " (own off)" : "");
 			sc = Mix(spec[0], Rgb(255, 255, 255), 0.35f);
-			if (a.state == "pending") sub += "  \xC2\xB7  waiting";
+			if (merge::NeedsRestart(a)) sub += "  \xC2\xB7  restart";
+			else if (a.state == "pending") sub += "  \xC2\xB7  waiting";
 			else if (a.state == "error") { sub = "Couldn't merge"; sc = Rgb(255, 140, 140); }
 		}
 		Text(cd, fSmall, ImVec2(tx, p.y + 29), sc, Fit(fSmall, fSmall->FontSize, sub, leftW - 66).c_str());
@@ -1393,7 +1401,14 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 	ImGui::Dummy(ImVec2(0, 6));
 	ImGui::EndChild();
 	if (merged) {
-		if (PillButton(dl, "##mgrestall", "Restore all", ImVec2(o.x + pad + 4, o.y + W.y - 46), 34, false, true, 2)) act.kind = 3;
+		float rx = o.x + pad + 4;
+		if (needRestart) {
+			bool asked = merge::restartAsked && GetTickCount64() - merge::restartAsked < 60000;
+			const char* lbl = asked ? "Restarting …" : "Restart game";
+			if (PillButton(dl, "##mgrestart", lbl, ImVec2(rx, o.y + W.y - 46), 34, true, !asked, 1)) act.kind = 5;
+			rx += PillW(lbl, 1) + 8;
+		}
+		if (PillButton(dl, "##mgrestall", "Restore all", ImVec2(rx, o.y + W.y - 46), 34, false, true, 2)) act.kind = 3;
 	}
 
 	// ---------- Rechts ----------
@@ -1406,7 +1421,13 @@ static void MergeBody(ImDrawList* dl, ImVec2 o, ImVec2 W, float top, float pad, 
 		float bx = o.x + px + pw;
 		float w1 = PillW("Play", 1);
 		bx -= w1;
-		if (PillButton(dl, "##mgplay", "Play", ImVec2(bx, o.y + listTop - 6), 34, true, true, 1)) { act.kind = 4; act.arenaU8 = cur.file; }
+		if (merge::NeedsRestart(cur)) {
+			bool asked = merge::restartAsked && GetTickCount64() - merge::restartAsked < 60000;
+			const char* lbl = asked ? "Restarting …" : "Restart game";
+			w1 = PillW(lbl, 1);
+			bx = o.x + px + pw - w1;
+			if (PillButton(dl, "##mgplay", lbl, ImVec2(bx, o.y + listTop - 6), 34, true, !asked, 1)) act.kind = 5;
+		} else if (PillButton(dl, "##mgplay", "Play", ImVec2(bx, o.y + listTop - 6), 34, true, true, 1)) { act.kind = 4; act.arenaU8 = cur.file; }
 		if (curOn) {
 			float w2 = PillW("Restore", 2);
 			bx -= w2 + 8;
@@ -2075,6 +2096,7 @@ void Render(bool* open) {
 		if (ma.kind == 1) merge::Request(ma.file, ma.backdrop, ma.replace);
 		if (ma.kind == 2) merge::Request(ma.file, "", false);
 		if (ma.kind == 3) merge::RestoreAll();
+		if (ma.kind == 5) merge::RequestRestart();
 		if (ma.kind == 4) { maps::Play(ma.arenaU8); *open = false; }
 		return;
 	}

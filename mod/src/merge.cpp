@@ -149,6 +149,14 @@ void RestoreAll() {
 	for (auto& a : list) { a.want.clear(); a.state.clear(); }
 }
 
+unsigned long long restartAsked = 0;
+void RequestRestart() {
+	restartAsked = GetTickCount64();
+	WriteLines(File(L"merge_restart.txt"), {std::to_string(GetTickCount64())});
+	zl::Log("merge: restart requested");
+}
+bool NeedsRestart(const Arena& a) { return a.state == "pending" && a.stateMsg.find("Restart") != std::string::npos; }
+
 // ---------- Map-Namen aus dem Spiel ----------
 // Die Arenen-Daten (MapData_TA) kennen den Namen, den das Spiel anzeigt. Prism liest die Datei und benennt
 // die Arenen im Katalog so. Je Zeile: Objektname \t Eigenschaft=Wert \t ...
@@ -170,11 +178,18 @@ void TickNames() {
 	}
 	if (!scan.Step(8000)) return;
 	next = GetTickCount64() + 60000;
+	static bool described = false;
+	if (!described && !scan.result.empty()) {
+		described = true;
+		for (auto& l : ue::DescribeClass(ue::ClassOf(scan.result[0]))) zl::Log("mapdata: %s", l.c_str());
+	}
 	std::vector<std::string> lines;
 	for (void* o : scan.result) {
 		if (!ue::IsAlive(o)) continue;
 		std::string l = ue::Name(o);
-		for (auto& kv : ue::TextProps(o)) {
+		auto props = ue::TextProps(o);
+		for (auto& kv : ue::CallTextGetters(o)) props.push_back(kv);
+		for (auto& kv : props) {
 			std::string v = kv.second;
 			for (auto& c : v)
 				if (c == '\t' || c == '\n' || c == '\r') c = ' ';

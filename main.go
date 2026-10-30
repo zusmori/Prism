@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -585,6 +586,27 @@ func main() {
 	bindWindow(w, hwnd)
 
 	app := &App{}
+	var restarting sync.Mutex
+	mergeRestart = func() {
+		if !restarting.TryLock() {
+			return
+		}
+		defer restarting.Unlock()
+		if err := closeRL(); err != nil {
+			return
+		}
+		for i := 0; i < 100 && rlRunning(); i++ { // bis zu 20 s
+			time.Sleep(200 * time.Millisecond)
+		}
+		if rlRunning() {
+			logf("merge restart: Rocket League didn't close")
+			return
+		}
+		time.Sleep(3 * time.Second) // Originale zurueck (mergeLoop), Dateien frei
+		if err := app.LaunchRL(false); err != nil {
+			logf("merge restart: %v", err)
+		}
+	}
 	go func() {
 		var cooked string
 		var at time.Time

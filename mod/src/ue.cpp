@@ -330,6 +330,55 @@ std::vector<std::pair<std::string, std::string>> TextProps(void* obj) {
 	return out;
 }
 
+static bool StopClass(void* s) {
+	std::string n = Name(s);
+	return n == "Object" || n == "Actor" || n == "Info";
+}
+
+std::vector<std::string> DescribeClass(void* cls) {
+	std::vector<std::string> out;
+	try {
+		for (void* s = cls; s && !StopClass(s); s = Read<void*>(s, off::StructSuper)) {
+			for (void* f = Read<void*>(s, off::StructChildren); f; f = Read<void*>(f, off::FieldNext)) {
+				std::string cn = Name(ClassOf(f));
+				std::string l = Name(s) + ": " + cn + " " + Name(f);
+				if (cn == "Function") {
+					l += "(";
+					for (void* a = Read<void*>(f, off::StructChildren); a; a = Read<void*>(a, off::FieldNext)) l += Name(ClassOf(a)) + " " + Name(a) + ",";
+					l += ")";
+				}
+				out.push_back(l);
+			}
+		}
+	} catch (...) {}
+	return out;
+}
+
+std::vector<std::pair<std::string, std::string>> CallTextGetters(void* obj) {
+	std::vector<std::pair<std::string, std::string>> out;
+	try {
+		for (void* s = ClassOf(obj); s && !StopClass(s); s = Read<void*>(s, off::StructSuper)) {
+			for (void* f = Read<void*>(s, off::StructChildren); f; f = Read<void*>(f, off::FieldNext)) {
+				if (Name(ClassOf(f)) != "Function") continue;
+				std::string fn = Name(f);
+				if (fn.find("Name") == std::string::npos && fn.find("Label") == std::string::npos) continue;
+				if (fn.rfind("Set", 0) == 0) continue;
+				void* only = nullptr;
+				int n = 0;
+				for (void* a = Read<void*>(f, off::StructChildren); a; a = Read<void*>(a, off::FieldNext)) { only = a; n++; }
+				if (n != 1 || Name(ClassOf(only)) != "StrProperty" || Name(only) != "ReturnValue") continue;
+				int o = Read<int32_t>(only, off::PropOffset);
+				std::vector<uint8_t> buf(size_t(StructSize(f)) + 32, 0);
+				Call(obj, f, buf.data());
+				FString r = *reinterpret_cast<FString*>(buf.data() + o);
+				std::string v = (r.count > 0 && r.count < 512) ? Narrow(r) : "";
+				if (!v.empty()) out.push_back({"fn:" + fn, v});
+			}
+		}
+	} catch (...) {}
+	return out;
+}
+
 static void* FindChild(void* strct, const char* name, bool function) {
 	for (void* s = strct; s; s = Read<void*>(s, off::StructSuper)) {
 		for (void* f = Read<void*>(s, off::StructChildren); f; f = Read<void*>(f, off::FieldNext)) {

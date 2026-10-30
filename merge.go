@@ -34,7 +34,7 @@ var (
 	mergeReqFile   = filepath.Join(dataDir, "merge_requests.txt")
 	mergeStatFile  = filepath.Join(dataDir, "merge_status.txt")
 	mergeCatFile   = filepath.Join(dataDir, "merge_catalog.txt")
-	mergeCacheFile = filepath.Join(dataDir, "merge_cache3.json")
+	mergeCacheFile = filepath.Join(dataDir, "merge_cache4.json")
 )
 
 type mergeWant struct {
@@ -50,6 +50,9 @@ type mergeStat struct {
 }
 
 var mergeMu sync.Mutex
+
+// Spiel neu starten (setzt main): schliessen, warten, ohne Anti-Cheat starten
+var mergeRestart func()
 var mergeHold bool           // Prism endet: nichts mehr anwenden
 var mergeHoldUntil time.Time // kurz nach einem Start mit Anti-Cheat nichts anwenden
 
@@ -191,21 +194,33 @@ func gameMapNames() map[string]string {
 			if !ok {
 				continue
 			}
-			props[strings.ToLower(k)] = strings.TrimSpace(v)
-			keys = append(keys, strings.ToLower(strings.TrimSpace(v)))
-		}
-		name := ""
-		for _, k := range []string{"displayname", "localizedname", "label", "title", "name"} {
-			if v := props[k]; v != "" && !strings.Contains(v, "_") {
-				name = v
-				break
+			k = strings.ToLower(k)
+			props[k] = strings.TrimSpace(v)
+			if k == "name" || k == "mapname" || k == "packagename" || k == "filename" {
+				keys = append(keys, strings.ToLower(strings.TrimSpace(v)))
 			}
 		}
-		if name == "" {
-			for k, v := range props {
-				if strings.Contains(k, "displayname") && v != "" {
-					name = v
-				}
+		// Name, den das Spiel anzeigt: Eigenschaft oder Funktion mit "Display"/"Localized" im Namen zuerst,
+		// sonst irgendein Text, der kein Dateiname ist
+		name := ""
+		score := 0
+		for k, v := range props {
+			if v == "" || strings.Contains(v, "_") || strings.EqualFold(v, l[0]) {
+				continue
+			}
+			sc := 1
+			switch {
+			case strings.Contains(k, "display") || strings.Contains(k, "localized"):
+				sc = 4
+			case strings.Contains(k, "label") || strings.Contains(k, "title"):
+				sc = 3
+			case strings.Contains(k, "name") && !strings.Contains(k, "variant"):
+				sc = 2
+			case strings.Contains(k, "variant"):
+				continue
+			}
+			if sc > score {
+				name, score = v, sc
 			}
 		}
 		if name == "" {
@@ -382,7 +397,7 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 		return "error", "A workshop map is swapped into this arena. Restore it first."
 	}
 	if rlRunning() && fileLocked(target) {
-		return "pending", "Rocket League has this arena open right now. Restart the game from Prism to see the backdrop."
+		return "pending", "Rocket League has this arena open right now. Restart the game to see the backdrop."
 	}
 	bk := filepath.Join(mergeBackupDir, file)
 	if _, err := os.Stat(bk); err != nil {
@@ -401,7 +416,7 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 			return "error", "Couldn't read the backdrop: " + err.Error()
 		}
 		if wait {
-			return "pending", "Restart the game from Prism to see this backdrop."
+			return "pending", "Restart the game to see this backdrop."
 		}
 		add = a
 	}
@@ -416,7 +431,7 @@ func mergeApply(cooked, file string, w mergeWant) (state, msg string) {
 	if err := replaceFile(tmp, target); err != nil {
 		os.Remove(tmp)
 		if rlRunning() {
-			return "pending", "Rocket League has this arena open right now. Restart the game from Prism to see the backdrop."
+			return "pending", "Rocket League has this arena open right now. Restart the game to see the backdrop."
 		}
 		return "error", friendlyErr(err).Error()
 	}
@@ -544,6 +559,14 @@ func mergeLoop(cookedFn func() string) {
 			}()
 		}
 		running := rlRunning()
+		// "Restart game" im F8-Menue (Merge): Spiel schliessen und ohne Anti-Cheat neu starten
+		if rf := filepath.Join(dataDir, "merge_restart.txt"); fileExists(rf) {
+			os.Remove(rf)
+			if running && !eacRunning() && cooked != "" && mergeRestart != nil {
+				logf("merge: restart requested from the F8 menu")
+				go mergeRestart()
+			}
+		}
 		if cooked != "" {
 			func() {
 				defer func() { recover() }()

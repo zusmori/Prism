@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"crypto/aes"
+	_ "embed"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -21,10 +22,34 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 )
 
 // Schluessel, mit dem Rocket League seine Pakete verschluesselt (oeffentlich bekannt, z. B. aus UModel/RLUPKTools)
-var keys = []string{"x99rEyUqzHFHu1HJitfjS3/lALd/pfqyk+LyTmsX53k="}
+// Rocket League verschluesselt Map-Kopfdaten mit einem von vielen Schluesseln (Standard zuerst, dann die bekannte Liste)
+//
+//go:embed keys.txt
+var keysTxt string
+
+var keyOnce sync.Once
+var keyList [][]byte
+var lastKey []byte // zuletzt passender Schluessel (meist derselbe fuer die naechste Datei)
+var keyMu sync.Mutex
+
+func allKeys() [][]byte {
+	keyOnce.Do(func() {
+		seen := map[string]bool{}
+		for _, k := range append([]string{"x99rEyUqzHFHu1HJitfjS3/lALd/pfqyk+LyTmsX53k="}, strings.Fields(keysTxt)...) {
+			kb, err := base64.StdEncoding.DecodeString(k)
+			if err != nil || len(kb) != 32 || seen[string(kb)] {
+				continue
+			}
+			seen[string(kb)] = true
+			keyList = append(keyList, kb)
+		}
+	})
+	return keyList
+}
 
 const fileTag = 0x9E2A83C1
 
@@ -275,16 +300,31 @@ func parse(raw []byte, headerOnly bool, src io.ReaderAt) (*Package, error) {
 	padded := (encLen + 15) &^ 15
 	cipher := raw[p.nameOffset : int(p.nameOffset)+padded]
 	var plain []byte
-	for _, k := range keys {
-		kb, _ := base64.StdEncoding.DecodeString(k)
-		dec := ecb(kb, cipher, false)
-		if int(p.chunkTable)+8 > len(dec) {
-			continue
-		}
-		cnt := int32(binary.LittleEndian.Uint32(dec[p.chunkTable:]))
-		first := int64(binary.LittleEndian.Uint64(dec[p.chunkTable+4:]))
-		if cnt >= 1 && first == int64(p.depends) {
-			plain, p.key = dec, kb
+	// nur die 32 Bytes um den Anfang der Chunk-Liste pruefen, dann mit dem passenden Schluessel alles entschluesseln
+	ct := int(p.chunkTable) &^ 15
+	if ct+32 > len(cipher) {
+		return nil, errors.New("unexpected package layout")
+	}
+	probe := cipher[ct : ct+32]
+	match := func(kb []byte) bool {
+		d := ecb(kb, probe, false)
+		o := int(p.chunkTable) - ct
+		cnt := int32(binary.LittleEndian.Uint32(d[o:]))
+		first := int64(binary.LittleEndian.Uint64(d[o+4:]))
+		return cnt >= 1 && first == int64(p.depends)
+	}
+	keyMu.Lock()
+	cands := allKeys()
+	if lastKey != nil {
+		cands = append([][]byte{lastKey}, cands...)
+	}
+	keyMu.Unlock()
+	for _, kb := range cands {
+		if match(kb) {
+			plain, p.key = ecb(kb, cipher, false), kb
+			keyMu.Lock()
+			lastKey = kb
+			keyMu.Unlock()
 			break
 		}
 	}

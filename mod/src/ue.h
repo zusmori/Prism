@@ -75,6 +75,10 @@ int StructSize(void* strct);
 std::string Narrow(const FString& s);
 // alle Text-Eigenschaften eines Objekts (StrProperty/NameProperty): Name -> Wert
 std::vector<std::pair<std::string, std::string>> TextProps(void* obj);
+// Felder und Funktionen einer Klasse (ohne Object/Core), z. B. "StrProperty DisplayName", "Function GetName(StrProperty ReturnValue)"
+std::vector<std::string> DescribeClass(void* cls);
+// Funktionen ohne Parameter, die nur einen Text liefern und "Name"/"Label" heissen, aufrufen (nur im Spiel-Thread!)
+std::vector<std::pair<std::string, std::string>> CallTextGetters(void* obj);
 
 template <class T> inline T Read(const void* p, int offset) { return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(p) + offset); }
 template <class T> inline T* Ptr(void* p, int offset) { return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(p) + offset); }
